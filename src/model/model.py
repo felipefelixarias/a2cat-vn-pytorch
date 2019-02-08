@@ -23,7 +23,7 @@ def conv_initializer(kernel_width, kernel_height, input_channels, dtype=tf.float
   return _initializer
 
 
-class UnrealModel(object):
+class GoalAwareModel(object):
   """
   UNREAL algorithm network model.
   """
@@ -35,10 +35,12 @@ class UnrealModel(object):
                use_pixel_change,
                use_value_replay,
                use_reward_prediction,
+               use_goal_input,              
                pixel_change_lambda,
                entropy_beta,
                device,
-               for_display=False):
+               for_display=False,
+               stack_last_frames = None):
     self._device = device
     self._action_size = action_size
     self._objective_size = objective_size
@@ -47,6 +49,7 @@ class UnrealModel(object):
     self._use_pixel_change = use_pixel_change
     self._use_value_replay = use_value_replay
     self._use_reward_prediction = use_reward_prediction
+    self._use_goal_input = use_goal_input
     self._pixel_change_lambda = pixel_change_lambda
     self._entropy_beta = entropy_beta
     self._image_shape = [84,84] # Note much of network parameters are hard coded so if we change image shape, other parameters will need to change
@@ -88,8 +91,21 @@ class UnrealModel(object):
     # Last action and reward and objective
     self.base_last_action_reward_input = tf.placeholder("float", [None, self._action_size+1+self._objective_size])
 
+    if self._use_goal_input:
+      self.goal_input = tf.placeholder("float", [None, self._image_shape[0], self._image_shape[1], 3], name='goal_input')
+
     # Conv layers
     base_conv_output = self._base_conv_layers(self.base_input)
+
+    if self._use_goal_input:
+      # Shared convolution for goal and base input
+      shared_base_input = self._base_conv_layers(self.base_input, name = "shared_conv")
+      goal_base_input = self._base_conv_layers(self.goal_input, name = "shared_conv", reuse = True)
+      base_conv_output = tf.concat(3, (base_conv_output, shared_base_input, goal_base_input,))
+      with tf.variable_scope("merge_conv") as scope:
+        W_conv, b_conv = self._conv_variable([1, 1, 3 * 32, 32],  "merge_conv") # => 9x9x32
+        base_conv_output = tf.nn.relu(self._conv2d(base_conv_output, W_conv, 1) + b_conv) # => 9x9x32
+
     
     if self._use_lstm:
       # LSTM layer
@@ -113,8 +129,8 @@ class UnrealModel(object):
       self.base_v  = self._base_value_layer(self.base_fcn_outputs)  # value output
 
     
-  def _base_conv_layers(self, state_input, reuse=False):
-    with tf.variable_scope("base_conv", reuse=reuse) as scope:
+  def _base_conv_layers(self, state_input, reuse=False, name = "base_conv"):
+    with tf.variable_scope(name, reuse=reuse) as scope:
       # Weights
       W_conv1, b_conv1 = self._conv_variable([8, 8, 3, 16],  "base_conv1") # 16 8x8 filters
       W_conv2, b_conv2 = self._conv_variable([4, 4, 16, 32], "base_conv2") # 32 4x4 filters
@@ -396,15 +412,25 @@ class UnrealModel(object):
     # This run_base_policy_and_value() is used when forward propagating.
     # so the step size is 1.
     if self._use_lstm:
+      feed_dict = {self.base_input : [s_t['image']],
+        self.base_last_action_reward_input : [last_action_reward],
+        self.base_initial_lstm_state0 : self.base_lstm_state_out[0],
+        self.base_initial_lstm_state1 : self.base_lstm_state_out[1]}
+
+      if self._use_goal_input:
+        feed_dict[self.goal_input] = [s_t['goal']]
+
       pi_out, v_out, self.base_lstm_state_out = sess.run( [self.base_pi, self.base_v, self.base_lstm_state],
-                                                          feed_dict = {self.base_input : [s_t['image']],
-                                                                       self.base_last_action_reward_input : [last_action_reward],
-                                                                       self.base_initial_lstm_state0 : self.base_lstm_state_out[0],
-                                                                       self.base_initial_lstm_state1 : self.base_lstm_state_out[1]} )
+                                                          feed_dict = feed_dict )
     else:
+      feed_dict = {self.base_input : [s_t['image']],
+        self.base_last_action_reward_input : [last_action_reward]}
+
+      if self._use_goal_input:
+        feed_dict[self.goal_input] = [s_t['goal']]
+
       pi_out, v_out = sess.run([self.base_pi, self.base_v],
-                               feed_dict = {self.base_input : [s_t['image']],
-                                            self.base_last_action_reward_input : [last_action_reward]} )
+                               feed_dict = feed_dict)
 
     # pi_out: (1,3), v_out: (1)
     return (pi_out[0], v_out[0])
@@ -413,17 +439,27 @@ class UnrealModel(object):
   def run_base_policy_value_pc_q(self, sess, s_t, last_action_reward):
     # For display tool.
     if self._use_lstm:
+      feed_dict = {self.base_input : [s_t['image']],
+        self.base_last_action_reward_input : [last_action_reward],
+        self.base_initial_lstm_state0 : self.base_lstm_state_out[0],
+        self.base_initial_lstm_state1 : self.base_lstm_state_out[1]}
+
+      if self._use_goal_input:
+        feed_dict[self.goal_input] = [s_t['goal']]
+        
       pi_out, v_out, self.base_lstm_state_out, q_disp_out, q_max_disp_out = \
           sess.run( [self.base_pi, self.base_v, self.base_lstm_state, self.pc_q_disp, self.pc_q_max_disp],
-                    feed_dict = {self.base_input : [s_t['image']],
-                                 self.base_last_action_reward_input : [last_action_reward],
-                                 self.base_initial_lstm_state0 : self.base_lstm_state_out[0],
-                                 self.base_initial_lstm_state1 : self.base_lstm_state_out[1]} )
+                    feed_dict = feed_dict)
     else:
+      feed_dict = {self.base_input : [s_t['image']],
+        self.base_last_action_reward_input : [last_action_reward] }
+
+      if self._use_goal_input:
+        feed_dict[self.goal_input] = [s_t['goal']]
+
       pi_out, v_out, q_disp_out, q_max_disp_out = \
         sess.run( [self.base_pi, self.base_v, self.pc_q_disp, self.pc_q_max_disp],
-                  feed_dict = {self.base_input : [s_t['image']],
-                               self.base_last_action_reward_input : [last_action_reward] })
+                  feed_dict = feed_dict)
 
     # pi_out: (1,3), v_out: (1), q_disp_out(1,20,20, action_size)
     return (pi_out[0], v_out[0], q_disp_out[0])
@@ -435,15 +471,23 @@ class UnrealModel(object):
     # When next sequence starts, V will be calculated again with the same state using updated network weights,
     # so we don't update LSTM state here.
     if self._use_lstm:
+      feed_dict = {self.base_input : [s_t['image']],
+        self.base_last_action_reward_input : [last_action_reward],
+        self.base_initial_lstm_state0 : self.base_lstm_state_out[0],
+        self.base_initial_lstm_state1 : self.base_lstm_state_out[1]}
+      if self._use_goal_input:
+        feed_dict[self.goal_input] = [s_t['goal']]
+      
       v_out, _ = sess.run( [self.base_v, self.base_lstm_state],
-                           feed_dict = {self.base_input : [s_t['image']],
-                                        self.base_last_action_reward_input : [last_action_reward],
-                                        self.base_initial_lstm_state0 : self.base_lstm_state_out[0],
-                                        self.base_initial_lstm_state1 : self.base_lstm_state_out[1]} )
+                           feed_dict = feed_dict)
     else:
+      feed_dict = {self.base_input : [s_t['image']],
+        self.base_last_action_reward_input : [last_action_reward]}
+      if self._use_goal_input:
+        feed_dict[self.goal_input] = [s_t['goal']]
+
       v_out = sess.run( self.base_v,
-                        feed_dict = {self.base_input : [s_t['image']],
-                                     self.base_last_action_reward_input : [last_action_reward]} )
+                        feed_dict = feed_dict)
     return v_out[0]
 
   

@@ -35,6 +35,9 @@ class Environment(object):
     elif env_type == 'indoor':
       from . import indoor_environment
       return indoor_environment.IndoorEnvironment(env_name, env_args, thread_index)
+    elif env_type == 'thor_cached':
+      from . import thor_cached_environment
+      return thor_cached_environment.THORDiscreteCachedEnvironment(env_name)
     else:
       from . import gym_environment
       return gym_environment.GymEnvironment(env_name)
@@ -56,6 +59,10 @@ class Environment(object):
       from . import indoor_environment
       Environment.action_size = \
         indoor_environment.IndoorEnvironment.get_action_size(env_name)
+
+    elif env_type == 'thor_cached':
+      from . import thor_cached_environment
+      return thor_cached_environment.THORDiscreteCachedEnvironment.get_action_size(env_name)
     else:
       from . import gym_environment
       Environment.action_size = \
