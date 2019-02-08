@@ -82,6 +82,7 @@ class Application(object):
     action_size = Environment.get_action_size(flags.env_type,
                                               flags.env_name)
     objective_size = Environment.get_objective_size(flags.env_type, flags.env_name)
+    use_goal_input = Environment.can_use_goal(flags.env_type, flags.env_name)
 
     self.global_network = UnrealModel(action_size,
                                       objective_size,
@@ -90,6 +91,7 @@ class Application(object):
                                       flags.use_pixel_change,
                                       flags.use_value_replay,
                                       flags.use_reward_prediction,
+                                      use_goal_input,
                                       flags.pixel_change_lambda,
                                       flags.entropy_beta,
                                       device)

@@ -70,6 +70,13 @@ class Environment(object):
     return Environment.action_size
 
   @staticmethod
+  def can_use_goal(env_type, env_name):
+    if env_type == 'thor_cached':
+      return True
+    else:
+      return False
+
+  @staticmethod
   def get_objective_size(env_type, env_name):
     if env_type == "indoor":
       from . import indoor_environment

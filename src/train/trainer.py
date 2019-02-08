@@ -51,6 +51,7 @@ class Trainer(object):
     self.max_global_time_step = max_global_time_step
     self.action_size = Environment.get_action_size(env_type, env_name)
     self.objective_size = Environment.get_objective_size(env_type, env_name)
+    self.use_goal_input = Environment.can_use_goal(env_type, env_name)
     
     self.local_network = UnrealModel(self.action_size,
                                      self.objective_size,
@@ -59,6 +60,7 @@ class Trainer(object):
                                      use_pixel_change,
                                      use_value_replay,
                                      use_reward_prediction,
+                                     self.use_goal_input,
                                      pixel_change_lambda,
                                      entropy_beta,
                                      device)
@@ -233,7 +235,7 @@ class Trainer(object):
       a = np.zeros([self.action_size])
       a[ai] = 1.0
 
-      batch_si.append(si['image'])
+      batch_si.append(si)
       batch_a.append(a)
       batch_adv.append(adv)
       batch_R.append(R)
@@ -361,7 +363,7 @@ class Trainer(object):
                              summary_op,
                              score_input)
     feed_dict = {
-      self.local_network.base_input: batch_si,
+      self.local_network.base_input: [x['image'] for x in batch_si],
       self.local_network.base_last_action_reward_input: batch_last_action_rewards,
       self.local_network.base_a: batch_a,
       self.local_network.base_adv: batch_adv,
@@ -372,6 +374,9 @@ class Trainer(object):
 
     if self.use_lstm:
       feed_dict[self.local_network.base_initial_lstm_state] = start_lstm_state
+
+    if self.use_goal_input:
+      feed_dict[self.local_network.goal_input] = [x['goal'] for x in batch_si]
 
     # [Pixel change]
     if self.use_pixel_change:
