@@ -33,6 +33,11 @@ class TestEnvironment(unittest.TestCase):
     env_name = ""
     self.check_environment(env_type, env_name)
 
+  def test_thor_cached(self):
+    env_type = "maze"
+    env_name = "bedroom_04"
+    self.check_environment(env_type, env_name)
+
   def check_environment(self, env_type, env_name):
     environment = Environment.create_environment(env_type, env_name)
     # action_size = Environment.get_action_size(env_type, env_name) # Not used
@@ -41,13 +46,20 @@ class TestEnvironment(unittest.TestCase):
       state, reward, terminal, pixel_change = environment.process(0)
 
       # Check shape
-      self.assertTrue( state.shape == (84,84,3) )
-      self.assertTrue( environment.last_state.shape == (84,84,3) )
+      self.assertTrue( state['image'].shape == (84,84,3) )
+      self.assertTrue( environment.last_state['image'].shape == (84,84,3) )
+      if 'goal' in state:
+        self.assertTrue( state['goal'].shape == (84,84,3) )
+        self.assertTrue( environment.last_state['goal'].shape == (84,84,3) )
+      
       self.assertTrue( pixel_change.shape == (20,20) )
 
       # state and pixel_change value range should be [0,1]
-      self.assertTrue( np.amax(state) <= 1.0 )
-      self.assertTrue( np.amin(state) >= 0.0 )
+      self.assertTrue( np.amax(state['image']) <= 1.0 )
+      self.assertTrue( np.amin(state['image']) >= 0.0 )
+      if 'goal' in state:
+        self.assertTrue( np.amax(state['goal']) <= 1.0 )
+        self.assertTrue( np.amin(state['goal']) >= 0.0 )
       self.assertTrue( np.amax(pixel_change) <= 1.0 )
       self.assertTrue( np.amin(pixel_change) >= 0.0 )
 

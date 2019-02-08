@@ -125,4 +125,4 @@ class MazeEnvironment(environment.Environment):
     self.last_state = {'image': image}
     self.last_action = action
     self.last_reward = reward
-    return image, reward, terminal, pixel_change
+    return self.last_state, reward, terminal, pixel_change
