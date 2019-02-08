@@ -74,7 +74,7 @@ class TestUnrealModel(tf.test.TestCase):
                         use_reward_prediction,
                         1.0,
                         1.0,
-                        "/cpu:0");
+                        "/cpu:0")
     variables = model.get_vars()
     self.assertEqual( len(variables), var_size )
 

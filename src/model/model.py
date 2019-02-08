@@ -23,7 +23,7 @@ def conv_initializer(kernel_width, kernel_height, input_channels, dtype=tf.float
   return _initializer
 
 
-class GoalAwareModel(object):
+class UnrealModel(object):
   """
   UNREAL algorithm network model.
   """
@@ -60,7 +60,7 @@ class GoalAwareModel(object):
     scope_name = "net_{0}".format(self._thread_index)
     with tf.device(self._device), tf.variable_scope(scope_name) as scope:
       # lstm
-      self.lstm_cell = tf.contrib.rnn.BasicLSTMCell(256, state_is_tuple=True)
+      self.lstm_cell = tf.nn.rnn_cell.LSTMCell(256, state_is_tuple=True, name='basic_lstm_cell')
       
       # [base A3C network]
       self._create_base_network()
@@ -101,7 +101,7 @@ class GoalAwareModel(object):
       # Shared convolution for goal and base input
       shared_base_input = self._base_conv_layers(self.base_input, name = "shared_conv")
       goal_base_input = self._base_conv_layers(self.goal_input, name = "shared_conv", reuse = True)
-      base_conv_output = tf.concat(3, (base_conv_output, shared_base_input, goal_base_input,))
+      base_conv_output = tf.concat((base_conv_output, shared_base_input, goal_base_input,), 3)
       with tf.variable_scope("merge_conv") as scope:
         W_conv, b_conv = self._conv_variable([1, 1, 3 * 32, 32],  "merge_conv") # => 9x9x32
         base_conv_output = tf.nn.relu(self._conv2d(base_conv_output, W_conv, 1) + b_conv) # => 9x9x32
@@ -264,14 +264,14 @@ class GoalAwareModel(object):
                                                 W_pc_deconv_a, 9, 9, 2) +
                                  b_pc_deconv_a)
       # Advantage mean
-      h_pc_deconv_a_mean = tf.reduce_mean(h_pc_deconv_a, reduction_indices=3, keep_dims=True)
+      h_pc_deconv_a_mean = tf.reduce_mean(h_pc_deconv_a, reduction_indices=3, keepdims=True)
 
       # {Pixel change Q (output)
       pc_q = h_pc_deconv_v + h_pc_deconv_a - h_pc_deconv_a_mean
       #(-1, 20, 20, action_size)
 
       # Max Q
-      pc_q_max = tf.reduce_max(pc_q, reduction_indices=3, keep_dims=False)
+      pc_q_max = tf.reduce_max(pc_q, reduction_indices=3, keepdims=False)
       #(-1, 20, 20)
 
       return pc_q, pc_q_max
@@ -355,7 +355,7 @@ class GoalAwareModel(object):
 
     # Extract Q for taken action
     pc_qa_ = tf.multiply(self.pc_q, pc_a_reshaped)
-    pc_qa = tf.reduce_sum(pc_qa_, reduction_indices=3, keep_dims=False)
+    pc_qa = tf.reduce_sum(pc_qa_, reduction_indices=3, keepdims=False)
     # (-1, 20, 20)
       
     # TD target for Q

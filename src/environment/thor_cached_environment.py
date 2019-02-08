@@ -65,7 +65,7 @@ class THORDiscreteCachedEnvironment(environment.Environment):
     def _preprocess_frame(self, image):        
         image = image.astype(np.float32)
         image = image / 255.0
-        image = resize(image, self.image_size)
+        image = resize(image, self.image_size, anti_aliasing=True)
         return image
 
     @staticmethod
