@@ -16,7 +16,7 @@ class THORDiscreteCachedEnvironment(environment.Environment):
         if 'THOR_DATASET_PATH' in os.environ:
             path = os.environ['THOR_DATASET_PATH']
 
-        return f"{path}/{scene_name}.h5"
+        return "%s/%s.h5" % (path, scene_name)
 
     def __init__(self, env_name = 'bedroom_04', rand_seed = None, image_size = (84,84), **kwargs):
         super(THORDiscreteCachedEnvironment, self).__init__()
