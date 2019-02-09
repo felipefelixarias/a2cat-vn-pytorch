@@ -141,11 +141,11 @@ class MazeEnvironment(environment.Environment):
                 self.y == self._goal_pos[1])
 
     if terminal:
-      reward = 1
+      reward = 100
     elif hit:
-      reward = -1
+      reward = -2
     else:
-      reward = 0
+      reward = -1
 
     pixel_change = self._calc_pixel_change(image, self.last_state['image'])
     self.last_state = {'image': image, 'goal': self.last_state['goal']}

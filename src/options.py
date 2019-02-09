@@ -53,4 +53,7 @@ def get_options(option_type):
     tf.app.flags.DEFINE_integer("episodes_per_scene", 1, "How many episodes to test per scene")
     tf.app.flags.DEFINE_boolean("log_action_trace", True, "Whether to log action trace")
 
+  if option_type == 'plot':
+    tf.app.flags.DEFINE_string("log_dir", "./logs", "log file directory")
+
   return tf.app.flags.FLAGS
