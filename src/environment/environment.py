@@ -47,25 +47,27 @@ class Environment(object):
       from . import gym_environment
       return gym_environment.GymEnvironment(env_name)
   
-  @staticmethod
-  def get_action_size(env_type, env_name):
+  def get_action_size(self, env_name = None):
+    if isinstance(self, Environment):
+      return Environment.can_use_goal(self.self, self.env_name)
+
     if Environment.action_size >= 0:
       return Environment.action_size
 
-    if env_type == 'maze':
+    if self == 'maze':
       from . import maze_environment
       Environment.action_size = \
         maze_environment.MazeEnvironment.get_action_size()
-    elif env_type == "lab":
+    elif self == "lab":
       from . import lab_environment
       Environment.action_size = \
         lab_environment.LabEnvironment.get_action_size(env_name)
-    elif env_type == "indoor":
+    elif self == "indoor":
       from . import indoor_environment
       Environment.action_size = \
         indoor_environment.IndoorEnvironment.get_action_size(env_name)
 
-    elif env_type == 'thor_cached':
+    elif self == 'thor_cached':
       from . import thor_cached_environment
       return thor_cached_environment.THORDiscreteCachedEnvironment.get_action_size(env_name)
     else:

@@ -120,12 +120,12 @@ class UnrealModel(object):
                               self.base_last_action_reward_input,
                               self.base_initial_lstm_state)
 
-      self.base_pi = self._base_policy_layer(self.base_lstm_outputs) # policy output
+      (self.base_pi_without_softmax, self.base_pi) = self._base_policy_layer(self.base_lstm_outputs) # policy output
       self.base_v  = self._base_value_layer(self.base_lstm_outputs)  # value output
     else:
       self.base_fcn_outputs = self._base_fcn_layer(base_conv_output,
                                                    self.base_last_action_reward_input)
-      self.base_pi = self._base_policy_layer(self.base_fcn_outputs) # policy output
+      (self.base_pi_without_softmax, self.base_pi) = self._base_policy_layer(self.base_fcn_outputs) # policy output
       self.base_v  = self._base_value_layer(self.base_fcn_outputs)  # value output
 
     
@@ -196,8 +196,9 @@ class UnrealModel(object):
       # Weight for policy output layer
       W_fc_p, b_fc_p = self._fc_variable([input_size, self._action_size], "base_fc_p")
       # Policy (output)
-      base_pi = tf.nn.softmax(tf.matmul(lstm_outputs, W_fc_p) + b_fc_p)
-      return base_pi
+      base_pi_without_softmax = tf.matmul(lstm_outputs, W_fc_p) + b_fc_p
+      base_pi = tf.nn.softmax(base_pi_without_softmax)
+      return (base_pi_without_softmax, base_pi)
 
 
   def _base_value_layer(self, lstm_outputs, reuse=False):

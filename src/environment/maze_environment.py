@@ -67,6 +67,45 @@ class MazeEnvironment(environment.Environment):
     goal_potentials = list(self._iter_pos(types))
     return random.choice(goal_potentials)
 
+  def _build_graph(self, goal):
+    distances = np.ndarray((self._maze_size, self._maze_size), dtype=np.int32)
+    actions = np.ndarray((self._maze_size, self._maze_size), dtype=np.int8)
+    closed = np.ndarray((self._maze_size, self._maze_size), dtype=np.bool)
+    closed.fill(0)
+
+    def diff_to_action(d):
+      dx, dy = d
+      if dy == -1:
+        return 0
+      elif dy == 1:
+        return 1
+      elif dx == -1:
+        return 2
+      else:
+        return 3
+
+    def fill_distance(pos, cal_pos, dist):
+      x, y = pos
+      if x < 0 or y < 0 or x >= self._maze_size or y >= self._maze_size:
+        return
+      if closed[pos]:
+        return
+      if self._get_pixel(x, y) == '+':
+        return
+
+      closed[pos] = 1
+      d = (cal_pos[0] - pos[0], cal_pos[1] - pos[1])
+      actions[pos] = diff_to_action(d)
+      distances[pos] = dist
+      
+      fill_distance((x + 1, y), pos, dist + 1)
+      fill_distance((x - 1, y), pos, dist + 1)
+      fill_distance((x, y + 1), pos, dist + 1)
+      fill_distance((x, y - 1), pos, dist + 1)
+
+    fill_distance(goal, goal, 0)
+    return (actions, distances,) 
+
   def _is_random(self):
     return self.env_name[1] == 'r'
     
@@ -76,9 +115,12 @@ class MazeEnvironment(environment.Environment):
       self._goal_pos = self._get_random_position(['-','G'])
 
     (self.x, self.y) = self._start_pos
+    self._graph = self._build_graph(self._goal_pos)
     self.last_state = { 
       'image': self._get_current_image((self.x, self.y,)),
-      'goal': self._get_current_image(self._goal_pos)
+      'goal': self._get_current_image(self._goal_pos),
+      'optimal_action': self._graph[0][(self.x, self.y,)],
+      'optimal_distance': self._graph[1][(self.x, self.y,)],
     }
     self.last_action = 0
     self.last_reward = 0    
@@ -127,6 +169,23 @@ class MazeEnvironment(environment.Environment):
   def get_keyboard_map(self):
     return dict(up=0, down=1, left=2, right=3)
 
+  @property
+  def reward_configuration(self):
+    return (1, -0.001, -0.01)
+
+  def reset_start(self):
+    self._start_pos = self._get_random_position(['-', 'S'])
+    (self.x, self.y) = self._start_pos
+
+    self.last_state = { 
+      'image': self._get_current_image((self.x, self.y,)),
+      'goal': self.last_state['goal'],
+      'optimal_action': self._graph[0][(self.x, self.y,)],
+      'optimal_distance': self._graph[1][(self.x, self.y,)],
+    }
+    self.last_action = 0
+    self.last_reward = 0    
+
   def process(self, action):
     dx = 0
     dy = 0
@@ -147,14 +206,20 @@ class MazeEnvironment(environment.Environment):
                 self.y == self._goal_pos[1])
 
     if terminal:
-      reward = 100
+      reward = self.reward_configuration[0]
     elif hit:
-      reward = -2
+      reward = self.reward_configuration[2]
     else:
-      reward = -1
+      reward = self.reward_configuration[1]
 
     pixel_change = self._calc_pixel_change(image, self.last_state['image'])
-    self.last_state = {'image': image, 'goal': self.last_state['goal']}
+    self.last_state = {
+      'image': image, 
+      'goal': self.last_state['goal'],
+      'optimal_action': self._graph[0][(self.x, self.y,)],
+      'optimal_distance': self._graph[1][(self.x, self.y,)]
+    }
+
     self.last_action = action
     self.last_reward = reward
     return self.last_state, reward, terminal, pixel_change

@@ -72,6 +72,10 @@ class THORDiscreteCachedEnvironment(environment.Environment):
     def get_action_size(env_name):
         return 4
 
+    @property
+    def reward_configuration(self):
+        return (1, -0.001, -0.01)
+
     def process(self, action):
         collided = False
         if self._transition_graph[self._current_state_idx][action] != -1:
@@ -82,11 +86,11 @@ class THORDiscreteCachedEnvironment(environment.Environment):
         obs = self._render_observation(self._current_state_idx)
         goal = self._render_observation(self._current_goal_idx)
         terminal = self._current_goal_idx == self._current_state_idx
-        reward = -0.1
+        reward = -self.reward_configuration[1]
         if terminal:
-            reward = 100
+            reward = self.reward_configuration[0]
         if collided:
-            reward = -1
+            reward = self.reward_configuration[2]
 
         if not terminal:
             state = { 
