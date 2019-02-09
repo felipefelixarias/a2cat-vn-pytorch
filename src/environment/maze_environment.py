@@ -51,8 +51,8 @@ class MazeEnvironment(environment.Environment):
           goal_pos = (x, y)
 
     self._maze_image = image
-    self._start_pos = goal_pos if self.env_name[1] != 'r' else self._get_random_position(['-', 'S'])
-    self._goal_pos = goal_pos if self.env_name[1] != 'r' else self._get_random_position()
+    self._start_pos = start_pos
+    self._goal_pos = goal_pos
 
   def _iter_pos(self, types):
     for y in range(self._maze_size):
@@ -66,10 +66,16 @@ class MazeEnvironment(environment.Environment):
   def _get_random_position(self, types = ['-', 'G']):
     goal_potentials = list(self._iter_pos(types))
     return random.choice(goal_potentials)
+
+  def _is_random(self):
+    return self.env_name[1] == 'r'
     
   def reset(self):
-    self.x = self._start_pos[0]
-    self.y = self._start_pos[1]
+    if self._is_random():
+      self._start_pos = self._get_random_position(['-', 'S'])
+      self._goal_pos = self._get_random_position(['-','G'])
+
+    (self.x, self.y) = self._start_pos
     self.last_state = { 
       'image': self._get_current_image((self.x, self.y,)),
       'goal': self._get_current_image(self._goal_pos)
