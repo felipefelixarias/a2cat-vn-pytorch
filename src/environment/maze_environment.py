@@ -4,6 +4,7 @@ from __future__ import division
 from __future__ import print_function
 
 import numpy as np
+import random
 
 from environment import environment
 
@@ -12,9 +13,15 @@ class MazeEnvironment(environment.Environment):
   def get_action_size():
     return 4
   
-  def __init__(self):
-    environment.Environment.__init__(self)
+  def __init__(self, name):
+    '''
+    args:
+      name: Examples 'gr' - goal, random goal
+    '''
+    assert name and len(name) >= 2
+    super().__init__('maze', name)
     
+    self._maze_size = 7
     self._map_data = \
                      "--+---G" \
                      "--+-+++" \
@@ -44,13 +51,29 @@ class MazeEnvironment(environment.Environment):
           goal_pos = (x, y)
 
     self._maze_image = image
-    self._start_pos = start_pos
-    self._goal_pos = goal_pos
+    self._start_pos = goal_pos if self.env_name[1] != 'r' else self._get_random_position(['-', 'S'])
+    self._goal_pos = goal_pos if self.env_name[1] != 'r' else self._get_random_position()
+
+  def _iter_pos(self, types):
+    for y in range(self._maze_size):
+      for x in range(self._maze_size):
+        p = self._get_pixel(x,y)
+        if p in types:
+          yield (x, y)
+        else:
+          pass
+
+  def _get_random_position(self, types = ['-', 'G']):
+    goal_potentials = list(self._iter_pos(types))
+    return random.choice(goal_potentials)
     
   def reset(self):
     self.x = self._start_pos[0]
     self.y = self._start_pos[1]
-    self.last_state = { 'image': self._get_current_image() }
+    self.last_state = { 
+      'image': self._get_current_image((self.x, self.y,)),
+      'goal': self._get_current_image(self._goal_pos)
+    }
     self.last_action = 0
     self.last_reward = 0    
     
@@ -90,10 +113,13 @@ class MazeEnvironment(environment.Environment):
     hit = clamped_x or clamped_y or hit_wall
     return new_x, new_y, hit
 
-  def _get_current_image(self):
+  def _get_current_image(self, position):
     image = np.array(self._maze_image)
-    self._put_pixel(image, self.x, self.y, 1)
+    self._put_pixel(image, position[0], position[1], 1)
     return image
+
+  def get_keyboard_map(self):
+    return dict(up=0, down=1, left=2, right=3)
 
   def process(self, action):
     dx = 0
@@ -109,7 +135,7 @@ class MazeEnvironment(environment.Environment):
 
     self.x, self.y, hit = self._move(dx, dy)
 
-    image = self._get_current_image()
+    image = self._get_current_image((self.x, self.y,))
     
     terminal = (self.x == self._goal_pos[0] and
                 self.y == self._goal_pos[1])
@@ -122,7 +148,7 @@ class MazeEnvironment(environment.Environment):
       reward = 0
 
     pixel_change = self._calc_pixel_change(image, self.last_state['image'])
-    self.last_state = {'image': image}
+    self.last_state = {'image': image, 'goal': self.last_state['goal']}
     self.last_action = action
     self.last_reward = reward
     return self.last_state, reward, terminal, pixel_change

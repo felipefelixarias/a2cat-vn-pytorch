@@ -13,6 +13,11 @@ class Environment(object):
 
   LOG_DIR = None
 
+  def __init__(self, env_type, env_name):
+    super().__init__()
+    self.env_type = env_type
+    self.env_name = env_name
+
   @staticmethod
   def get_log_dir():
     if Environment.LOG_DIR is None:
@@ -28,7 +33,7 @@ class Environment(object):
   def create_environment(env_type, env_name, env_args=None, thread_index=0):
     if env_type == 'maze':
       from . import maze_environment
-      return maze_environment.MazeEnvironment()
+      return maze_environment.MazeEnvironment(env_name)
     elif env_type == 'lab':
       from . import lab_environment
       return lab_environment.LabEnvironment(env_name)
@@ -69,21 +74,25 @@ class Environment(object):
         gym_environment.GymEnvironment.get_action_size(env_name)
     return Environment.action_size
 
-  @staticmethod
-  def can_use_goal(env_type, env_name):
-    if env_type == 'thor_cached':
+  def can_use_goal(self, env_name = None):
+    if isinstance(self, Environment):
+      return Environment.can_use_goal(self.env_type, self.env_name)
+
+    if self == 'thor_cached':
+      return True
+    elif self == 'maze' and env_name.startswith('g'):
       return True
     else:
       return False
 
-  @staticmethod
-  def get_objective_size(env_type, env_name):
-    if env_type == "indoor":
+  def get_objective_size(self, env_name = None):
+    if isinstance(self, Environment):
+      return Environment.get_objective_size(self.env_type, self.env_name)
+
+    if self == "indoor":
       from . import indoor_environment
       return indoor_environment.IndoorEnvironment.get_objective_size(env_name)
     return 0
-  def __init__(self):
-    pass
 
   def process(self, action):
     pass
@@ -93,6 +102,9 @@ class Environment(object):
 
   def stop(self):
     pass
+
+  def get_keyboard_map(self):
+    return dict(down=3, up=0, left=2, right=1)
 
   def is_all_scheduled_episodes_done(self):
     return False

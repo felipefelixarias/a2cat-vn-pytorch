@@ -14,23 +14,28 @@ class Explorer:
         self.env = Environment.create_environment(flags.env_type, flags.env_name)
 
     def show(self):
-        fig = plt.figure()
-        imgplot = plt.imshow(self.env.last_state['image'])
-        def press(event):
-            def redraw():
+        (ax1, ax2) = (None, None)
+        if self.env.can_use_goal():
+            fig, (ax1, ax2) = plt.subplots(1, 2)
+        else:
+            fig = plt.figure()
+        
+        def redraw():
+            if self.env.can_use_goal():
+                ax1.imshow(self.env.last_state['image'])
+                ax2.imshow(self.env.last_state['goal'])
+            else:
                 plt.imshow(self.env.last_state['image'])
-                fig.canvas.draw()
+            fig.canvas.draw()
+        redraw()
+
+        def press(event):
+            
 
             if event.key == 's':
                 mpimg.imsave("output.png", self.env.last_state['image'])
-            elif event.key == 'up':
-                self.env.process(0)
-                redraw()
-            elif event.key == 'right':
-                self.env.process(1)
-                redraw()
-            elif event.key == 'left':
-                self.env.process(2)
+            elif event.key in ['up', 'down', 'right', 'left']:
+                self.env.process(self.env.get_keyboard_map()[event.key])
                 redraw()
 
             pass

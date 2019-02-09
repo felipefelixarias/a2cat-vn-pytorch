@@ -19,7 +19,7 @@ class THORDiscreteCachedEnvironment(environment.Environment):
         return "%s/%s.h5" % (path, scene_name)
 
     def __init__(self, env_name = 'bedroom_04', rand_seed = None, image_size = (84,84), **kwargs):
-        super(THORDiscreteCachedEnvironment, self).__init__()
+        super(THORDiscreteCachedEnvironment, self).__init__('thor_cached', env_name)
         h5_file_path = THORDiscreteCachedEnvironment._get_h5_file_path(env_name)
 
         self._random = random.Random(x = rand_seed)
