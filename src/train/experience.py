@@ -37,7 +37,9 @@ class ExperienceFrame(object):
     Return one hot vectored action and reward.
     """
     action_reward = np.zeros([action_size+1])
-    action_reward[action] = 1.0
+    if action >= 0:
+      action_reward[action] = 1.0
+
     action_reward[-1] = float(reward)
     objective = state.get('objective')
     if objective is not None:

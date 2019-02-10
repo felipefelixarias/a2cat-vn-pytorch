@@ -39,6 +39,7 @@ class UnrealModel(object):
                pixel_change_lambda,
                entropy_beta,
                device,
+               use_deepq_network = False,
                for_display=False,
                stack_last_frames = None):
     self._device = device
@@ -52,6 +53,7 @@ class UnrealModel(object):
     self._use_goal_input = use_goal_input
     self._pixel_change_lambda = pixel_change_lambda
     self._entropy_beta = entropy_beta
+    self._use_deepq_network = use_deepq_network
     self._image_shape = [84,84] # Note much of network parameters are hard coded so if we change image shape, other parameters will need to change
 
     self._create_network(for_display)
@@ -78,6 +80,9 @@ class UnrealModel(object):
       # [Reward prediction network]
       if self._use_reward_prediction:
         self._create_rp_network()
+
+      if self._use_deepq_network:
+        self._deepq()
       
       self.reset_state()
 
@@ -385,23 +390,40 @@ class UnrealModel(object):
     return rp_loss
     
     
+  def _deepq(self):
+    adventage = self.base_pi_without_softmax
+    value = tf.reshape(self.base_v, [-1, 1])
+    self.q_out = value + tf.subtract(adventage, tf.reduce_mean(adventage, axis=1, keep_dims=True))
+    self.predict = tf.argmax(self.q_out, 1)
+
+  def _deepq_loss(self):
+    self.target_q = tf.placeholder(shape=[None],dtype=tf.float32)
+    self.actions = tf.placeholder(shape=[None],dtype=tf.int32)
+    self.actions_onehot = tf.one_hot(self.actions, self._action_size,dtype=tf.float32)
+    self.q = tf.reduce_sum(tf.multiply(self.q_out, self.actions_onehot), axis=1)
+    self.td_error = tf.square(self.target_q - self.q)
+    self.total_loss = tf.reduce_mean(self.td_error)
+
   def prepare_loss(self):
     with tf.device(self._device):
-      loss = self._base_loss()
-      
-      if self._use_pixel_change:
-        pc_loss = self._pc_loss()
-        loss = loss + pc_loss
+      if self._use_deepq_network:
+        self._deepq_loss()
+      else:
+        loss = self._base_loss()
+        
+        if self._use_pixel_change:
+          pc_loss = self._pc_loss()
+          loss = loss + pc_loss
 
-      if self._use_value_replay:
-        vr_loss = self._vr_loss()
-        loss = loss + vr_loss
+        if self._use_value_replay:
+          vr_loss = self._vr_loss()
+          loss = loss + vr_loss
 
-      if self._use_reward_prediction:
-        rp_loss = self._rp_loss()
-        loss = loss + rp_loss
-      
-      self.total_loss = loss
+        if self._use_reward_prediction:
+          rp_loss = self._rp_loss()
+          loss = loss + rp_loss
+        
+        self.total_loss = loss
 
 
   def reset_state(self):
