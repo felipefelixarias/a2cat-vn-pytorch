@@ -16,6 +16,7 @@ from model.model_keras import DeepQModel
 from environment.environment import Environment
 from train.experience import ExperienceFrame
 
+from util.metrics import MetricWriter
 
 
 class ExperienceReplay():
@@ -62,6 +63,7 @@ class DoubleQLearning:
                 episode_length, 
                 pre_train_steps,
                 checkpoint_dir,
+                log_dir,
                 update_frequency,
                 num_episodes,
                 num_epochs,
@@ -85,6 +87,7 @@ class DoubleQLearning:
         self._device = device
         self._goal = goal
         self._tau = tau
+        self._log_dir = log_dir
         self._main_weights_file = self._checkpoint_dir + "/main_weights.h5" # File to save our main weights to
         self._target_weights_file = self._checkpoint_dir + "/target_weights.h5" # File to save our target weights to
 
@@ -171,6 +174,8 @@ class DoubleQLearning:
         if not os.path.exists(self._checkpoint_dir):
             os.makedirs(self._checkpoint_dir)
 
+        metric_writer = MetricWriter(logdir = self._log_dir)
+
         if os.path.exists(self._main_weights_file):
             print("Loading main weights")
             main_qn.model.load_weights(self._main_weights_file)
@@ -254,6 +259,17 @@ class DoubleQLearning:
                 mean_loss = np.mean(losses[-print_every:]) if len(losses) >= print_every else float('nan')
                 mean_reward = np.mean(rewards[-print_every:])
 
+                metrics_row = metric_writer \
+                    .record(global_t) \
+                    .scalar('epsilon', prob_random) \
+                    .scalar('reward', mean_reward) \
+                    
+                if len(losses) >= print_every:
+                    metrics_row = metrics_row.scalar('loss', mean_loss)
+
+                metrics_row.flush()
+
+
                 print("Num episode: {} Mean reward: {:0.4f} Prob random: {:0.4f}, Loss: {:0.04f}".format(
                     global_t, mean_reward, prob_random, mean_loss))
 
@@ -274,6 +290,7 @@ def get_options():
     tf.app.flags.DEFINE_integer('pre_train_steps', 10000, 'How many steps of random actions before training begins.')
     tf.app.flags.DEFINE_integer('episode_length', 50, 'The max allowed length of our episode.')
     tf.app.flags.DEFINE_string("checkpoint_dir", "./checkpoints", "checkpoint directory")
+    tf.app.flags.DEFINE_string("log_dir", "./logs", "log file directory")
     tf.app.flags.DEFINE_float('tau', 0.001, 'Rate to update target network toward primary network')
     tf.app.flags.DEFINE_float('goal', None, 'Target reward (-1) if none')
     return tf.app.flags.FLAGS
