@@ -69,9 +69,9 @@ class MazeEnvironment(environment.Environment):
 
   def _build_graph(self, goal):
     distances = np.ndarray((self._maze_size, self._maze_size), dtype=np.int32)
-    actions = np.ndarray((self._maze_size, self._maze_size), dtype=np.int8)
-    closed = np.ndarray((self._maze_size, self._maze_size), dtype=np.bool)
-    closed.fill(0)
+    actions = np.ndarray((self._maze_size, self._maze_size, self.get_action_size()), dtype=np.bool)
+    actions.fill(0)
+    distances.fill(np.iinfo(np.int32).max)
 
     def diff_to_action(d):
       dx, dy = d
@@ -88,21 +88,23 @@ class MazeEnvironment(environment.Environment):
       x, y = pos
       if x < 0 or y < 0 or x >= self._maze_size or y >= self._maze_size:
         return
-      if closed[pos]:
-        return
       if self._get_pixel(x, y) == '+':
         return
+      if distances[pos] < dist:
+        return      
 
-      closed[pos] = 1
+      run_neighboors = distances[pos] != dist
       d = (cal_pos[0] - pos[0], cal_pos[1] - pos[1])
-      actions[pos] = diff_to_action(d)
+      actions[pos + (diff_to_action(d),)] = 1 
       distances[pos] = dist
       
-      fill_distance((x + 1, y), pos, dist + 1)
-      fill_distance((x - 1, y), pos, dist + 1)
-      fill_distance((x, y + 1), pos, dist + 1)
-      fill_distance((x, y - 1), pos, dist + 1)
+      if run_neighboors:
+        fill_distance((x + 1, y), pos, dist + 1)
+        fill_distance((x - 1, y), pos, dist + 1)
+        fill_distance((x, y + 1), pos, dist + 1)
+        fill_distance((x, y - 1), pos, dist + 1)
 
+    actions[goal + (None,)] = 1
     fill_distance(goal, goal, 0)
     return (actions, distances,) 
 
@@ -119,7 +121,7 @@ class MazeEnvironment(environment.Environment):
     self.last_state = { 
       'image': self._get_current_image((self.x, self.y,)),
       'goal': self._get_current_image(self._goal_pos),
-      'optimal_action': self._graph[0][(self.x, self.y,)],
+      'optimal_action': self._graph[0][self.x, self.y, :],
       'optimal_distance': self._graph[1][(self.x, self.y,)],
     }
     self.last_action = 0
@@ -180,7 +182,7 @@ class MazeEnvironment(environment.Environment):
     self.last_state = { 
       'image': self._get_current_image((self.x, self.y,)),
       'goal': self.last_state['goal'],
-      'optimal_action': self._graph[0][(self.x, self.y,)],
+      'optimal_action': self._graph[0][self.x, self.y, :],
       'optimal_distance': self._graph[1][(self.x, self.y,)],
     }
     self.last_action = 0
@@ -216,7 +218,7 @@ class MazeEnvironment(environment.Environment):
     self.last_state = {
       'image': image, 
       'goal': self.last_state['goal'],
-      'optimal_action': self._graph[0][(self.x, self.y,)],
+      'optimal_action': self._graph[0][self.x, self.y, :],
       'optimal_distance': self._graph[1][(self.x, self.y,)]
     }
 

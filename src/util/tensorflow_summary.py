@@ -2,12 +2,11 @@ from collections import namedtuple
 import tensorflow as tf
 import os
 
-SUMMARY_NAMES = ['score']
+def create_row(time, data, metricname):
+    return namedtuple('DataRow', ('monitor'))(namedtuple('DataRowMonitor',  ('l', 'r'))(time, data[metricname]))
 
-def create_row(time, data):
-    return namedtuple('DataRow', ('monitor'))(namedtuple('DataRowMonitor',  ('l', 'r'))(time, data['score']))
-
-def extract_tensorflow_summary(path):
+def extract_tensorflow_summary(path, metricname = 'score'):
+    SUMMARY_NAMES = [metricname]
     time_steps = []
     metrics = { x:[] for x in SUMMARY_NAMES }
 
@@ -20,4 +19,4 @@ def extract_tensorflow_summary(path):
                     if v.tag in SUMMARY_NAMES:
                         metrics[v.tag].append(v.simple_value)
 
-    return create_row(time_steps, metrics)
+    return create_row(time_steps, metrics, metricname)

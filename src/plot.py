@@ -12,7 +12,7 @@ class Application:
         pass
 
     def run(self):
-        r = extract_tensorflow_summary(flags.log_dir)
+        r = extract_tensorflow_summary(flags.log_dir, flags.metrics)
         plt.plot(np.cumsum(r.monitor.l), pu.smooth(r.monitor.r, radius=10))
         plt.show()
         pass
