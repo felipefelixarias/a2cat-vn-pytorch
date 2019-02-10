@@ -4,6 +4,7 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+import tensorflow.contrib.slim as slim
 import numpy as np
 
 
@@ -98,18 +99,12 @@ class UnrealModel(object):
 
     if self._use_goal_input:
       self.goal_input = tf.placeholder("float", [None, self._image_shape[0], self._image_shape[1], 3], name='goal_input')
+    else:
+      self.goal_input = None
+
 
     # Conv layers
-    base_conv_output = self._base_conv_layers(self.base_input)
-
-    if self._use_goal_input:
-      # Shared convolution for goal and base input
-      shared_base_input = self._base_conv_layers(self.base_input, name = "shared_conv")
-      goal_base_input = self._base_conv_layers(self.goal_input, name = "shared_conv", reuse = True)
-      base_conv_output = tf.concat((base_conv_output, shared_base_input, goal_base_input,), 3)
-      with tf.variable_scope("merge_conv") as scope:
-        W_conv, b_conv = self._conv_variable([1, 1, 3 * 32, 32],  "merge_conv") # => 9x9x32
-        base_conv_output = tf.nn.relu(self._conv2d(base_conv_output, W_conv, 1) + b_conv) # => 9x9x32
+    base_conv_output = self._base_conv_layers(self.base_input, self.goal_input)
 
     
     if self._use_lstm:
@@ -134,15 +129,25 @@ class UnrealModel(object):
       self.base_v  = self._base_value_layer(self.base_fcn_outputs)  # value output
 
     
-  def _base_conv_layers(self, state_input, reuse=False, name = "base_conv"):
+  def _base_conv_layers(self, state_input, goal_input = None, reuse=False, name = "base_conv"):
     with tf.variable_scope(name, reuse=reuse) as scope:
       # Weights
       W_conv1, b_conv1 = self._conv_variable([8, 8, 3, 16],  "base_conv1") # 16 8x8 filters
-      W_conv2, b_conv2 = self._conv_variable([4, 4, 16, 32], "base_conv2") # 32 4x4 filters
+      W_conv2, b_conv2 = self._conv_variable([4, 4, 32 if goal_input is not None else 16, 64], "base_conv2") # 32 4x4 filters
 
       # Nodes
-      h_conv1 = tf.nn.relu(self._conv2d(state_input, W_conv1, 4) + b_conv1) # stride=4 => 19x19x16
-      h_conv2 = tf.nn.relu(self._conv2d(h_conv1,     W_conv2, 2) + b_conv2) # stride=2 => 9x9x32
+
+
+      if goal_input is not None:
+        h_conv1a = tf.nn.relu(self._conv2d(state_input, W_conv1, 4) + b_conv1) # stride=4 => 19x19x16
+        h_conv1b = tf.nn.relu(self._conv2d(goal_input, W_conv1, 4) + b_conv1) # stride=4 => 19x19x16
+        h_conv1 = tf.concat((h_conv1a, h_conv1b,), 3)
+        h_conv2 = tf.nn.relu(self._conv2d(h_conv1,     W_conv2, 2) + b_conv2) # stride=2 => 9x9x32
+        pass
+      else:
+        h_conv1 = tf.nn.relu(self._conv2d(state_input, W_conv1, 4) + b_conv1) # stride=4 => 19x19x16
+        h_conv2 = tf.nn.relu(self._conv2d(h_conv1,     W_conv2, 2) + b_conv2) # stride=2 => 9x9x32
+        pass
       return h_conv2
 
 
