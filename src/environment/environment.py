@@ -7,6 +7,49 @@ import numpy as np
 
 from datetime import datetime
 
+def wrap_environment(env, action_space_size, use_goal_input):
+  import gym.spaces
+  class EnvWrap:
+    def __init__(self, env, action_space_size, use_goal_input):
+        self.env = env
+        self.action_space_size = action_space_size
+        self.use_goal_input = use_goal_input
+
+    def reset(self):
+        self.env.reset()
+        return self._transform_observation(self.env.last_state)
+
+    @property
+    def observation_space(self):
+      if self.use_goal_input:
+        return gym.spaces.Dict({
+          'image': gym.spaces.Box(0.0, 1.0, shape=(84, 84, 3)),
+          'goal': gym.spaces.Box(0.0, 1.0, shape=(84, 84, 3))
+        })
+      else:
+        return gym.spaces.Dict({
+          'image': gym.spaces.Box(0.0, 1.0, shape=(84, 84, 3))
+        })
+
+    @property
+    def action_space(self):
+        return gym.spaces.Discrete(self.action_space_size)
+
+    def step(self, action):
+        new_obs, rew, done, _ = self.env.process(action)
+
+
+        return (self._transform_observation(new_obs), rew, done, None)
+
+    def stop(self):
+        self.env.stop()
+
+    def _transform_observation(self, state):
+        return state
+
+  return EnvWrap(env, action_space_size, use_goal_input)
+
+
 class Environment(object):
   # cached action size
   action_size = -1
@@ -49,7 +92,7 @@ class Environment(object):
   
   def get_action_size(self, env_name = None):
     if isinstance(self, Environment):
-      return Environment.can_use_goal(self.self, self.env_name)
+      return Environment.can_use_goal(self.env_type, self.env_name)
 
     if Environment.action_size >= 0:
       return Environment.action_size
@@ -122,3 +165,7 @@ class Environment(object):
     m = np.mean(d, 2)
     c = self._subsample(m, 4)
     return c
+
+
+  def get_env(self):
+    return wrap_environment(self, self.get_action_size(), self.can_use_goal())
