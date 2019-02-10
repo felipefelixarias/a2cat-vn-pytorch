@@ -35,7 +35,7 @@ class BaseModel:
 
         image_stream = block1(self.main_input)
         goal_stream = block1(self.goal_input)
-        model = Concatenate(3)((image_stream, goal_stream,))
+        model = Concatenate(3)([image_stream, goal_stream])
 
         model = Conv2D(
             filters=32, #TODO: test 64
@@ -45,14 +45,14 @@ class BaseModel:
             padding="valid",
             name="conv2")(model)
 
-        model = Flatten(model)
+        model = Flatten()(model)
         
         model = Dense(
             units=256,
             activation="relu",
             name="fc3")(model)
 
-        model = Concatenate()((model, self.last_action_reward,))
+        model = Concatenate()([model, self.last_action_reward])
         self._initialize(model)
 
         '''model = Conv2D(
@@ -89,6 +89,6 @@ class DeepQModel(BaseModel):
         )(model)
 
         model = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)),name="final_out")([value, adventage])
-        self.model = Model(inputs = [self.main_input, self.goal_input], outputs = model)
+        self.model = Model(inputs = [self.main_input, self.goal_input, self.last_action_reward], outputs = model)
         self.model.compile("adam","mse")
         self.model.optimizer.lr = 0.0001
