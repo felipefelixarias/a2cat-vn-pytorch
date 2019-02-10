@@ -66,7 +66,7 @@ class Application(object):
         entropy_beta = flags.entropy_beta,
         device = device)
 
-    self.action_target = tf.placeholder(tf.int32, (None,), 'action_target')
+    self.action_target = tf.placeholder(tf.int32, (None, self.env.get_action_size()), 'action_target')
     self.reward_target = tf.placeholder(tf.float32, (None,), 'reward_target')
     self.loss = self.build_loss(self.global_network.base_pi_without_softmax, self.global_network.base_v, self.action_target, self.reward_target)
     self.trainers = []
