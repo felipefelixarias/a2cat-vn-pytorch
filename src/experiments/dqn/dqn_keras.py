@@ -93,6 +93,50 @@ class DoubleQLearning:
             'goal': state['goal'], 
             'action_reward': ExperienceFrame.concat_action_and_reward(action, self._env.action_space.n, reward, state)}
 
+    def _train_on_experience(self, main_qn, target_qn, experience_replay):
+        # Train batch is [[state,action,reward,next_state,done],...]
+        train_batch = experience_replay.sample(self._batch_size)
+
+        # Separate the batch into its components
+        train_state, train_action, train_reward, \
+            train_next_state, train_done = train_batch
+            
+        # Convert the action array into an array of ints so they can be used for indexing
+        train_action = train_action.astype(np.int)
+
+        # Our predictions (actions to take) from the main Q network
+        target_q = target_qn.model.predict([
+            train_next_state['image'],
+            train_next_state['goal'], 
+            train_next_state['action_reward']])
+        
+        # The Q values from our target network from the next state
+        target_q_next_state = main_qn.model.predict([
+            train_next_state['image'],
+            train_next_state['goal'], 
+            train_next_state['action_reward']])
+
+        train_next_state_action = np.argmax(target_q_next_state,axis=1)
+        train_next_state_action = train_next_state_action.astype(np.int)
+        
+        # Tells us whether game over or not
+        # We will multiply our rewards by this value
+        # to ensure we don't train on the last move
+        train_gameover = train_done == 0
+
+        # Q value of the next state based on action
+        train_next_state_values = target_q_next_state[:, train_next_state_action]
+
+        # Reward from the action chosen in the train batch
+        actual_reward = train_reward + (self._gamma * train_next_state_values * train_gameover)
+        target_q[:, train_action] = actual_reward
+        
+        # Train the main model
+        loss = main_qn.model.train_on_batch([train_state['image'],
+            train_state['goal'],
+            train_state['action_reward']], target_q)
+        return loss
+
     def run(self):
         # Reset everything
         K.clear_session()
@@ -117,12 +161,11 @@ class DoubleQLearning:
         rewards = [] # Tracks rewards per episode
         total_steps = 0 # Tracks cumulative steps taken in training
 
-        print_every = 50 # How often to print status
-        save_every = 5 # How often to save
+        print_every = 10 # How often to print status
+        save_every = 1000 # How often to save
 
         losses = [0] # Tracking training losses
-
-        num_episode = 0
+        global_t = 0
 
         # Setup path for saving
         if not os.path.exists(self._checkpoint_dir):
@@ -135,7 +178,7 @@ class DoubleQLearning:
             print("Loading target weights")
             target_qn.model.load_weights(self._target_weights_file)
 
-        while num_episode < self._num_episodes:
+        for i in range(self._num_episodes):
 
             # Create an experience replay for the current episode
             episode_buffer = ExperienceReplay()
@@ -147,13 +190,15 @@ class DoubleQLearning:
             done = False # Game is complete
             sum_rewards = 0 # Running sum of rewards in episode
             cur_step = 0 # Running sum of number of steps taken in episode
+            sum_loss = 0
+            loss_updates = 0
 
             while cur_step < self._episode_length and not done:
                 cur_step += 1
                 total_steps += 1
 
                 if np.random.rand() < prob_random or \
-                    num_episode < self._pre_train_steps:
+                    global_t < self._pre_train_steps:
                         # Act randomly based on prob_random or if we
                         # have not accumulated enough pre_train episodes
                         action = np.random.randint(self._env.action_space.n)
@@ -165,12 +210,8 @@ class DoubleQLearning:
                 next_state, reward, done, _ = self._env.step(action)
                 next_state = self._process_state(next_state, action, reward)
 
-                # Setup the episode to be stored in the episode buffer
-                episode = np.array([[state],action,reward,[next_state],done])
-                episode = episode.reshape(1,-1)
-
                 # Store the experience in the episode buffer
-                episode_buffer.add(episode)
+                episode_buffer.add(np.reshape(np.array([state,action,reward,next_state,done]),[1,5]))
 
                 # Update the running rewards
                 sum_rewards += reward
@@ -178,83 +219,48 @@ class DoubleQLearning:
                 # Update the state
                 state = next_state
 
-            if num_episode > self._pre_train_steps:
-                # Training the network
+                if global_t > self._pre_train_steps:
+                    # Training the network
 
-                if prob_random > self._end_epsilon:
-                    # Drop the probability of a random action
-                    prob_random -= prob_random_drop
+                    if prob_random > self._end_epsilon:
+                        # Drop the probability of a random action
+                        prob_random -= prob_random_drop
 
-                if num_episode % self._update_frequency == 0:
-                    for num_epoch in range(self._num_epochs):
-                        # Train batch is [[state,action,reward,next_state,done],...]
-                        train_batch = experience_replay.sample(self._batch_size)
-
-                        # Separate the batch into its components
-                        train_state, train_action, train_reward, \
-                            train_next_state, train_done = train_batch
+                    if global_t % self._update_frequency == 0:
+                        loss = self._train_on_experience(main_qn, target_qn, experience_replay)
+                        sum_loss += loss
+                        loss_updates += 1
                             
-                        # Convert the action array into an array of ints so they can be used for indexing
-                        train_action = train_action.astype(np.int)
+                        # Update the target model with values from the main model
+                        update_target_graph(main_qn.model, target_qn.model, self._tau)
 
-                        # Our predictions (actions to take) from the main Q network
-                        target_q = target_qn.model.predict([
-                            train_next_state['image'],
-                            train_next_state['goal'], 
-                            train_next_state['action_reward']])
-                        
-                        # The Q values from our target network from the next state
-                        target_q_next_state = main_qn.model.predict([
-                            train_next_state['image'],
-                            train_next_state['goal'], 
-                            train_next_state['action_reward']])
-
-                        train_next_state_action = np.argmax(target_q_next_state,axis=1)
-                        train_next_state_action = train_next_state_action.astype(np.int)
-                        
-                        # Tells us whether game over or not
-                        # We will multiply our rewards by this value
-                        # to ensure we don't train on the last move
-                        train_gameover = train_done == 0
-
-                        # Q value of the next state based on action
-                        train_next_state_values = target_q_next_state[:, train_next_state_action]
-
-                        # Reward from the action chosen in the train batch
-                        actual_reward = train_reward + (self._gamma * train_next_state_values * train_gameover)
-                        target_q[:, train_action] = actual_reward
-                        
-                        # Train the main model
-                        loss = main_qn.model.train_on_batch([train_state['image'],
-                            train_state['goal'],
-                            train_state['action_reward']], target_q)
-                        losses.append(loss)
-                        
-                    # Update the target model with values from the main model
-                    update_target_graph(main_qn.model, target_qn.model, self._tau)
-
-                    if (num_episode + 1) % save_every == 0:
-                        # Save the model
-                        main_qn.model.save_weights(self._main_weights_file)
-                        target_qn.model.save_weights(self._target_weights_file)
+            if (global_t + 1) % save_every == 0:
+                # Save the model
+                main_qn.model.save_weights(self._main_weights_file)
+                target_qn.model.save_weights(self._target_weights_file)
             
 
             # Increment the episode
-            num_episode += 1
-
+            global_t += 1
             experience_replay.add(episode_buffer.buffer)
-            num_steps.append(cur_step)
+
             rewards.append(sum_rewards)
+            num_steps.append(cur_step)
+            if loss_updates > 0:
+                losses.append(sum_loss / loss_updates)
                 
-            if num_episode % print_every == 0:
+            if i % print_every == 0 and i != 0:
                 # Print progress
-                mean_loss = np.mean(losses[-(print_every * self._num_epochs):])
+                mean_loss = np.mean(losses[-print_every:]) if len(losses) >= print_every else float('nan')
+                mean_reward = np.mean(rewards[-print_every:])
 
                 print("Num episode: {} Mean reward: {:0.4f} Prob random: {:0.4f}, Loss: {:0.04f}".format(
-                    num_episode, np.mean(rewards[-print_every:]), prob_random, mean_loss))
-                if self._goal != None and np.mean(rewards[-print_every:]) >= self._goal:
-                    print("Training complete!")
-                    break
+                    global_t, mean_reward, prob_random, mean_loss))
+
+            if (global_t + 1) % save_every == 0:
+                # Save the model
+                main_qn.model.save_weights(self._main_weights_file)
+                target_qn.model.save_weights(self._target_weights_file)
 
 def get_options():
     tf.app.flags.DEFINE_integer('batch_size', 32, 'How many experiences to use for each training step.')
