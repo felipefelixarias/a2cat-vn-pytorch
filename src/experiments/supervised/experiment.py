@@ -71,7 +71,7 @@ class Application(object):
     self.loss = self.build_loss(self.global_network.base_pi_without_softmax, self.global_network.base_v, self.action_target, self.reward_target)
     self.trainers = []
     
-    grad_applier = tf.train.GradientDescentOptimizer(0.001)
+    grad_applier = tf.train.GradientDescentOptimizer(0.0001)
     self.apply_gradients = grad_applier.minimize(self.loss)
     
     # prepare session
@@ -116,7 +116,7 @@ class Application(object):
     sample = iterator.get_next()
 
     epochs = 1
-    while epochs <= 100:
+    while epochs <= 20:
         print('epoch %s started' % epochs)
         self.sess.run(iterator.initializer)
         total_loss = 0
