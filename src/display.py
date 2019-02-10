@@ -173,6 +173,16 @@ class Display(object):
     self.surface.blit(image, (8, 8))
     self.draw_center_text("input", 50, 100)
 
+  def show_goal(self, state):
+    """
+    Show input image
+    """
+    state_ = state * 255.0
+    data = state_.astype(np.uint8)
+    image = pygame.image.frombuffer(data, (84,84), 'RGB')
+    self.surface.blit(image, (100, 8))
+    # self.draw_center_text("goal", 50, 100)
+
   def show_value(self):
     if self.value_history.is_empty:
       return
@@ -267,6 +277,8 @@ class Display(object):
       self.episode_reward = 0
       
     self.show_image(state['image'])
+    if self.environment.can_use_goal():
+      self.show_goal(state['goal'])
     self.show_policy(pi_values)
     self.show_value()
     self.show_reward()

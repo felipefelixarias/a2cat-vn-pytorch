@@ -24,13 +24,13 @@ class Application(object):
     pass
   
   def build_loss(self, policy_output, value_output, action_target, value_target):
-    policy_loss = tf.contrib.losses.sparse_softmax_cross_entropy(policy_output, action_target)
+    policy_loss = tf.contrib.losses.softmax_cross_entropy(policy_output, action_target)
     value_loss = 0.5 * tf.contrib.losses.mean_squared_error(value_output, value_target)
     return policy_loss + value_loss
 
   def build_iterator(self):
     datagen = lambda: create_dataset(self.env, flags.gamma)
-    dataset = tf.data.Dataset.from_generator(datagen, (tf.float32, tf.float32, tf.int32, tf.float32, tf.float32)).shuffle(1000).batch(16, True)
+    dataset = tf.data.Dataset.from_generator(datagen, (tf.float32, tf.float32, tf.bool, tf.float32, tf.float32)).shuffle(1000).batch(16, True)
     return dataset.make_initializable_iterator()
 
   def save(self):
@@ -116,7 +116,7 @@ class Application(object):
     sample = iterator.get_next()
 
     epochs = 1
-    while epochs <= 10:
+    while epochs <= 100:
         print('epoch %s started' % epochs)
         self.sess.run(iterator.initializer)
         total_loss = 0
@@ -142,8 +142,9 @@ class Application(object):
             except tf.errors.OutOfRangeError:
                 break
         print('loss is %f' % ((total_loss / total_iter)))
-        self.save()
+        
         epochs += 1
+    self.save()
 
 if __name__ == '__main__':
     Application().run()

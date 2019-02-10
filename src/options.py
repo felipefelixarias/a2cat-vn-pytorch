@@ -55,5 +55,6 @@ def get_options(option_type):
 
   if option_type == 'plot':
     tf.app.flags.DEFINE_string("log_dir", "./logs", "log file directory")
+    tf.app.flags.DEFINE_string("metrics", "score", "metrics separated by comma")
 
   return tf.app.flags.FLAGS

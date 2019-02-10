@@ -13,6 +13,14 @@
             "args": ["--env_type", "maze"]
         },
         {
+            "name": "Train maze supervised",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/experiments/supervised/experiment.py",
+            "console": "integratedTerminal",
+            "args": ["--env_type", "maze", "--env_name", "gr"]
+        }, 
+        {
             "name": "Run file",
             "type": "python",
             "request": "launch",
