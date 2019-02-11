@@ -181,7 +181,7 @@ class DoubleQLearning:
         mean_episode_length = float('nan')
 
         for global_t in range(self._total_timesteps):
-            if done:
+            if done or cur_step > self._episode_length:
                 # At the end of the episode
                 # We copy the episode experience to buffer
                 experience_replay.extend(episode_buffer)
