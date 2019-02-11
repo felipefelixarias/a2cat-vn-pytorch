@@ -90,5 +90,37 @@ class DeepQModel(BaseModel):
 
         model = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)),name="final_out")([value, adventage])
         self.model = Model(inputs = [self.main_input, self.goal_input, self.last_action_reward], outputs = model)
+
+        def td_difference(y_true, y_pred):
+            return y_pred - y_true
+
         self.model.compile("adam","mse")
         self.model.optimizer.lr = 0.0001
+        self.model.train_function = self._make_train_function(self.model)
+
+    def _make_train_function(self, model):
+        if not hasattr(model, 'train_function'):
+            raise RuntimeError('You must compile your model before using it.')
+        model._check_trainable_weights_consistency()
+        if model.train_function is None:
+            inputs = (model._feed_inputs +
+                      model._feed_targets +
+                      model._feed_sample_weights)
+            if model._uses_dynamic_learning_phase():
+                inputs += [K.learning_phase()]
+
+            with K.name_scope('training'):
+                with K.name_scope(model.optimizer.__class__.__name__):
+                    training_updates = model.optimizer.get_updates(
+                        params=model._collected_trainable_weights,
+                        loss=model.total_loss)
+                updates = (model.updates +
+                           training_updates +
+                           model.metrics_updates)
+                # Gets loss and metrics. Updates weights at each call.
+                return K.function(
+                    inputs,
+                    [model.total_loss] + model.metrics_tensors + model.outputs,
+                    updates=updates,
+                    name='train_function',
+                    **model._function_kwargs)

@@ -5,6 +5,8 @@ from __future__ import print_function
 
 import numpy as np
 from collections import deque
+import random
+from util.segment_tree import MinSegmentTree, SumSegmentTree
 
 
 class ExperienceFrame(object):
@@ -151,3 +153,104 @@ class Experience(object):
       sampled_frames.append(frame)
 
     return sampled_frames
+
+
+class ExperienceReplay():
+  def __init__(self, size):
+    self._storage = []
+    self._maxsize = size
+    self._next_idx = 0
+  
+  def add(self,experience):
+    data = experience
+    if self._next_idx >= len(self._storage):
+      self._storage.append(data)
+    else:
+      self._storage[self._next_idx] = data
+
+    self._next_idx = (self._next_idx + 1) % self._maxsize
+
+  def extend(self, experience):
+    for e in experience:
+      self.add(e)
+
+  def _encode_sample(self, idxes):
+    STATE_INDICES = [0,3]
+    items = [self._storage[i] for i in idxes]
+    def convert_dict(i):
+      if len(items) == 0:
+        return {}
+      else:
+        return {key:np.stack([y[i][key] for y in items], 0) for key in items[0][i].keys()}
+
+    def convert(i):
+      if i in STATE_INDICES:
+        return convert_dict(i)
+      return np.array([x[i] for x in items])
+
+    batch = tuple([convert(i) for i in range(5)])
+    return batch
+          
+  def sample(self, batch_size):
+    idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
+    return self._encode_sample(idxes) + (None, idxes)
+
+
+  def update_priorities(self, batch_idxes, priorities):
+      pass
+
+class PrioritizedExperienceReplay(ExperienceReplay):
+  def __init__(self, size, alpha = 0.6):
+    super().__init__(size)
+    self._alpha = alpha
+    it_capacity = 1
+    while it_capacity < size:
+        it_capacity *= 2
+
+    self._it_sum = SumSegmentTree(it_capacity)
+    self._it_min = MinSegmentTree(it_capacity)
+    self._max_priority = 1.0
+
+  def add(self, *args, **kwargs):
+    idx = self._next_idx
+    super().add(*args, **kwargs)
+    self._it_sum[idx] = self._max_priority ** self._alpha
+    self._it_min[idx] = self._max_priority ** self._alpha
+
+  def _sample_proportional(self, batch_size):
+    res = []
+    p_total = self._it_sum.sum(0, len(self._storage) - 1)
+    every_range_len = p_total / batch_size
+    for i in range(batch_size):
+      mass = random.random() * every_range_len + i * every_range_len
+      idx = self._it_sum.find_prefixsum_idx(mass)
+      res.append(idx)
+    return res
+
+  def sample(self, batch_size, beta = 0.4):
+    assert beta > 0
+
+    idxes = self._sample_proportional(batch_size)
+
+    weights = []
+    p_min = self._it_min.min() / self._it_sum.sum()
+    max_weight = (p_min * len(self._storage)) ** (-beta)
+
+    for idx in idxes:
+        p_sample = self._it_sum[idx] / self._it_sum.sum()
+        weight = (p_sample * len(self._storage)) ** (-beta)
+        weights.append(weight / max_weight)
+    weights = np.array(weights)
+    encoded_sample = self._encode_sample(idxes)
+    return tuple(list(encoded_sample) + [weights, idxes])
+
+  def update_priorities(self, idxes, priorities):
+    priorities = priorities()
+    assert len(idxes) == len(priorities)
+    for idx, priority in zip(idxes, priorities):
+      assert priority > 0
+      assert 0 <= idx < len(self._storage)
+      self._it_sum[idx] = priority ** self._alpha
+      self._it_min[idx] = priority ** self._alpha
+
+      self._max_priority = max(self._max_priority, priority)
