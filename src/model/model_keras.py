@@ -90,10 +90,6 @@ class DeepQModel(BaseModel):
 
         model = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)),name="final_out")([value, adventage])
         self.model = Model(inputs = [self.main_input, self.goal_input, self.last_action_reward], outputs = model)
-
-        def td_difference(y_true, y_pred):
-            return y_pred - y_true
-
         self.model.compile("adam","mse")
         self.model.optimizer.lr = 0.0001
         self.model.train_function = self._make_train_function(self.model)
