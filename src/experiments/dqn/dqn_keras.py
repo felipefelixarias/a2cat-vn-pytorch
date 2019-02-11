@@ -29,17 +29,15 @@ class DoubleQLearning:
                 model_fn, 
                 env, 
                 tau, 
-                start_epsilon, 
-                end_epsilon, 
-                annealing_steps, 
+                end_epsilon,
                 episode_length, 
                 pre_train_steps,
                 checkpoint_dir,
                 log_dir,
                 update_frequency,
-                num_episodes,
-                num_epochs,
+                exploration_fraction,
                 gamma,
+                total_timesteps,
                 replay_size,
                 goal,
                 prioritized_replay,
@@ -50,21 +48,21 @@ class DoubleQLearning:
         self._env = env
         self._checkpoint_dir = checkpoint_dir
         self._episode_length = episode_length
-        self._num_epochs = num_epochs
         self._pre_train_steps = pre_train_steps
         self._gamma = gamma
         self._prioritized_replay = prioritized_replay
         self._prioritized_replay_eps = prioritized_replay_eps
         self._update_frequency = update_frequency
-        self._num_episodes = num_episodes
+        self._train_frequency = 1
+        self._total_timesteps = total_timesteps
         self._batch_size = batch_size
-        self._start_epsilon = start_epsilon
         self._end_epsilon = end_epsilon
-        self._annealing_steps = annealing_steps
+        self._exploration_fraction = exploration_fraction
         self._device = device
         self._goal = goal
         self._replay_size = replay_size
         self._tau = tau
+        self._beta_start = 0.4
         self._log_dir = log_dir
         self._main_weights_file = self._checkpoint_dir + "/main_weights.h5" # File to save our main weights to
         self._target_weights_file = self._checkpoint_dir + "/target_weights.h5" # File to save our target weights to
@@ -74,9 +72,10 @@ class DoubleQLearning:
             'goal': state['goal'], 
             'action_reward': ExperienceFrame.concat_action_and_reward(action, self._env.action_space.n, reward, state)}
 
-    def _train_on_experience(self, main_qn, target_qn, experience_replay):
+    def _train_on_experience(self, main_qn, target_qn, experience_replay, t):
         # Train batch is [[state,action,reward,next_state,done],...]
-        train_batch = experience_replay.sample(self._batch_size)
+        beta = self._beta_start + (1.0 - self._beta_start) * (t / self._total_timesteps)
+        train_batch = experience_replay.sample(self._batch_size, beta = beta)
 
         # Separate the batch into its components
         train_state, train_action, train_reward, \
@@ -144,18 +143,14 @@ class DoubleQLearning:
         # We'll begin by acting complete randomly. As we gain experience and improve,
         # we will begin reducing the probability of acting randomly, and instead
         # take the actions that our Q network suggests
-        prob_random = self._start_epsilon
-        prob_random_drop = (self._start_epsilon - self._end_epsilon) / self._annealing_steps
+        prob_random = 1.0
+        prob_random_drop = (1.0 - self._end_epsilon) / (self._total_timesteps * self._exploration_fraction)
 
         num_steps = [] # Tracks number of steps per episode
         rewards = [] # Tracks rewards per episode
-        total_steps = 0 # Tracks cumulative steps taken in training
 
-        print_every = 10 # How often to print status
-        save_every = 1000 # How often to save
-
-        losses = [0] # Tracking training losses
-        global_t = 0
+        print_every = 100 # How often to print status
+        save_every = 10000 # How often to save
 
         # Setup path for saving
         if not os.path.exists(self._checkpoint_dir):
@@ -170,115 +165,121 @@ class DoubleQLearning:
             print("Loading target weights")
             target_qn.model.load_weights(self._target_weights_file)
 
-        for i in range(self._num_episodes):
+        # Create an experience replay for the current episode
+        episode_buffer = []
+        cur_step = 0 # Running sum of number of steps taken in episode
+        cur_episode = 0
+        sum_loss = 0
+        loss_updates = 0
+        done = False
+        sum_rewards = 0 # Running sum of rewards in episode
+        state = self._process_state(self._env.reset())
 
-            # Create an experience replay for the current episode
-            episode_buffer = []
+        # Log stats
+        mean_loss = float('nan')
+        mean_reward = float('nan')
+        mean_episode_length = float('nan')
 
-            # Get the game state from the environment
-            state = self._env.reset()
-            state = self._process_state(state)
+        for global_t in range(self._total_timesteps):
+            if done:
+                # At the end of the episode
+                # We copy the episode experience to buffer
+                experience_replay.extend(episode_buffer)
+                episode_buffer.clear()
 
-            done = False # Game is complete
-            sum_rewards = 0 # Running sum of rewards in episode
-            cur_step = 0 # Running sum of number of steps taken in episode
-            sum_loss = 0
-            loss_updates = 0
-
-            while cur_step < self._episode_length and not done:
-                cur_step += 1
-                total_steps += 1
-
-                if np.random.rand() < prob_random or \
-                    global_t < self._pre_train_steps:
-                        # Act randomly based on prob_random or if we
-                        # have not accumulated enough pre_train episodes
-                        action = np.random.randint(self._env.action_space.n)
-                else:
-                    # Decide what action to take from the Q network
-                    action = np.argmax(main_qn.model.predict([[state['image']], [state['goal']], [state['action_reward']]]))
-
-                # Take the action and retrieve the next state, reward and done
-                next_state, reward, done, _ = self._env.step(action)
-                next_state = self._process_state(next_state, action, reward)
-
-                # Store the experience in the episode buffer
-                episode_buffer.append([state,action,reward,next_state,done])
-
-                # Update the running rewards
-                sum_rewards += reward
-
-                # Update the state
-                state = next_state
-
-                if global_t > self._pre_train_steps:
-                    # Training the network
-
-                    if prob_random > self._end_epsilon:
-                        # Drop the probability of a random action
-                        prob_random -= prob_random_drop
-
-                    if global_t % self._update_frequency == 0:
-                        loss = self._train_on_experience(main_qn, target_qn, experience_replay)
-                        sum_loss += loss
-                        loss_updates += 1
-                            
-                        # Update the target model with values from the main model
-                        update_target_graph(main_qn.model, target_qn.model, self._tau)
-
-            if (global_t + 1) % save_every == 0:
-                # Save the model
-                main_qn.model.save_weights(self._main_weights_file)
-                target_qn.model.save_weights(self._target_weights_file)
-            
-
-            # Increment the episode
-            global_t += 1
-            experience_replay.extend(episode_buffer)
-
-            rewards.append(sum_rewards)
-            num_steps.append(cur_step)
-            if loss_updates > 0:
-                losses.append(sum_loss / loss_updates)
+                # We collect the statistics for the episode
+                if global_t > 0:
+                    cur_episode += 1
+                    rewards.append(sum_rewards)
+                    num_steps.append(cur_step)
                 
-            if i % print_every == 0 and i != 0:
+                cur_step = 0 # Running sum of number of steps taken in episode
+                sum_rewards = 0 # Running sum of rewards in episode
+                
+                # Reset the episode
+                state = self._process_state(self._env.reset())                
+            
+            # Exploration phase
+            cur_step += 1
+            if np.random.rand() < prob_random or \
+                global_t < self._pre_train_steps:
+                # Act randomly based on prob_random or if we
+                # have not accumulated enough pre_train episodes
+                action = np.random.randint(self._env.action_space.n)
+            else:
+                # Decide what action to take from the Q network
+                action = np.argmax(main_qn.model.predict([[state['image']], [state['goal']], [state['action_reward']]]))
+
+            # Take the action and retrieve the next state, reward and done
+            next_state, reward, done, _ = self._env.step(action)
+            next_state = self._process_state(next_state, action, reward)
+
+            episode_buffer.append([state,action,reward,next_state,done])
+            sum_rewards += reward
+            state = next_state
+            # End of exploration phase
+
+            if global_t > self._pre_train_steps:
+                # Training the network
+
+                if prob_random > self._end_epsilon:
+                    # Drop the probability of a random action
+                    prob_random -= prob_random_drop
+
+                if global_t % self._train_frequency == 0:
+                    loss = self._train_on_experience(main_qn, target_qn, experience_replay, global_t)
+                    sum_loss += loss
+                    loss_updates += 1
+
+                if global_t > self._pre_train_steps and global_t % self._update_frequency == 0:         
+                    # Update the target model with values from the main model
+                    update_target_graph(main_qn.model, target_qn.model, self._tau)
+
+                if global_t % save_every == 0:
+                    # Save the model
+                    main_qn.model.save_weights(self._main_weights_file)
+                    target_qn.model.save_weights(self._target_weights_file)
+            
+            if global_t % print_every == 0 and global_t != 0:
                 # Print progress
-                mean_loss = np.mean(losses[-print_every:]) if len(losses) >= print_every else float('nan')
-                mean_reward = np.mean(rewards[-print_every:])
+                mean_loss = sum_loss / loss_updates if loss_updates > 0 else mean_loss
+                mean_reward = np.mean(rewards) if len(rewards) > 0 else mean_reward
+                mean_episode_length = np.mean(num_steps) if len(num_steps) > 0 else mean_episode_length
+
+                rewards.clear()
+                num_steps.clear()
+                
 
                 metrics_row = metric_writer \
                     .record(global_t) \
                     .scalar('epsilon', prob_random) \
                     .scalar('reward', mean_reward) \
+                    .scalar('episode_length', mean_episode_length)
                     
-                if len(losses) >= print_every:
+                if loss_updates > 0:
                     metrics_row = metrics_row.scalar('loss', mean_loss)
 
+                sum_loss = 0
+                loss_updates = 0
                 metrics_row.flush()
 
 
-                print("Num episode: {} Mean reward: {:0.4f} Prob random: {:0.4f}, Loss: {:0.04f}".format(
+                print("Num step: {} Mean reward: {:0.4f} Prob random: {:0.4f}, Loss: {:0.04f}".format(
                     global_t, mean_reward, prob_random, mean_loss))
-
-            if (global_t + 1) % save_every == 0:
-                # Save the model
-                main_qn.model.save_weights(self._main_weights_file)
-                target_qn.model.save_weights(self._target_weights_file)
 
 def get_options():
     tf.app.flags.DEFINE_integer('batch_size', 32, 'How many experiences to use for each training step.')
-    tf.app.flags.DEFINE_integer('update_frequency', 4, 'How often to perform a training step.')
+    tf.app.flags.DEFINE_integer('update_frequency', 500, 'How often to perform a training step.')
     tf.app.flags.DEFINE_float('gamma', .99, 'Discount factor on the target Q-values')
-    tf.app.flags.DEFINE_float('start_epsilon', 1, 'Starting chance of random action')
-    tf.app.flags.DEFINE_float('end_epsilon', 0.1, 'Final chance of random action')
-    tf.app.flags.DEFINE_integer('annealing_steps', 10000, 'How many steps of training to reduce startE to endE.')
-    tf.app.flags.DEFINE_integer('num_episodes', 10000, 'How many episodes of game environment to train network with.')
-    tf.app.flags.DEFINE_integer('num_epochs', 20, 'How many epochs to train.')
-    tf.app.flags.DEFINE_integer('pre_train_steps', 10000, 'How many steps of random actions before training begins.')
+        
+    tf.app.flags.DEFINE_float('end_epsilon', 0.02, 'Final chance of random action')
+    tf.app.flags.DEFINE_float('exploration_fraction', 0.1, 'Percentage of training spend on exploration')
+    tf.app.flags.DEFINE_integer('pre_train_steps', 1000, 'How many steps of random actions before training begins.')
+    tf.app.flags.DEFINE_integer('total_timesteps', 100000, 'Total number of training steps.')
     tf.app.flags.DEFINE_integer('episode_length', 50, 'The max allowed length of our episode.')
     tf.app.flags.DEFINE_string("checkpoint_dir", "./checkpoints", "checkpoint directory")
     tf.app.flags.DEFINE_integer("replay_size", 50000, "Replay buffer size")
-    tf.app.flags.DEFINE_boolean("prioritized_replay", False, "Use prioritized replay")
+    tf.app.flags.DEFINE_boolean("prioritized_replay", True, "Use prioritized replay")
     tf.app.flags.DEFINE_float("prioritized_replay_eps", 10e-6, "Use prioritized replay epsilon")
     tf.app.flags.DEFINE_string("log_dir", "./logs", "log file directory")
     tf.app.flags.DEFINE_float('tau', 0.001, 'Rate to update target network toward primary network')
