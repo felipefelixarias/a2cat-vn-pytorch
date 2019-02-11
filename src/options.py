@@ -14,10 +14,10 @@ def get_options(option_type):
   # Common
   tf.app.flags.DEFINE_string("env_type", "thor_cached", "environment type (lab or gym or maze or indoor or thor_cached)")
   tf.app.flags.DEFINE_string("env_name", "bedroom_04",  "environment name (nav_maze_static_01)")
-  tf.app.flags.DEFINE_boolean("use_lstm", True, "whether to use lstm")
-  tf.app.flags.DEFINE_boolean("use_pixel_change", True, "whether to use pixel change")
-  tf.app.flags.DEFINE_boolean("use_value_replay", True, "whether to use value function replay")
-  tf.app.flags.DEFINE_boolean("use_reward_prediction", True, "whether to use reward prediction")
+  tf.app.flags.DEFINE_boolean("use_lstm", False, "whether to use lstm")
+  tf.app.flags.DEFINE_boolean("use_pixel_change", False, "whether to use pixel change")
+  tf.app.flags.DEFINE_boolean("use_value_replay", False, "whether to use value function replay")
+  tf.app.flags.DEFINE_boolean("use_reward_prediction", False, "whether to use reward prediction")
 
   tf.app.flags.DEFINE_string("checkpoint_dir", "./checkpoints", "checkpoint directory")
 
