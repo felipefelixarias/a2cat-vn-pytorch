@@ -191,7 +191,7 @@ class ExperienceReplay():
     batch = tuple([convert(i) for i in range(5)])
     return batch
           
-  def sample(self, batch_size):
+  def sample(self, batch_size, **kwargs):
     idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]
     return self._encode_sample(idxes) + (None, idxes)
 
@@ -227,7 +227,7 @@ class PrioritizedExperienceReplay(ExperienceReplay):
       res.append(idx)
     return res
 
-  def sample(self, batch_size, beta = 0.4):
+  def sample(self, batch_size, beta = 0.4, **kwargs):
     assert beta > 0
 
     idxes = self._sample_proportional(batch_size)
