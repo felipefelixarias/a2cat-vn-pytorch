@@ -39,7 +39,6 @@ class DoubleQLearning:
                 gamma,
                 total_timesteps,
                 replay_size,
-                goal,
                 prioritized_replay,
                 prioritized_replay_eps,
                 device,
@@ -53,13 +52,12 @@ class DoubleQLearning:
         self._prioritized_replay = prioritized_replay
         self._prioritized_replay_eps = prioritized_replay_eps
         self._update_frequency = update_frequency
-        self._train_frequency = 1
+        self._train_frequency = 4
         self._total_timesteps = total_timesteps
         self._batch_size = batch_size
         self._end_epsilon = end_epsilon
         self._exploration_fraction = exploration_fraction
         self._device = device
-        self._goal = goal
         self._replay_size = replay_size
         self._tau = tau
         self._beta_start = 0.4
@@ -181,7 +179,7 @@ class DoubleQLearning:
         mean_episode_length = float('nan')
 
         for global_t in range(self._total_timesteps):
-            if done or cur_step > self._episode_length:
+            if done or (cur_step > self._episode_length and self._episode_length != -1):
                 # At the end of the episode
                 # We copy the episode experience to buffer
                 experience_replay.extend(episode_buffer)
@@ -269,12 +267,12 @@ class DoubleQLearning:
 
 def get_options():
     tf.app.flags.DEFINE_integer('batch_size', 32, 'How many experiences to use for each training step.')
-    tf.app.flags.DEFINE_integer('update_frequency', 500, 'How often to perform a training step.')
+    tf.app.flags.DEFINE_integer('update_frequency', 1000, 'How often to perform a training step.')
     tf.app.flags.DEFINE_float('gamma', .99, 'Discount factor on the target Q-values')
         
-    tf.app.flags.DEFINE_float('end_epsilon', 0.02, 'Final chance of random action')
+    tf.app.flags.DEFINE_float('end_epsilon', 0.01, 'Final chance of random action')
     tf.app.flags.DEFINE_float('exploration_fraction', 0.1, 'Percentage of training spend on exploration')
-    tf.app.flags.DEFINE_integer('pre_train_steps', 1000, 'How many steps of random actions before training begins.')
+    tf.app.flags.DEFINE_integer('pre_train_steps', 10000, 'How many steps of random actions before training begins.')
     tf.app.flags.DEFINE_integer('total_timesteps', 100000, 'Total number of training steps.')
     tf.app.flags.DEFINE_integer('episode_length', 50, 'The max allowed length of our episode.')
     tf.app.flags.DEFINE_string("checkpoint_dir", "./checkpoints", "checkpoint directory")
@@ -283,7 +281,6 @@ def get_options():
     tf.app.flags.DEFINE_float("prioritized_replay_eps", 10e-6, "Use prioritized replay epsilon")
     tf.app.flags.DEFINE_string("log_dir", "./logs", "log file directory")
     tf.app.flags.DEFINE_float('tau', 0.001, 'Rate to update target network toward primary network')
-    tf.app.flags.DEFINE_float('goal', None, 'Target reward (-1) if none')
     return tf.app.flags.FLAGS
 
 class Application:

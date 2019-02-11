@@ -173,7 +173,7 @@ class MazeEnvironment(environment.Environment):
 
   @property
   def reward_configuration(self):
-    return (1, -0.001, -0.01)
+    return (1.0, 0.0,-1.0)
 
   def reset_start(self):
     self._start_pos = self._get_random_position(['-', 'S'])
