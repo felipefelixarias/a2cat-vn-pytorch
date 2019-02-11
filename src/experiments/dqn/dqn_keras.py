@@ -14,37 +14,9 @@ if __name__ == '__main__':
 
 from model.model_keras import DeepQModel
 from environment.environment import Environment
-from train.experience import ExperienceFrame
+from train.experience import ExperienceFrame, ExperienceReplay, PrioritizedExperienceReplay
 
 from util.metrics import MetricWriter
-
-
-class ExperienceReplay():
-    def __init__(self, buffer_size = 50000):
-        self.buffer = []
-        self.buffer_size = buffer_size
-    
-    def add(self,experience):
-        if len(self.buffer) + len(experience) >= self.buffer_size:
-            self.buffer[0:(len(experience)+len(self.buffer))-self.buffer_size] = []
-        self.buffer.extend(experience)
-            
-    def sample(self,size):
-        STATE_INDICES = [0,3]
-        items = random.sample(self.buffer,size)
-        def convert_dict(dicts, i):
-            if len(dicts) == 0:
-                return {}
-            else:
-                return {key:np.stack([y[i][key] for y in dicts], 0) for key in dicts[0][i].keys()}
-        def convert(items, i):
-            if i in STATE_INDICES:
-                return convert_dict(items, i)
-            return np.array([x[i] for x in items])
-
-        batch = [convert(items, i) for i in range(5)]
-        return batch
-
 
 
 def update_target_graph(main_graph, target_graph, tau):
@@ -68,7 +40,10 @@ class DoubleQLearning:
                 num_episodes,
                 num_epochs,
                 gamma,
+                replay_size,
                 goal,
+                prioritized_replay,
+                prioritized_replay_eps,
                 device,
                 batch_size,
                 **kwargs):
@@ -78,6 +53,8 @@ class DoubleQLearning:
         self._num_epochs = num_epochs
         self._pre_train_steps = pre_train_steps
         self._gamma = gamma
+        self._prioritized_replay = prioritized_replay
+        self._prioritized_replay_eps = prioritized_replay_eps
         self._update_frequency = update_frequency
         self._num_episodes = num_episodes
         self._batch_size = batch_size
@@ -86,6 +63,7 @@ class DoubleQLearning:
         self._annealing_steps = annealing_steps
         self._device = device
         self._goal = goal
+        self._replay_size = replay_size
         self._tau = tau
         self._log_dir = log_dir
         self._main_weights_file = self._checkpoint_dir + "/main_weights.h5" # File to save our main weights to
@@ -102,7 +80,7 @@ class DoubleQLearning:
 
         # Separate the batch into its components
         train_state, train_action, train_reward, \
-            train_next_state, train_done = train_batch
+            train_next_state, train_done, _, batch_idxes = train_batch
             
         # Convert the action array into an array of ints so they can be used for indexing
         train_action = train_action.astype(np.int)
@@ -128,16 +106,25 @@ class DoubleQLearning:
         train_gameover = train_done == 0
 
         # Q value of the next state based on action
-        train_next_state_values = target_q_next_state[:, train_next_state_action]
+        train_next_state_values = target_q_next_state[range(self._batch_size), train_next_state_action]
 
         # Reward from the action chosen in the train batch
         actual_reward = train_reward + (self._gamma * train_next_state_values * train_gameover)
-        target_q[:, train_action] = actual_reward
+        target_q[range(self._batch_size), train_action] = actual_reward
         
         # Train the main model
-        loss = main_qn.model.train_on_batch([train_state['image'],
+        train_return = main_qn.model.train_on_batch([train_state['image'],
             train_state['goal'],
             train_state['action_reward']], target_q)
+
+        loss = train_return[0]
+        q_output = train_return[1]
+
+        def compute_priorities():
+            td_errors = q_output[range(self._batch_size), train_action] - actual_reward
+            return np.abs(td_errors) + self._prioritized_replay_eps
+
+        experience_replay.update_priorities(batch_idxes, priorities = compute_priorities)
         return loss
 
     def run(self):
@@ -152,7 +139,7 @@ class DoubleQLearning:
         update_target_graph(main_qn.model, target_qn.model, 1)
 
         # Setup our experience replay
-        experience_replay = ExperienceReplay()
+        experience_replay = PrioritizedExperienceReplay(self._replay_size) if self._prioritized_replay else ExperienceReplay(self._replay_size)
 
         # We'll begin by acting complete randomly. As we gain experience and improve,
         # we will begin reducing the probability of acting randomly, and instead
@@ -186,7 +173,7 @@ class DoubleQLearning:
         for i in range(self._num_episodes):
 
             # Create an experience replay for the current episode
-            episode_buffer = ExperienceReplay()
+            episode_buffer = []
 
             # Get the game state from the environment
             state = self._env.reset()
@@ -209,14 +196,14 @@ class DoubleQLearning:
                         action = np.random.randint(self._env.action_space.n)
                 else:
                     # Decide what action to take from the Q network
-                    action = np.argmax(main_qn.model.predict([state['image'], state['goal'], state['action_reward']]))
+                    action = np.argmax(main_qn.model.predict([[state['image']], [state['goal']], [state['action_reward']]]))
 
                 # Take the action and retrieve the next state, reward and done
                 next_state, reward, done, _ = self._env.step(action)
                 next_state = self._process_state(next_state, action, reward)
 
                 # Store the experience in the episode buffer
-                episode_buffer.add(np.reshape(np.array([state,action,reward,next_state,done]),[1,5]))
+                episode_buffer.append([state,action,reward,next_state,done])
 
                 # Update the running rewards
                 sum_rewards += reward
@@ -247,7 +234,7 @@ class DoubleQLearning:
 
             # Increment the episode
             global_t += 1
-            experience_replay.add(episode_buffer.buffer)
+            experience_replay.extend(episode_buffer)
 
             rewards.append(sum_rewards)
             num_steps.append(cur_step)
@@ -290,6 +277,9 @@ def get_options():
     tf.app.flags.DEFINE_integer('pre_train_steps', 10000, 'How many steps of random actions before training begins.')
     tf.app.flags.DEFINE_integer('episode_length', 50, 'The max allowed length of our episode.')
     tf.app.flags.DEFINE_string("checkpoint_dir", "./checkpoints", "checkpoint directory")
+    tf.app.flags.DEFINE_integer("replay_size", 50000, "Replay buffer size")
+    tf.app.flags.DEFINE_boolean("prioritized_replay", False, "Use prioritized replay")
+    tf.app.flags.DEFINE_float("prioritized_replay_eps", 10e-6, "Use prioritized replay epsilon")
     tf.app.flags.DEFINE_string("log_dir", "./logs", "log file directory")
     tf.app.flags.DEFINE_float('tau', 0.001, 'Rate to update target network toward primary network')
     tf.app.flags.DEFINE_float('goal', None, 'Target reward (-1) if none')
