@@ -70,6 +70,30 @@ class BaseModel:
             padding="valid",
             name="conv4")(model)'''
 
+class ActorCriticModel(BaseModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        pass
+
+    def _initialize(self, model):
+        policy = Dense(
+            units=self.action_space_size,
+            activation="softmax",
+            name="policy_fc"
+        )(model)
+        self.policy = policy
+
+        value = Dense(
+            units=1,
+            name="value_fc"
+        )(model)
+        self.value = value
+        self.inputs = [self.main_input, self.goal_input, self.last_action_reward]
+
+    def run_base_policy_and_value(self, sess, state):
+        p, v = sess.run([self.policy, self.value], feed_dict = {self.inputs[i]:state[i] for i in range(len(state))})
+        return (p[0], v[0])
+
 
 class DeepQModel(BaseModel):
     def __init__(self, *args, **kwargs):
