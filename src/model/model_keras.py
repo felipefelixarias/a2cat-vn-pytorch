@@ -2,6 +2,7 @@ from keras.models import Model
 from keras.layers import Conv2D, Dense, Flatten, Input, Lambda,Concatenate, Reshape
 import keras.backend as K
 import tensorflow as tf
+import numpy as np
 
 class BaseModel:
     def __init__(self, 
@@ -9,16 +10,16 @@ class BaseModel:
                     device = None, 
                     image_size = (84, 84,),
                     head = 'dqn',
-                    use_softmax = True):
+                    name = 'net'):
         self.action_space_size = action_space_size
         with tf.device(device):            
-            self._build_net(action_space_size, image_size, use_softmax)
+            self._build_net(action_space_size, image_size)
 
     def _initialize(self, model):
         pass
 
 
-    def _build_net(self, action_space_size, image_size, use_softmax):
+    def _build_net(self, action_space_size, image_size):
         # Inputs
         self.main_input = Input(shape=list(image_size + (3,)), name="main_input")
         self.goal_input = Input(shape=list(image_size + (3,)), name="goal_input")
@@ -89,10 +90,10 @@ class ActorCriticModel(BaseModel):
         )(model)
         self.value = value
         self.inputs = [self.main_input, self.goal_input, self.last_action_reward]
+        self.run_base_policy_and_value = K.Function([self.policy, self.value],)
 
-    def run_base_policy_and_value(self, sess, state):
-        p, v = sess.run([self.policy, self.value], feed_dict = {self.inputs[i]:state[i] for i in range(len(state))})
-        return (p[0], v[0])
+    def _create_helper_methods(self):
+        self.run_policy_and_value = K.function([self.inputs[i] for i in range(len(state))], [self.policy, self.value])
 
 
 class DeepQModel(BaseModel):
@@ -116,7 +117,16 @@ class DeepQModel(BaseModel):
         self.model = Model(inputs = [self.main_input, self.goal_input, self.last_action_reward], outputs = model)
         self.model.compile("adam","mse")
         self.model.optimizer.lr = 0.0001
+        
         self.model.train_function = self._make_train_function(self.model)
+        self.model.predict = self._make_predict_function(self.model)
+
+    def _make_predict_function(self, model):
+        def predict(x):
+            q = model.predict_on_batch(x)
+            return np.argmax(q, axis=1)
+
+        return predict
 
     def _make_train_function(self, model):
         if not hasattr(model, 'train_function'):
