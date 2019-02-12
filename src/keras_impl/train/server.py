@@ -14,22 +14,35 @@ class Server:
                 device, 
                 checkpoint_dir, 
                 batch_size, 
+                min_training_batch_size,
+                logdir,
+                save_frequency, 
+                print_frequency,
+                learning_rate,
+                beta,
+                total_episodes,
                 name='net', 
                 max_queue_size = 100,
                 **kwargs):
         self._config = kwargs
         self._batch_size = batch_size
         self._mode = mode
+        self._min_training_batch_size = min_training_batch_size
+        self._learning_rate = learning_rate
+        self._total_episodes = total_episodes
+        self._beta = beta
         self.training_q = Queue(maxsize=max_queue_size)
         self.prediction_q = Queue(maxsize=max_queue_size)
-        self.stats = ProcessStats()
+        self.stats = ProcessStats(logdir, save_frequency, print_frequency)
 
         self._agent = Agent(checkpoint_dir, 
             create_model, 
-            device, 
+            device,
+            learning_rate = learning_rate,
+            beta = beta,
             name = name,
             model_kwargs = dict(
-                action_space_size = action_space_size,
+                beta = beta,
                 head = 'ac'))
 
         self._agent.initialize()
@@ -43,7 +56,7 @@ class Server:
         self._trainers = []
 
     def add_agent(self):
-        thread = ProcessAgent(self._mode, len(self._agents), self.prediction_q, self.training_q, self.stats.episode_log_q)
+        thread = ProcessAgent(self._mode, len(self._agents), self.prediction_q, self.training_q, self.stats.episode_log_q, **self._config)
         self._agents.append(thread)
         thread.start()
 
@@ -63,7 +76,7 @@ class Server:
         thread.join()
 
     def add_trainer(self):
-        thread = ThreadTrainer(self, len(self._trainers), batch_size = self._batch_size, **self._config)
+        thread = ThreadTrainer(self, len(self._trainers), min_training_batch_size = self._min_training_batch_size, **self._config)
         self._trainers.append(thread)
         thread.start()
 
@@ -86,34 +99,42 @@ class Server:
     def put_prediction_frame(self, frame, thread_id):
         self._agents[thread_id].wait_q.put(frame)
 
-    def main(self):
+    def _get_thread_num(self):
+        return (32, 2, 2) if self._mode == 'train' else (0,0,1)
+
+    def run(self):
         self.stats.start()
-        self.dynamic_adjustment.start()
 
-        if Config.PLAY_MODE:
-            for trainer in self.trainers:
-                trainer.enabled = False
+        (n_agents, n_train, n_pred) = self._get_thread_num()
+        for _ in range(n_agents):
+            self.add_agent()
 
-        learning_rate_multiplier = (
-                                       Config.LEARNING_RATE_END - Config.LEARNING_RATE_START) / Config.ANNEALING_EPISODE_COUNT
-        beta_multiplier = (Config.BETA_END - Config.BETA_START) / Config.ANNEALING_EPISODE_COUNT
+        for _ in range(n_train):
+            self.add_trainer()
 
-        while self.stats.episode_count.value < Config.EPISODES:
-            step = min(self.stats.episode_count.value, Config.ANNEALING_EPISODE_COUNT - 1)
-            self.model.learning_rate = Config.LEARNING_RATE_START + learning_rate_multiplier * step
-            self.model.beta = Config.BETA_START + beta_multiplier * step
+        for _ in range(n_pred):
+            self.add_trainer()
+
+        (learning_rate_start, learning_rate_end) = self._learning_rate
+        (beta_start, beta_end) = self._beta 
+        learning_rate_multiplier = (learning_rate_end - learning_rate_start) / self._total_episodes
+        beta_multiplier = (beta_end - beta_start) / self._total_episodes
+
+        while self.stats.episode_count.value < self._total_episodes:
+            step = self.stats.episode_count.value
+            self._agent.learning_rate = learning_rate_start + learning_rate_multiplier * step
+            self._agent.beta = beta_start + beta_multiplier * step
 
             # Saving is async - even if we start saving at a given episode, we may save the model at a later episode
-            if Config.SAVE_MODELS and self.stats.should_save_model.value > 0:
+            if self.stats.should_save_model.value > 0:
                 self.save_model()
                 self.stats.should_save_model.value = 0
 
             time.sleep(0.01)
 
-        self.dynamic_adjustment.exit_flag = True
-        while self.agents:
+        while self._agents:
             self.remove_agent()
-        while self.predictors:
+        while self._predictors:
             self.remove_predictor()
-        while self.trainers:
+        while self._trainers:
             self.remove_trainer()

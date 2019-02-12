@@ -6,13 +6,15 @@ import json
 from model.model_keras import ActorCriticModel
 
 class Agent:
-    def __init__(self, checkpoint_dir, model_fn, device, name = 'net', model_kwargs = None):
+    def __init__(self, checkpoint_dir, model_fn, device, learning_rate, beta, name = 'net', model_kwargs = None):
         self._checkpoint_dir = checkpoint_dir
         self._model_fn = model_fn
         self._model_kwargs = model_kwargs
         self._name = name
         self._device = device
         self._model = None
+        self.learning_rate = learning_rate[0]
+        self.beta = beta[0]
 
     def _load(self, checkpoint_dir):
         print('Restoring model')

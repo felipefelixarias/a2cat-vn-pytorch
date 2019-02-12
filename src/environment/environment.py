@@ -169,3 +169,6 @@ class Environment(object):
 
   def get_env(self):
     return wrap_environment(self, self.get_action_size(), self.can_use_goal())
+
+def create_env(*arg, **kwargs):
+  return Environment.create_environment(*arg, **kwargs).get_env()
