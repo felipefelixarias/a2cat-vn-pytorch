@@ -63,9 +63,3 @@ class Trainer:
         while not self._stop_signal:
             self._run_episode()
         pass
-
-class TrainingSession:
-    def __init__(self):
-        pass
-
-    def 
