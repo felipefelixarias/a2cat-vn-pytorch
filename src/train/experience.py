@@ -174,9 +174,9 @@ class ExperienceReplay():
     for e in experience:
       self.add(e)
 
-  def _encode_sample(self, idxes):
+  @staticmethod
+  def create_batch(items):
     STATE_INDICES = [0,3]
-    items = [self._storage[i] for i in idxes]
     def convert_dict(i):
       if len(items) == 0:
         return {}
@@ -188,8 +188,11 @@ class ExperienceReplay():
         return convert_dict(i)
       return np.array([x[i] for x in items])
 
-    batch = tuple([convert(i) for i in range(5)])
-    return batch
+    return tuple([convert(i) for i in range(5)]) 
+
+  def _encode_sample(self, idxes):
+    items = [self._storage[i] for i in idxes]
+    return ExperienceReplay.create_batch(items)
           
   def sample(self, batch_size, **kwargs):
     idxes = [random.randint(0, len(self._storage) - 1) for _ in range(batch_size)]

@@ -294,17 +294,10 @@ class Application:
         env = Environment.create_environment('maze', 'gr')
 
         model_fn = lambda name, device: DeepQModel(
-                env.get_action_size(),
-                0,
-                thread_index = name, # -1 for global
-                use_lstm = False,
-                use_pixel_change = False,
-                use_value_replay = False,
-                use_reward_prediction = False,
-                use_deepq_network = True,
-                use_goal_input = env.can_use_goal(),              
-                pixel_change_lambda = .05,
-                entropy_beta = .001,
+                action_space_size = env.get_action_size(),
+                image_size = (84, 84,),
+                head = 'dqn',
+                name = 'net',
                 device = device,
             )
 

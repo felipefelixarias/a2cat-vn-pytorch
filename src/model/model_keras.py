@@ -6,11 +6,12 @@ import numpy as np
 
 class BaseModel:
     def __init__(self, 
-                    action_space_size, 
-                    device = None, 
+                    action_space_size,
                     image_size = (84, 84,),
                     head = 'dqn',
-                    name = 'net'):
+                    name = 'net',
+                    device = None):
+        self._name = name
         self.action_space_size = action_space_size
         with tf.device(device):            
             self._build_net(action_space_size, image_size)
@@ -18,11 +19,10 @@ class BaseModel:
     def _initialize(self, model):
         pass
 
-
     def _build_net(self, action_space_size, image_size):
         # Inputs
-        self.main_input = Input(shape=list(image_size + (3,)), name="main_input")
-        self.goal_input = Input(shape=list(image_size + (3,)), name="goal_input")
+        self.main_input = Input(shape=list(image_size) + [3], name="main_input")
+        self.goal_input = Input(shape=list(image_size) + [3], name="goal_input")
         self.last_action_reward = Input(shape=(action_space_size + 1,), name = "last_action_reward")
 
         # Basic network
@@ -119,7 +119,7 @@ class DeepQModel(BaseModel):
         self.model.optimizer.lr = 0.0001
         
         self.model.train_function = self._make_train_function(self.model)
-        self.model.predict = self._make_predict_function(self.model)
+        self.predict = self._make_predict_function(self.model)
 
     def _make_predict_function(self, model):
         def predict(x):
@@ -154,3 +154,24 @@ class DeepQModel(BaseModel):
                     updates=updates,
                     name='train_function',
                     **model._function_kwargs)
+
+    def load_weights(self, filename):
+        self.model.load_weights(filename)
+
+    def save_weights(self, filename):
+        self.model.save_weights(filename)
+
+def create_model_fn(head, **kwargs):
+    def model_fn(device, name):
+        if head == 'dqn':
+            return DeepQModel(device = device, name = name, **kwargs)
+
+        elif head == 'ac':
+            return ActorCriticModel(device = device, name = name, **kwargs)
+
+        else:
+            raise Exception('Head %s is unknown' % head)
+    return model_fn
+
+def create_model(head, device, name, **kwargs):
+    return create_model_fn(head, **kwargs)(device, name)

@@ -12,8 +12,8 @@ def get_options(option_type):
     'training' or 'display' or 'visualize'
   """
   # Common
-  tf.app.flags.DEFINE_string("env_type", "thor_cached", "environment type (lab or gym or maze or indoor or thor_cached)")
-  tf.app.flags.DEFINE_string("env_name", "bedroom_04",  "environment name (nav_maze_static_01)")
+  tf.app.flags.DEFINE_string("env_type", "maze", "environment type (lab or gym or maze or indoor or thor_cached)")
+  tf.app.flags.DEFINE_string("env_name", "gr",  "environment name (nav_maze_static_01)")
   tf.app.flags.DEFINE_boolean("use_lstm", False, "whether to use lstm")
   tf.app.flags.DEFINE_boolean("use_pixel_change", False, "whether to use pixel change")
   tf.app.flags.DEFINE_boolean("use_value_replay", False, "whether to use value function replay")
