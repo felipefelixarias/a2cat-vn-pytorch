@@ -111,7 +111,7 @@ class ProcessStats(Process):
 
 
 class ProcessAgent(Process):
-    def __init__(self, mode, id, prediction_q, training_q, episode_log_q, **kwargs):
+    def __init__(self, mode, id, prediction_q, training_q, episode_log_q, gamma,  **kwargs):
         super(ProcessAgent, self).__init__()
 
         self.id = id
@@ -124,24 +124,24 @@ class ProcessAgent(Process):
         self._mode = mode
         self.actions = np.arange(self._num_actions)
 
-        self._discount_factor = Config.DISCOUNT
+        self._gamma = gamma
 
         # one frame at a time
         self._wait_q = Queue(maxsize=1)
         self.exit_flag = Value('i', 0)
 
     @staticmethod
-    def _accumulate_rewards(experiences, discount_factor, terminal_reward):
+    def _accumulate_rewards(experiences, gamma, terminal_reward):
         reward_sum = terminal_reward
         for t in reversed(range(0, len(experiences)-1)):
             r = np.clip(experiences[t].reward, -1, 1)
-            reward_sum = discount_factor * reward_sum + r
+            reward_sum = gamma * reward_sum + r
             experiences[t].reward = reward_sum
         return experiences[:-1]
 
     def convert_data(self, experiences):
         x_ = np.array([exp.state for exp in experiences])
-        a_ = np.eye(self.num_actions)[np.array([exp.action for exp in experiences])].astype(np.float32)
+        a_ = np.eye(self._num_actions)[np.array([exp.action for exp in experiences])].astype(np.float32)
         r_ = np.array([exp.reward for exp in experiences])
         return x_, r_, a_
 
@@ -153,7 +153,7 @@ class ProcessAgent(Process):
         return p, v
 
     def select_action(self, prediction):
-        if Config.PLAY_MODE:
+        if self._mode == 'eval':
             action = np.argmax(prediction)
         else:
             action = np.random.choice(self.actions, p=prediction)
@@ -194,6 +194,7 @@ class ProcessAgent(Process):
     def run(self):
         # randomly sleep up to 1 second. helps agents boot smoothly.
         time.sleep(np.random.rand())
+        
         np.random.seed(np.int32(time.time() % 1 * 1000 + self.id * 10))
 
         while self.exit_flag.value == 0:

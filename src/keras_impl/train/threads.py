@@ -3,19 +3,19 @@ import numpy as np
 from train.experience import ExperienceReplay
 
 class ThreadTrainer(Thread):
-    def __init__(self, server, id, batch_size, **kwargs):
+    def __init__(self, server, id, min_training_batch_size, **kwargs):
         super(ThreadTrainer, self).__init__()
         self.setDaemon(True)
 
         self._id = id
         self._server = server
-        self._batch_size = batch_size
+        self._batch_size = min_training_batch_size
         self.exit_flag = False
 
     def run(self):
         while not self.exit_flag:
             batch = []
-            while len(batch) < self._batch_size:
+            while len(batch) <= self._batch_size:
                 batch.extend(self._server.training_q.get())
         
             batch_size = len(batch)
