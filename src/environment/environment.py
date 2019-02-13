@@ -172,3 +172,6 @@ class Environment(object):
 
 def create_env(*arg, **kwargs):
   return Environment.create_environment(*arg, **kwargs).get_env()
+
+def get_action_space_size(env_type, env_name, **kwargs):
+  return Environment.get_action_size(env_type, env_name)
