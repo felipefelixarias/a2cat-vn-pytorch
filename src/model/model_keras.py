@@ -26,6 +26,7 @@ class BaseModel:
         self.main_input = Input(shape=list(self._image_size) + [3], name="main_input")
         self.goal_input = Input(shape=list(self._image_size) + [3], name="goal_input")
         self.last_action_reward = Input(shape=(self._action_space_size + 1,), name = "last_action_reward")
+        self.inputs = [self.main_input, self.goal_input] #, self.last_action_reward]
 
         # Basic network
         block1 = Conv2D(
@@ -100,7 +101,6 @@ class ActorCriticModel(BaseModel):
             )(model)
             self.value = value
 
-        self.inputs = [self.main_input, self.goal_input, self.last_action_reward]
         self.run_base_policy_and_value = K.Function(self.inputs, [self.policy, self.value])
 
         with tf.variable_scope('%s-optimizer' % self._name):
@@ -109,9 +109,9 @@ class ActorCriticModel(BaseModel):
 
 
     def _build_loss(self, model):
-        self.rewards = tf.placeholder(tf.float32, (None, 1))
-        self.terminates = tf.placeholder(tf.bool, (None, 1))
-        self.actions = tf.placeholder(tf.int32, (None, 1))
+        self.rewards = tf.placeholder(tf.float32, (None,))
+        self.terminates = tf.placeholder(tf.bool, (None,))
+        self.actions = tf.placeholder(tf.int32, (None,))
         gamma = tf.constant(self._gamma, dtype = tf.float32)
         entropy_cost = tf.constant(self._entropy_cost, dtype = tf.float32)
         self.bootstrap_value = tf.placeholder(tf.float32, (1,))
@@ -120,9 +120,9 @@ class ActorCriticModel(BaseModel):
         p_continues = (1.0 - tf.to_float(self.terminates)) * gamma
         a3c_loss, _ = trfl.sequence_advantage_actor_critic_loss(tf.reshape(policy_logits, [-1, 1, self._action_space_size]), 
                 tf.reshape(baseline_values, [-1, 1]), 
-                self.actions, 
-                self.rewards, 
-                p_continues,
+                tf.reshape(self.actions, [-1, 1]),
+                tf.reshape(self.rewards, [-1, 1]), 
+                tf.reshape(p_continues, [-1, 1]),
                 self.bootstrap_value,
                 entropy_cost = entropy_cost)
 

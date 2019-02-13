@@ -50,6 +50,44 @@ def wrap_environment(env, action_space_size, use_goal_input):
   return EnvWrap(env, action_space_size, use_goal_input)
 
 
+
+def wrap_environment_keras(env, action_space_size):
+  import gym.spaces
+  class EnvWrap:
+    def __init__(self, env, action_space_size):
+        self.env = env
+        self.action_space_size = action_space_size
+
+    def reset(self):
+        self.env.reset()
+        return self._transform_observation(self.env.last_state)
+
+    @property
+    def observation_space(self):
+      return gym.spaces.Tuple((
+        gym.spaces.Box(0.0, 1.0, shape=(84, 84, 3)),
+        gym.spaces.Box(0.0, 1.0, shape=(84, 84, 3)),
+      ))
+
+    @property
+    def action_space(self):
+        return gym.spaces.Discrete(self.action_space_size)
+
+    def step(self, action):
+        new_obs, rew, done, _ = self.env.process(action)
+
+
+        return (self._transform_observation(new_obs), rew, done, None)
+
+    def stop(self):
+        self.env.stop()
+
+    def _transform_observation(self, state):
+        return [state['image'], state['goal']]
+
+  return EnvWrap(env, action_space_size)
+
+
 class Environment(object):
   # cached action size
   action_size = -1
@@ -171,7 +209,8 @@ class Environment(object):
     return wrap_environment(self, self.get_action_size(), self.can_use_goal())
 
 def create_env(*arg, **kwargs):
-  return Environment.create_environment(*arg, **kwargs).get_env()
+  env = Environment.create_environment(*arg, **kwargs)
+  return wrap_environment_keras(env, env.get_action_size())
 
 def get_action_space_size(env_type, env_name, **kwargs):
   return Environment.get_action_size(env_type, env_name)
