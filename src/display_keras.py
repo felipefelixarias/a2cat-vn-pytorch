@@ -90,7 +90,7 @@ class Display(object):
 
     self.action_size = Environment.get_action_size(flags.env_type, flags.env_name)
     self.objective_size = Environment.get_objective_size(flags.env_type, flags.env_name)
-    self.agent = Agent(flags.checkpoint_dir, create_model, device = '/cpu:0')
+    self.agent = Agent(flags.checkpoint_dir, create_model, learning_rate = (1,), beta = (1,), device = '/cpu:0')
     self.agent.initialize()
 
     self.environment = Environment.create_environment(flags.env_type, flags.env_name,
@@ -101,6 +101,7 @@ class Display(object):
     self.font = pygame.font.SysFont(None, 20)
     self.value_history = ValueHistory()
     self.state_history = StateHistory()
+    self.episode_length = 0
     self.episode_reward = 0
 
   def update(self, sess):
@@ -253,10 +254,12 @@ class Display(object):
     action = self.agent.act(self.environment.last_state, last_action_reward)
     state, reward, terminal, pixel_change = self.environment.process(action)
     self.episode_reward += reward
+    self.episode_length += 1
   
-    if terminal:
+    if terminal or self.episode_length > 100:
       self.environment.reset()
       self.episode_reward = 0
+      self.episode_length = 0
       
     self.show_image(state['image'])
     self.show_goal(state['goal'])

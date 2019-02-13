@@ -124,7 +124,7 @@ class MazeEnvironment(environment.Environment):
       'optimal_action': self._graph[0][self.x, self.y, :],
       'optimal_distance': self._graph[1][(self.x, self.y,)],
     }
-    self.last_action = 0
+    self.last_action = None
     self.last_reward = 0    
     
   def _put_pixel(self, image, x, y, channel):
@@ -173,7 +173,7 @@ class MazeEnvironment(environment.Environment):
 
   @property
   def reward_configuration(self):
-    return (1.0, 0.0,-0.1)
+    return (1.0, 0.0,-1.0)
 
   def reset_start(self):
     self._start_pos = self._get_random_position(['-', 'S'])
@@ -185,7 +185,7 @@ class MazeEnvironment(environment.Environment):
       'optimal_action': self._graph[0][self.x, self.y, :],
       'optimal_distance': self._graph[1][(self.x, self.y,)],
     }
-    self.last_action = 0
+    self.last_action = None
     self.last_reward = 0    
 
   def process(self, action):

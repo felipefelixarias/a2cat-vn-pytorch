@@ -65,7 +65,7 @@ class DoubleQLearning:
         self._main_weights_file = self._checkpoint_dir + "/main_weights.h5" # File to save our main weights to
         self._target_weights_file = self._checkpoint_dir + "/target_weights.h5" # File to save our target weights to
 
-    def _process_state(self, state, action = -1, reward = 0):
+    def _process_state(self, state, action = None, reward = 0):
         return {'image': state['image'], 
             'goal': state['goal'], 
             'action_reward': ExperienceFrame.concat_action_and_reward(action, self._env.action_space.n, reward, state)}
