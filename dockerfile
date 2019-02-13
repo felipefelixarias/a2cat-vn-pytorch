@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
   realpath \
   build-essential
 
-RUN mkdir /toolbox && cd /toolbox && git clone https://github.com/deepmind/lab.git
+RUN mkdir /toolbox && cd /toolbox && git clone https://github.com/deepmind/lab.git && cd lab
 RUN echo "#!/bin/bash\nrm /tmp/.X1-lock /tmp/.X11-unix/X1 \nvncserver :1 -randr -geometry 1280x800 -depth 24 && tail -F /root/.vnc/*.log" | tee /opt/vnc.sh
 ENV DISPLAY :1
 
