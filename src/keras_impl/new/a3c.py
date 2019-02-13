@@ -62,7 +62,7 @@ class MetricsCollector:
         mean_reward = means['reward']
         mean_length = means['episode_length']
         print('Time %s, Episodes %s, Avg. reward: %f, Avg. length %s' % (global_t, self._total_episodes, mean_reward, mean_length))
-
+        self._episode_values = defaultdict(list)
 
     def handle(self, global_t):
         while not self._queue.empty():
@@ -170,7 +170,7 @@ class Trainer:
         self._total_steps = total_steps
 
         self._eval_batch_size = num_agents // 2
-        self._env_args = dict(env_type = 'maze', env_name = 'gr')
+        self._env_args = dict(env_type = 'maze', env_name = 'gd')
         self._mode = 'train'
         self._metrics_collector = MetricsCollector()
 
@@ -186,7 +186,7 @@ class Trainer:
             thread.start()
 
     def _learning_rate(self, global_t):
-        return 1
+        return 0.001
 
     def _handle_training(self, global_t):
         max_batch_size = 8
