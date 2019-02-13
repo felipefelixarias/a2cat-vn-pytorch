@@ -52,3 +52,17 @@ class Agent:
     def act(self, state, last_action_reward):
         state_wrap = self._wrap_state(state, last_action_reward)
         return self._model.predict(state_wrap)[0]
+
+class ActorCriticTrainingAgent(Agent):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        model_kwargs = kwargs.get('model_kwargs')
+        if model_kwargs.get('head') != 'ac':
+            raise Exception('Cannot use non-actor-critic model with actor-critic head.')
+
+class DeepQTrainingAgent(Agent):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        model_kwargs = kwargs.get('model_kwargs')
+        if model_kwargs.get('head') != 'dqn':
+            raise Exception('Cannot use non-DQN model with DQN agent.')

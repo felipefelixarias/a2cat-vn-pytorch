@@ -3,6 +3,7 @@ from keras.layers import Conv2D, Dense, Flatten, Input, Lambda,Concatenate, Resh
 import keras.backend as K
 import tensorflow as tf
 import numpy as np
+import trfl
 
 class BaseModel:
     def __init__(self, 
@@ -12,18 +13,19 @@ class BaseModel:
                     name = 'net',
                     device = None):
         self._name = name
-        self.action_space_size = action_space_size
+        self._action_space_size = action_space_size
+        self._image_size = image_size
         with tf.device(device):            
-            self._build_net(action_space_size, image_size)
+            self._initialize()
 
-    def _initialize(self, model):
-        pass
+    def _initialize(self):
+        raise Exception('Not implemented')
 
-    def _build_net(self, action_space_size, image_size):
+    def _build_net(self):
         # Inputs
-        self.main_input = Input(shape=list(image_size) + [3], name="main_input")
-        self.goal_input = Input(shape=list(image_size) + [3], name="goal_input")
-        self.last_action_reward = Input(shape=(action_space_size + 1,), name = "last_action_reward")
+        self.main_input = Input(shape=list(self._image_size) + [3], name="main_input")
+        self.goal_input = Input(shape=list(self._image_size) + [3], name="goal_input")
+        self.last_action_reward = Input(shape=(self._action_space_size + 1,), name = "last_action_reward")
 
         # Basic network
         block1 = Conv2D(
@@ -53,8 +55,8 @@ class BaseModel:
             activation="relu",
             name="fc3")(model)
 
-        model = Concatenate()([model, self.last_action_reward])
-        self._initialize(model)
+        # model = Concatenate()([model, self.last_action_reward])
+        return model
 
         '''model = Conv2D(
             filters=64,
@@ -72,28 +74,81 @@ class BaseModel:
             name="conv4")(model)'''
 
 class ActorCriticModel(BaseModel):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, gamma = 0.99, entropy_cost = 0.001, *args, **kwargs):
+        self._gamma = gamma
+        self._entropy_cost = entropy_cost
+        self._rmsp_decay = 0.99
+        self._rmsp_epsilon = 0.1
+        self._gradient_clip_norm = 40.0
+
         super().__init__(*args, **kwargs)
         pass
 
-    def _initialize(self, model):
-        policy = Dense(
-            units=self.action_space_size,
-            activation="softmax",
-            name="policy_fc"
-        )(model)
-        self.policy = policy
+    def _initialize(self):
+        with tf.variable_scope('%s-net' % self._name):
+            model = self._build_net()
+            policy = Dense(
+                units=self._action_space_size,
+                activation="softmax",
+                name="policy_fc"
+            )(model)
+            self.policy = policy
 
-        value = Dense(
-            units=1,
-            name="value_fc"
-        )(model)
-        self.value = value
+            value = Dense(
+                units=1,
+                name="value_fc"
+            )(model)
+            self.value = value
+
         self.inputs = [self.main_input, self.goal_input, self.last_action_reward]
-        self.run_base_policy_and_value = K.Function([self.policy, self.value],)
+        self.run_base_policy_and_value = K.Function(self.inputs, [self.policy, self.value])
 
-    def _create_helper_methods(self):
-        self.run_policy_and_value = K.function([self.inputs[i] for i in range(len(state))], [self.policy, self.value])
+        with tf.variable_scope('%s-optimizer' % self._name):
+            self._build_loss((policy, value,))
+            self._build_optimize()       
+
+
+    def _build_loss(self, model):
+        self.rewards = tf.placeholder(tf.float32, (None, 1))
+        self.terminates = tf.placeholder(tf.bool, (None, 1))
+        self.actions = tf.placeholder(tf.int32, (None, 1))
+        gamma = tf.constant(self._gamma, dtype = tf.float32)
+        entropy_cost = tf.constant(self._entropy_cost, dtype = tf.float32)
+        self.bootstrap_value = tf.placeholder(tf.float32, (1,))
+        
+        (policy_logits, baseline_values) = model
+        p_continues = (1.0 - tf.to_float(self.terminates)) * gamma
+        a3c_loss, _ = trfl.sequence_advantage_actor_critic_loss(tf.reshape(policy_logits, [-1, 1, self._action_space_size]), 
+                tf.reshape(baseline_values, [-1, 1]), 
+                self.actions, 
+                self.rewards, 
+                p_continues,
+                self.bootstrap_value,
+                entropy_cost = entropy_cost)
+
+        self.total_loss = tf.reduce_mean(a3c_loss, keepdims = False)
+
+    def _build_optimize(self):
+        self.learning_rate = tf.get_variable('learning_rate', tuple(), dtype = tf.float32, trainable=False)
+        self.global_step = tf.get_variable('global_step', tuple(), dtype = tf.float32, trainable=False)
+        self.optimizer = tf.train.RMSPropOptimizer(self.learning_rate, decay = self._rmsp_decay, epsilon= self._rmsp_epsilon)
+        
+        # Compute and normalize gradients
+        #trainables = tf.trainable_variables()
+        grads_and_vars = self.optimizer.compute_gradients(self.total_loss)
+        grads_and_vars = [(tf.clip_by_norm(grad, self._gradient_clip_norm), var) for grad, var in grads_and_vars]
+        self.optimize_op = self.optimizer.apply_gradients(grads_and_vars, global_step = self.global_step)
+
+        # Assign learning values op
+        learning_rate_value = tf.placeholder(tf.float32, tuple())
+        global_step_value = tf.placeholder(tf.float32,tuple())
+        assign_learning_variables_op = [
+            tf.assign(self.learning_rate, learning_rate_value),
+            tf.assign(self.global_step, global_step_value)
+        ]
+
+        self.set_step = K.Function([learning_rate_value, global_step_value], assign_learning_variables_op)
+        self.train_on_batch = K.Function(self.inputs + [self.actions, self.rewards, self.terminates, self.bootstrap_value], [self.total_loss], [self.optimize_op])
 
 
 class DeepQModel(BaseModel):
@@ -103,7 +158,7 @@ class DeepQModel(BaseModel):
 
     def _initialize(self, model):
         adventage = Dense(
-            units=self.action_space_size,
+            units=self._action_space_size,
             activation=None,
             name="policy_fc"
         )(model)
