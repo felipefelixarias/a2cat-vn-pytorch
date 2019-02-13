@@ -133,7 +133,7 @@ class UnrealModel(object):
     with tf.variable_scope(name, reuse=reuse) as scope:
       # Weights
       W_conv1, b_conv1 = self._conv_variable([8, 8, 3, 16],  "base_conv1") # 16 8x8 filters
-      W_conv2, b_conv2 = self._conv_variable([4, 4, 32 if goal_input is not None else 16, 64], "base_conv2") # 32 4x4 filters
+      W_conv2, b_conv2 = self._conv_variable([4, 4, 32 if goal_input is not None else 16, 32], "base_conv2") # 32 4x4 filters
 
       # Nodes
 
@@ -164,7 +164,7 @@ class UnrealModel(object):
       # (unroll_step, 256)
 
       outputs = tf.concat([conv_output_fc, last_action_reward_objective_input], 1)
-      return conv_output_fc
+      return outputs
 
 
   def _base_lstm_layer(self, conv_output, last_action_reward_objective_input, initial_state_input,
