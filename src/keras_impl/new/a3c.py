@@ -13,12 +13,13 @@ class Predictor:
         return self._response_queue.get()
 
 class AgentProcess:
-    def __init__(self, id,  predictor, training_queue, env_args):
+    def __init__(self, mode, id,  predictor, training_queue, env_args):
         self.exit_flag = False
         self._env_args = env_args
         self._env = None
         self._predictor = predictor
         self._training_queue = training_queue
+        self._mode = mode
         self.id = id
         pass
 
@@ -30,6 +31,13 @@ class AgentProcess:
         while not self.exit_flag:
             self._process_episode()
 
+    def _select_action(self, prediction):
+        if self._mode == 'eval':
+            action = np.argmax(prediction)
+        else:
+            action = np.random.choice(self.actions, p=prediction)
+        return action
+
     def _process_episode(self):
         state = self._env.reset()
         done = False
@@ -38,9 +46,10 @@ class AgentProcess:
         episode_end = None
         while not self.exit_flag and not done:
             # Do one env step
-            action = self._predictor.predict(state)
-
+            (policy, value,) = self._predictor.predict(state)
+            action = self._select_action(policy)
             
+
             self._training_queue.
 
 
