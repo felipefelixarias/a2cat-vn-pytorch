@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 from environment.environment import Environment
-from model.model import UnrealModel
+from experiments.supervised.model import UnrealModel
 from experiments.supervised.environment import create_dataset
 from options import get_options
 from common.abstraction import AbstractAgent
