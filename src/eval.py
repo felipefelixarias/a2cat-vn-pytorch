@@ -13,8 +13,6 @@ class Evaluation:
         self._env = gym.make(**env_kwargs)
         self._action_space_size = self._env.action_space.n
         self._results = dict()
-
-        self._max_episode_length = 100 # TODO:remove max episode length
         self._number_of_episodes = 1000
         self._histogram_bins = 10
         self._seed = seed or random.random()
@@ -30,6 +28,7 @@ class Evaluation:
         rewards = []
         for _ in range(self._number_of_episodes):
             state = env.reset()
+            agent.reset_state()
 
             episode_length = 0
             total_reward = 0
@@ -105,7 +104,7 @@ def run_evaluation(agents):
         outputFile.flush()
 
 if __name__ == '__main__':
-    run_evaluation(lambda action_space_size: create_baselines(action_space_size))
+    # run_evaluation(lambda action_space_size: create_baselines(action_space_size))
     def run_dqn(action_space_size, **kwargs):
         from experiments.dqn.dqn_keras import DeepQAgent
 
@@ -115,7 +114,15 @@ if __name__ == '__main__':
     def run_supervised_deterministic(action_space_size, **kwargs):
         from experiments.supervised.experiment import SupervisedAgent
         return [SupervisedAgent(action_space_size, './checkpoints', is_deterministic = True)]
+
+    def run_unreal(action_space_size, **kwargs):
+        from unreal.agent import UnrealAgent
+        return [UnrealAgent(action_space_size, use_goal=True, use_lstm=False)]
+
+    def run_a3c(action_space_size, **kwargs):
+        from unreal.agent import UnrealAgent
+        return [UnrealAgent(action_space_size, use_goal=True, use_lstm=False, use_pixel_change=False, use_reward_prediction=False, use_value_replay=False)]
     
-    #run_evaluation(run_supervised_deterministic) 
+    run_evaluation(run_a3c) 
 
     
