@@ -156,7 +156,9 @@ class DeepQModel(BaseModel):
         super().__init__(*args, **kwargs)
         pass
 
-    def _initialize(self, model):
+    def _initialize(self):
+        model = self._build_net()
+
         adventage = Dense(
             units=self._action_space_size,
             activation=None,

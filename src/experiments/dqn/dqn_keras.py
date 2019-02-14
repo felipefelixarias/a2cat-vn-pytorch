@@ -312,19 +312,15 @@ class Application:
         learning.run()
 
 class DeepQAgent(AbstractAgent):
-    def __init__(self, path):
-        self._load(path)
+    def __init__(self, action_space_size, path):
+        super().__init__('deep-q')
+        self._load(action_space_size, path)
 
-    def _load(self, path):
-        import json
-
-        with open(os.path.join(path, 'config.json')) as f:
-            config = json.load(f)
-
-        self._action_space_size = config['action_space_size']
+    def _load(self, action_space_size, path):
+        self._action_space_size = action_space_size
         self._model = DeepQModel(
             action_space_size = self._action_space_size,
-            image_size = config['image_size'],
+            image_size = (84, 84),
             head = 'dqn',
             name = 'net',
             device = '/cpu:0',
@@ -336,7 +332,7 @@ class DeepQAgent(AbstractAgent):
         image = state.get('image')
         goal = state.get('goal')
         action_reward = ExperienceFrame.concat_action_and_reward(last_action, self._action_space_size, last_reward, None)
-        return np.argmax(main_qn.model.predict([[image], [goal], [action_reward]]))[0]
+        return np.argmax(self._model.model.predict([[image], [goal], [action_reward]]))
 
 
 if __name__ == '__main__':

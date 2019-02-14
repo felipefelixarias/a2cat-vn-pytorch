@@ -11,6 +11,8 @@ from environment.environment import Environment
 from model.model import UnrealModel
 from experiments.supervised.environment import create_dataset
 from options import get_options
+from common.abstraction import AbstractAgent
+from train.experience import ExperienceFrame
 
 USE_GPU = True # To use GPU, set True
 
@@ -116,7 +118,7 @@ class Application(object):
     sample = iterator.get_next()
 
     epochs = 1
-    while epochs <= 20:
+    while epochs <= 50:
         print('epoch %s started' % epochs)
         self.sess.run(iterator.initializer)
         total_loss = 0
@@ -145,6 +147,43 @@ class Application(object):
         
         epochs += 1
     self.save()
+
+
+class SupervisedAgent(AbstractAgent):
+  def __init__(self, action_space_size, path, is_deterministic = True):
+    super().__init__('supervised-%s' % ('deterministic' if is_deterministic else 'stochastic'))
+    self._action_space_size = action_space_size
+    self._net = UnrealModel(action_space_size,
+      0,
+      -1,
+      use_lstm = False,
+      use_pixel_change = False,
+      use_value_replay = False,
+      use_reward_prediction = False,
+      use_goal_input = True,
+      pixel_change_lambda = 0,
+      entropy_beta = 0,
+      device = '/cpu:0')
+    
+    self._predict = tf.argmax(self._net.base_pi_without_softmax, axis = 1)
+    self._saver = tf.train.Saver(self._net.get_vars(), max_to_keep=0)
+    self._session = tf.Session(config = tf.ConfigProto(log_device_placement=False, allow_soft_placement=True))
+    
+    self._session.run(tf.global_variables_initializer())
+
+    checkpoint = tf.train.get_checkpoint_state(path)
+    self._saver.restore(self._session, checkpoint.model_checkpoint_path)
+    
+  def act(self, state, last_action, last_reward, **kwargs):
+    feed_dict = {
+      self._net.base_input: [state['image']],
+      self._net.goal_input: [state['goal']],
+      self._net.base_last_action_reward_input: [ExperienceFrame.concat_action_and_reward(last_action, self._action_space_size, last_reward, None)]
+    }
+
+    action = self._session.run(self._predict, feed_dict = feed_dict)[0]
+    return action
+
 
 if __name__ == '__main__':
     Application().run()

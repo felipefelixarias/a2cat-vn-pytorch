@@ -30,11 +30,17 @@ class Evaluation:
             episode_length = 0
             total_reward = 0
             done = False
+
+            last_action = None
+            last_reward = 0.0
             while not done and episode_length < self._max_episode_length:
-                action = agent.act(state)
+                action = agent.act(state, last_action = last_action, last_reward = last_reward)
                 state, reward, done, _ = self._env.process(action)
                 total_reward += reward
                 episode_length += 1
+
+                last_action = action
+                last_reward = reward
 
             episode_lengths.append(episode_length)
             rewards.append(reward)
@@ -101,12 +107,16 @@ def run_evaluation(agents):
 
 if __name__ == '__main__':
     # run_evaluation(lambda action_space_size: create_baselines(action_space_size))
-    def run_dqn(**kwargs):
+    def run_dqn(action_space_size, **kwargs):
         from experiments.dqn.dqn_keras import DeepQAgent
 
-        agent = DeepQAgent('./checkpoints')
+        agent = DeepQAgent(action_space_size, './checkpoints')
         return [agent]
+
+    def run_supervised_deterministic(action_space_size, **kwargs):
+        from experiments.supervised.experiment import SupervisedAgent
+        return [SupervisedAgent(action_space_size, './checkpoints', is_deterministic = True)]
     
-    run_evaluation(run_dqn) 
+    run_evaluation(run_supervised_deterministic) 
 
     

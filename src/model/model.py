@@ -164,7 +164,7 @@ class UnrealModel(object):
       # (unroll_step, 256)
 
       outputs = tf.concat([conv_output_fc, last_action_reward_objective_input], 1)
-      return outputs
+      return conv_output_fc # TODO:remove
 
 
   def _base_lstm_layer(self, conv_output, last_action_reward_objective_input, initial_state_input,
