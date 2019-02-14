@@ -4,14 +4,19 @@ import tensorflow as tf
 import functools
 import os, sys
 
-from common.abstraction import AbstractAgent
-import keras.backend as K
-
 if __name__ == '__main__':
     import os,sys,inspect
     currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
     parentdir = os.path.dirname(os.path.dirname(currentdir))
     sys.path.insert(0,parentdir) 
+
+from common.abstraction import AbstractAgent
+from common.env_wrappers import UnrealObservationWrapper
+import keras.backend as K
+
+import gym
+import gym_maze
+
 
 from model.model_keras import DeepQModel
 from environment.environment import Environment
@@ -45,7 +50,7 @@ class DoubleQLearning:
                 device,
                 batch_size,
                 **kwargs):
-        self._env = env
+        self._env = UnrealObservationWrapper(env)
         self._checkpoint_dir = checkpoint_dir
         self._episode_length = episode_length
         self._pre_train_steps = pre_train_steps
@@ -66,10 +71,10 @@ class DoubleQLearning:
         self._main_weights_file = self._checkpoint_dir + "/main_weights.h5" # File to save our main weights to
         self._target_weights_file = self._checkpoint_dir + "/target_weights.h5" # File to save our target weights to
 
-    def _process_state(self, state, action = None, reward = 0):
-        return {'image': state['image'], 
-            'goal': state['goal'], 
-            'action_reward': ExperienceFrame.concat_action_and_reward(action, self._env.action_space.n, reward, state)}
+    def _process_state(self, state):
+        return {'image': state['observation'], 
+            'goal': state['desired_goal'], 
+            'action_reward': state['last_action_reward']}
 
     def _train_on_experience(self, main_qn, target_qn, experience_replay, t):
         # Train batch is [[state,action,reward,next_state,done],...]
@@ -211,7 +216,7 @@ class DoubleQLearning:
 
             # Take the action and retrieve the next state, reward and done
             next_state, reward, done, _ = self._env.step(action)
-            next_state = self._process_state(next_state, action, reward)
+            next_state = self._process_state(next_state)
 
             episode_buffer.append([state,action,reward,next_state,done])
             sum_rewards += reward
@@ -292,23 +297,23 @@ class Application:
     def run(self):
         
         device = "/gpu:0"
-        env = Environment.create_environment('maze', 'gr')
+        env = gym.make('GoalMaze-v0')
 
         kwargs = dict(
-            action_space_size = env.get_action_size(),
+            action_space_size = env.action_space.n,
             image_size = (84, 84,),
             **self._flags.flag_values_dict()
         )
 
         model_fn = lambda name, device: DeepQModel(
-                action_space_size = env.get_action_size(),
+                action_space_size = env.action_space.n,
                 image_size = (84, 84,),
                 head = 'dqn',
                 name = 'net',
                 device = device,
             )
 
-        learning = DoubleQLearning(model_fn, env.get_env(), device = device, **kwargs)
+        learning = DoubleQLearning(model_fn, env, device = device, **kwargs)
         learning.run()
 
 class DeepQAgent(AbstractAgent):
@@ -326,12 +331,15 @@ class DeepQAgent(AbstractAgent):
             device = '/cpu:0',
         )
 
-        self._model.model.load_weights(os.path.join(path, 'target_weights.h5'))        
+        self._model.model.load_weights(os.path.join(path, 'target_weights.h5'))
 
-    def act(self, state, last_action = None, last_reward = 0.0, **kwargs):
-        image = state.get('image')
-        goal = state.get('goal')
-        action_reward = ExperienceFrame.concat_action_and_reward(last_action, self._action_space_size, last_reward, None)
+    def wrap_env(self, env):
+        return UnrealObservationWrapper(env)
+
+    def act(self, state):
+        image = state.get('observation')
+        goal = state.get('desired_goal')
+        action_reward = state.get('last_action_reward')
         return np.argmax(self._model.model.predict([[image], [goal], [action_reward]]))
 
 

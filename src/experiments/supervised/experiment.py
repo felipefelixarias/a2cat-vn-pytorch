@@ -12,7 +12,10 @@ from model.model import UnrealModel
 from experiments.supervised.environment import create_dataset
 from options import get_options
 from common.abstraction import AbstractAgent
+from common.env_wrappers import UnrealObservationWrapper
 from train.experience import ExperienceFrame
+
+import gym
 
 USE_GPU = True # To use GPU, set True
 
@@ -165,7 +168,7 @@ class SupervisedAgent(AbstractAgent):
       entropy_beta = 0,
       device = '/cpu:0')
     
-    self._predict = tf.argmax(self._net.base_pi_without_softmax, axis = 1)
+    self._predict = self._net.base_pi
     self._saver = tf.train.Saver(self._net.get_vars(), max_to_keep=0)
     self._session = tf.Session(config = tf.ConfigProto(log_device_placement=False, allow_soft_placement=True))
     
@@ -173,15 +176,24 @@ class SupervisedAgent(AbstractAgent):
 
     checkpoint = tf.train.get_checkpoint_state(path)
     self._saver.restore(self._session, checkpoint.model_checkpoint_path)
-    
-  def act(self, state, last_action, last_reward, **kwargs):
+
+  def wrap_env(self, env):
+    return UnrealObservationWrapper(env)  
+
+  def act(self, state):
+    image = state.get('observation')
+    goal = state.get('desired_goal')
+    action_reward = state.get('last_action_reward')
+
     feed_dict = {
-      self._net.base_input: [state['image']],
-      self._net.goal_input: [state['goal']],
-      self._net.base_last_action_reward_input: [ExperienceFrame.concat_action_and_reward(last_action, self._action_space_size, last_reward, None)]
+      self._net.base_input: [image],
+      self._net.goal_input: [goal],
+      self._net.base_last_action_reward_input: [action_reward]
     }
 
-    action = self._session.run(self._predict, feed_dict = feed_dict)[0]
+    policy = self._session.run(self._predict, feed_dict = feed_dict)[0]
+    #action = np.random.choice(self._action_space_size,p=policy)
+    action = np.argmax(policy)
     return action
 
 

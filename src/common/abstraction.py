@@ -6,8 +6,11 @@ class AbstractAgent:
         self.name = name
 
     @abc.abstractclassmethod
-    def act(self, state, **kwargs):
+    def act(self, state):
         pass
+
+    def wrap_env(self, env):
+        return env
 
 class RandomAgent(AbstractAgent):
     def __init__(self, action_space_size, seed = None):
@@ -15,10 +18,10 @@ class RandomAgent(AbstractAgent):
         self._action_space_size = action_space_size
         self._random = random.Random(x = seed)
 
-    def act(self, state, **kwargs):
+    def act(self):
         return self._random.randrange(0, self._action_space_size)
 
 class LambdaAgent(AbstractAgent):
     def __init__(self, name, act_fn, **kwargs):
         super().__init__(name)
-        self.act = lambda state, **kwargs: act_fn(state, **kwargs)
+        self.act = lambda state: act_fn(state, **kwargs)
