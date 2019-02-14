@@ -29,8 +29,7 @@ class UnrealModel(object):
   UNREAL algorithm network model.
   """
   def __init__(self,
-               action_size,
-               objective_size,
+               action_space_size,
                thread_index, # -1 for global
                use_lstm,
                use_pixel_change,
@@ -44,8 +43,7 @@ class UnrealModel(object):
                for_display=False,
                stack_last_frames = None):
     self._device = device
-    self._action_size = action_size
-    self._objective_size = objective_size
+    self._action_size = action_space_size
     self._thread_index = thread_index
     self._use_lstm = use_lstm
     self._use_pixel_change = use_pixel_change
@@ -58,6 +56,10 @@ class UnrealModel(object):
     self._image_shape = [84,84] # Note much of network parameters are hard coded so if we change image shape, other parameters will need to change
 
     self._create_network(for_display)
+    self.settings = dict(
+      action_space_size = self._action_size,
+
+    )
     
   def _create_network(self, for_display):
     scope_name = "net_{0}".format(self._thread_index)
@@ -94,8 +96,8 @@ class UnrealModel(object):
     # State (Base image input)
     self.base_input = tf.placeholder("float", [None, self._image_shape[0], self._image_shape[1], 3], name='base_input')
 
-    # Last action and reward and objective
-    self.base_last_action_reward_input = tf.placeholder("float", [None, self._action_size+1+self._objective_size])
+    # Last action and reward
+    self.base_last_action_reward_input = tf.placeholder("float", [None, self._action_size+1])
 
     if self._use_goal_input:
       self.goal_input = tf.placeholder("float", [None, self._image_shape[0], self._image_shape[1], 3], name='goal_input')
@@ -185,7 +187,7 @@ class UnrealModel(object):
 
       # (unroll_step, 256+action_size+1+objective_size)
 
-      lstm_input_reshaped = tf.reshape(lstm_input, [1, -1, 256+self._action_size+1+self._objective_size])
+      lstm_input_reshaped = tf.reshape(lstm_input, [1, -1, 256+self._action_size+1])
       # (1, unroll_step, 256+action_size+1+objective_size)
 
       lstm_outputs, lstm_state = tf.nn.dynamic_rnn(self.lstm_cell,
