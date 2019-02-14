@@ -4,6 +4,7 @@ import tensorflow as tf
 import functools
 import os, sys
 
+from common.abstraction import AbstractAgent
 import keras.backend as K
 
 if __name__ == '__main__':
@@ -293,6 +294,12 @@ class Application:
         device = "/gpu:0"
         env = Environment.create_environment('maze', 'gr')
 
+        kwargs = dict(
+            action_space_size = env.get_action_size(),
+            image_size = (84, 84,),
+            **self._flags.flag_values_dict()
+        )
+
         model_fn = lambda name, device: DeepQModel(
                 action_space_size = env.get_action_size(),
                 image_size = (84, 84,),
@@ -301,8 +308,36 @@ class Application:
                 device = device,
             )
 
-        learning = DoubleQLearning(model_fn, env.get_env(), device = device, **self._flags.flag_values_dict())
+        learning = DoubleQLearning(model_fn, env.get_env(), device = device, **kwargs)
         learning.run()
+
+class DeepQAgent(AbstractAgent):
+    def __init__(self, path):
+        self._load(path)
+
+    def _load(self, path):
+        import json
+
+        with open(os.path.join(path, 'config.json')) as f:
+            config = json.load(f)
+
+        self._action_space_size = config['action_space_size']
+        self._model = DeepQModel(
+            action_space_size = self._action_space_size,
+            image_size = config['image_size'],
+            head = 'dqn',
+            name = 'net',
+            device = '/cpu:0',
+        )
+
+        self._model.model.load_weights(os.path.join(path, 'target_weights.h5'))        
+
+    def act(self, state, last_action = None, last_reward = 0.0, **kwargs):
+        image = state.get('image')
+        goal = state.get('goal')
+        action_reward = ExperienceFrame.concat_action_and_reward(last_action, self._action_space_size, last_reward, None)
+        return np.argmax(main_qn.model.predict([[image], [goal], [action_reward]]))[0]
+
 
 if __name__ == '__main__':
     flags = get_options()
