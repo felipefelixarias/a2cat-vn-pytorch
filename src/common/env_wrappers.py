@@ -16,7 +16,7 @@ class ColorObservationWrapper(ObservationWrapper):
         if type(space_ref) == gym.spaces.Dict:
             return { key: self._transform_observation(observation[key], s_ref) for key, s_ref in space_ref.spaces.items()}
         else:
-            return (observation.astype(np.float32) - float(self._original_space.low)) / float(self._original_space.high - self._original_space.low)
+            return np.divide(observation.astype(np.float32) - space_ref.low, space_ref.high - space_ref.low)
 
     def _transform_space(self, space):
         if type(space) == gym.spaces.Dict:
@@ -85,8 +85,11 @@ class UnrealObservationWrapper(Wrapper):
     def reset(self, **kwargs):
         observation = self.env.reset(**kwargs)
         
-        self._last_action_reward = np.zeros(shape = (self.action_space.n,), dtype = np.float32)
-        self._last_observation = observation
+        self._last_action_reward = np.zeros(shape = (self.action_space.n + 1,), dtype = np.float32)
+        if self._is_dict:
+            self._last_observation = observation['observation']
+        else:
+            self._last_observation = observation
         return self.observation(observation)
 
     def observation(self, observation):

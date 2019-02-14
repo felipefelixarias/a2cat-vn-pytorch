@@ -1,6 +1,8 @@
 from environment.environment import Environment
 from common.abstraction import LambdaAgent, RandomAgent
 import numpy as np
+import gym
+import gym_maze
 
 def create_baselines(action_space_size, seed = None):
     return [RandomAgent(action_space_size)] + \
@@ -8,8 +10,8 @@ def create_baselines(action_space_size, seed = None):
 
 class Evaluation:
     def __init__(self, env_kwargs, seed = None):
-        self._env = Environment.create_environment(**env_kwargs)
-        self._action_space_size = self._env.get_action_size()
+        self._env = gym.make(**env_kwargs)
+        self._action_space_size = self._env.action_space.n
         self._results = dict()
 
         self._max_episode_length = 100 # TODO:remove max episode length
@@ -21,26 +23,23 @@ class Evaluation:
         if hasattr(self._env, 'seed'):
             self._env.seed(self._seed)
 
+        env = self._env
+        env = agent.wrap_env(env)
+
         episode_lengths = []
         rewards = []
         for _ in range(self._number_of_episodes):
-            self._env.reset()
-            state = self._env.last_state # TODO: change to env
+            state = env.reset()
 
             episode_length = 0
             total_reward = 0
             done = False
 
-            last_action = None
-            last_reward = 0.0
-            while not done and episode_length < self._max_episode_length:
-                action = agent.act(state, last_action = last_action, last_reward = last_reward)
-                state, reward, done, _ = self._env.process(action)
+            while not done and (env.spec.timestep_limit is not None and episode_length < env.spec.timestep_limit):
+                action = agent.act(state)
+                state, reward, done, _ = env.step(action)
                 total_reward += reward
                 episode_length += 1
-
-                last_action = action
-                last_reward = reward
 
             episode_lengths.append(episode_length)
             rewards.append(reward)
@@ -68,7 +67,7 @@ def run_evaluation(agents):
     from os import path
     import os
 
-    env_kwargs = dict(env_type = 'maze', env_name = 'gr')
+    env_kwargs = dict(id = 'GoalMaze-v0')
     seed = 1
     bins = 10
     results_dir = './results'
@@ -77,7 +76,7 @@ def run_evaluation(agents):
 
 
     eval = Evaluation(env_kwargs, seed = seed)
-    agents = agents(action_space_size = eval._env.get_action_size())
+    agents = agents(action_space_size = eval._env.action_space.n)
     for agent in agents:
         eval.run(agent)
 
