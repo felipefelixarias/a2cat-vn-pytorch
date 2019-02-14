@@ -18,7 +18,7 @@ class RandomAgent(AbstractAgent):
         self._action_space_size = action_space_size
         self._random = random.Random(x = seed)
 
-    def act(self):
+    def act(self, state):
         return self._random.randrange(0, self._action_space_size)
 
 class LambdaAgent(AbstractAgent):
