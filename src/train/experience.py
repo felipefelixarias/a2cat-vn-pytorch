@@ -43,11 +43,11 @@ class ExperienceFrame(object):
       action_reward[action] = 1.0
 
     action_reward[-1] = float(reward)
-    objective = state.get('objective')
-    if objective is not None:
-      return np.concatenate((action_reward, objective))
-    else:
-      return action_reward
+    #objective = state.get('objective')
+    #if objective is not None:
+    #  return np.concatenate((action_reward, objective))
+    #else:
+    return action_reward
 
 class Experience(object):
   def __init__(self, history_size):

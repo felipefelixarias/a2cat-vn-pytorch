@@ -36,6 +36,30 @@ RUN pip install /artifact/DeepMind_Lab-1.0-py3-none-any.whl
 # Output container
 FROM nvidia/cuda:9.0-base
 
+# Pick up some TF dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+        cuda-command-line-tools-9-0 \
+        cuda-cublas-9-0 \
+        cuda-cufft-9-0 \
+        cuda-curand-9-0 \
+        cuda-cusolver-9-0 \
+        cuda-cusparse-9-0 \
+        curl \
+        libcudnn7=7.2.1.38-1+cuda9.0 \
+        libnccl2=2.2.13-1+cuda9.0 \
+        libfreetype6-dev \
+        libhdf5-serial-dev \
+        libpng12-dev \
+        libzmq3-dev \
+        pkg-config \
+        rsync \
+        software-properties-common \
+        unzip \
+        && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 RUN apt-get update && apt-get install -y \
   lua5.1 \
   liblua5.1-0-dev \
