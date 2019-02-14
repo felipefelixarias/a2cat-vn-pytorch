@@ -104,7 +104,7 @@ def run_evaluation(agents):
         outputFile.flush()
 
 if __name__ == '__main__':
-    # run_evaluation(lambda action_space_size: create_baselines(action_space_size))
+    #run_evaluation(lambda action_space_size: create_baselines(action_space_size))
     def run_dqn(action_space_size, **kwargs):
         from experiments.dqn.dqn_keras import DeepQAgent
 
@@ -123,6 +123,6 @@ if __name__ == '__main__':
         from unreal.agent import UnrealAgent
         return [UnrealAgent(action_space_size, use_goal=True, use_lstm=False, use_pixel_change=False, use_reward_prediction=False, use_value_replay=False)]
     
-    run_evaluation(run_a3c) 
+    run_evaluation(run_supervised_deterministic) 
 
     

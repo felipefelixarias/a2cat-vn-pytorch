@@ -157,7 +157,6 @@ class SupervisedAgent(AbstractAgent):
     super().__init__('supervised-%s' % ('deterministic' if is_deterministic else 'stochastic'))
     self._action_space_size = action_space_size
     self._net = UnrealModel(action_space_size,
-      0,
       -1,
       use_lstm = False,
       use_pixel_change = False,
@@ -192,8 +191,8 @@ class SupervisedAgent(AbstractAgent):
     }
 
     policy = self._session.run(self._predict, feed_dict = feed_dict)[0]
-    #action = np.random.choice(self._action_space_size,p=policy)
-    action = np.argmax(policy)
+    action = np.random.choice(self._action_space_size,p=policy)
+    # action = np.argmax(policy)
     return action
 
 
