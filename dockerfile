@@ -31,18 +31,29 @@ RUN cd /toolbox/lab && \
   mkdir /artifact && \
   ./bazel-bin/python/pip_package/build_pip_package /artifact
 
-
+RUN pip install /artifact/DeepMind_Lab-1.0-py3-none-any.whl
 
 # Output container
-FROM tensorflow/tensorflow:latest-py3
-RUN apt-get update && apt-get install -y \
-#  libffi \
-  gettext \
-  freeglut3 \
- # libsdl2 \
-  libosmesa6 \
-  python3-numpy
+FROM nvidia/cuda:9.0-base
 
+RUN apt-get update && apt-get install -y \
+  lua5.1 \
+  liblua5.1-0-dev \
+  libffi-dev \
+  gettext \
+  freeglut3-dev \
+  libsdl2-dev \
+  libosmesa6-dev \
+  python3 \
+  python3-pip \
+  python3-dev \
+  python3-numpy \
+  realpath \
+  build-essential \
+  zip \
+  git
+
+RUN pip3 install --user --upgrade tensorflow-gpu
 
 
 # Redirect display
@@ -51,4 +62,8 @@ ENV DISPLAY :1
 
 # Install package
 COPY --from=artefact-builder /artifact/DeepMind_Lab-1.0-py3-none-any.whl /tmp/DeepMind_Lab-1.0-py3-none-any.whl
-RUN pip install /tmp/DeepMind_Lab-1.0-py3-none-any.whl
+RUN pip3 install /tmp/DeepMind_Lab-1.0-py3-none-any.whl
+
+# Install gym and other packages
+RUN pip3 install gym && \
+  pip3 install git+https://github.com/jkulhanek/gym-maze-env.git

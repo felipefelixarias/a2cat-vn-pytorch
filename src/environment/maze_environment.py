@@ -31,6 +31,7 @@ class MazeEnvironment(environment.Environment):
                      "--+----" \
                      "-----++" 
     
+    self._random = random.Random()
     self._setup()
     self.reset()
 
@@ -63,9 +64,12 @@ class MazeEnvironment(environment.Environment):
         else:
           pass
 
+  def seed(self, seed):
+    self._random.seed(seed)
+
   def _get_random_position(self, types = ['-', 'G']):
     goal_potentials = list(self._iter_pos(types))
-    return random.choice(goal_potentials)
+    return self._random.choice(goal_potentials)
 
   def _build_graph(self, goal):
     distances = np.ndarray((self._maze_size, self._maze_size), dtype=np.int32)
