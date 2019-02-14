@@ -12,6 +12,9 @@ class AbstractAgent:
     def wrap_env(self, env):
         return env
 
+    def reset_state(self):
+        pass
+
 class RandomAgent(AbstractAgent):
     def __init__(self, action_space_size, seed = None):
         super().__init__('random')
