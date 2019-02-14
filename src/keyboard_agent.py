@@ -5,38 +5,43 @@ import matplotlib.image as mpimg
 import numpy as np
 
 from options import get_options
-from environment.environment import Environment
+from common.env_wrappers import ColorObservationWrapper
+import gym
+import gym_maze
 
 flags = get_options('keyboard')
 
 class Explorer:
     def __init__(self):
-        self.env = Environment.create_environment(flags.env_type, flags.env_name)
+        self.env = ColorObservationWrapper(gym.make('GoalMaze-v0'))
+        self.is_goal = isinstance(self.env.observation_space, gym.spaces.Dict)
+
+        self.keyboard_map = {key: i for (i, key) in enumerate(['up', 'down', 'left', 'right']) }
 
     def show(self):
         (ax1, ax2) = (None, None)
-        if self.env.can_use_goal():
+        if self.is_goal:
             fig, (ax1, ax2) = plt.subplots(1, 2)
         else:
             fig = plt.figure()
         
-        def redraw():
-            if self.env.can_use_goal():
-                ax1.imshow(self.env.last_state['image'])
-                ax2.imshow(self.env.last_state['goal'])
+        def redraw(state):
+            if self.is_goal:
+                ax1.imshow(state['observation'])
+                ax2.imshow(state['desired_goal'])
             else:
-                plt.imshow(self.env.last_state['image'])
+                plt.imshow(state)
             fig.canvas.draw()
-        redraw()
+        redraw(self.env.reset())
 
         def press(event):
-            
-
             if event.key == 's':
-                mpimg.imsave("output.png", self.env.last_state['image'])
+                mpimg.imsave("output.png", state['observation'])
             elif event.key in ['up', 'down', 'right', 'left']:
-                self.env.process(self.env.get_keyboard_map()[event.key])
-                redraw()
+                state, _, done, _ = self.env.step(self.keyboard_map[event.key])
+                if done:
+                    state = self.env.reset()
+                redraw(state)
 
             pass
 
