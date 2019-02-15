@@ -52,7 +52,7 @@ def render_maze(env, sample):
     else:
         return [state / 255.0]
 
-def build_single_goal_dataset(deterministic = False):
+def build_single_goal_dataset(deterministic = True):
     import gym
     import gym_maze
 
@@ -70,18 +70,35 @@ def build_single_goal_dataset(deterministic = False):
     else:
         actions_data = actions.astype(np.float)
 
-    actions = lambda pos: actions_data[pos[0], pos[1], :]
+    actions = lambda pos, _: actions_data[pos[0], pos[1], :]
 
     positions = [(x, goalenv._goal_pos) for x in goalenv._iter_pos()]
     return (positions, partial(render_maze, goalenv), actions)
 
-def build_multiple_goal_dataset():
+def build_multiple_goal_dataset(deterministic = True):
     import gym
     import gym_maze
 
     goalenv = gym_maze.GoalMazeEnv()
+    action_dict = {}
+    for goal in list(goalenv._iter_pos()):
+        goalenv._goal_pos = goal
+        actions, _ = build_graph_from_env(goalenv)
+
+        if deterministic:
+            shape = actions.shape
+            actions = actions.reshape((-1, 4))
+            actions_data = np.zeros(actions.shape, dtype = np.float32)
+            actions_data[np.arange(actions.shape[0]), np.argmax(actions == 1, 1)] = 1
+            actions_data = actions_data.reshape(shape)
+        else:
+            actions_data = actions.astype(np.float)
+
+        action_dict[goal] = actions_data
+
+    actions = lambda pos, goal: action_dict[goal][pos[0], pos[1], :]
     positions = [(x, y) for x in goalenv._iter_pos() for y in goalenv._iter_pos() if x != y]
-    return (positions, partial(render_maze, goalenv),)
+    return (positions, partial(render_maze, goalenv), actions)
 
 class Dataset:
     def __init__(self, dataset, batchsize):
@@ -103,12 +120,12 @@ class Dataset:
             
             batch_render = [self.render_maze(x) for x in batch]
             data = list(map(lambda *x: np.array(x), *batch_render))
-            labels = np.array([self.actions(x[0]) for x in batch])
+            labels = np.array([self.actions(*x) for x in batch])
             return (data, labels)
 
 
     def numpy(self):
         batch_render = [self.render_maze(x) for x in self.data]
         data = list(map(lambda *x: np.array(x), *batch_render))
-        labels = np.array([self.actions(x[0]) for x in self.data])
+        labels = np.array([self.actions(*x) for x in self.data])
         return (data, labels)

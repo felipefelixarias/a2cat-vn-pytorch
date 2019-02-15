@@ -67,7 +67,7 @@ def run_evaluation(agents):
     from os import path
     import os
 
-    env_kwargs = dict(id = 'GoalMaze-v0')
+    env_kwargs = dict(id = 'GoalMaze-v0', fixed_goal = True)
     seed = 1
     bins = 10
     results_dir = './results'
@@ -114,7 +114,7 @@ if __name__ == '__main__':
 
     def run_supervised(action_space_size, **kwargs):
         from supervised.experiment import SupervisedAgent, ShortestPathAgent
-        return [SupervisedAgent(), ShortestPathAgent()]
+        return [SupervisedAgent(False), SupervisedAgent(True), ShortestPathAgent()]
 
     def run_unreal(action_space_size, **kwargs):
         from unreal.agent import UnrealAgent
