@@ -11,6 +11,7 @@ def create_baselines(action_space_size, seed = None):
 class Evaluation:
     def __init__(self, env_kwargs, seed = None):
         self._env = gym.make(**env_kwargs)
+        self._env = gym.wrappers.TimeLimit(self._env, max_episode_steps=50)
         self._action_space_size = self._env.action_space.n
         self._results = dict()
         self._number_of_episodes = 1000
@@ -123,6 +124,8 @@ if __name__ == '__main__':
         from unreal.agent import UnrealAgent
         return [UnrealAgent(action_space_size, use_goal=True, use_lstm=False, use_pixel_change=False, use_reward_prediction=False, use_value_replay=False)]
     
-    run_evaluation(run_supervised_deterministic) 
+    #run_evaluation(run_dqn)
+    #run_evaluation(run_supervised_deterministic)
+    run_evaluation(run_a3c)
 
     

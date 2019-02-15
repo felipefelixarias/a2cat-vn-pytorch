@@ -413,26 +413,26 @@ class UnrealModel(object):
             self.base_lstm_state_out = tf.contrib.rnn.LSTMStateTuple(np.zeros([1, 256]),
                                                                                                                              np.zeros([1, 256]))
 
-    def run_base_policy_and_value(self, sess, s_t, last_action_reward):
+    def run_base_policy_and_value(self, sess, state):
         # This run_base_policy_and_value() is used when forward propagating.
         # so the step size is 1.
         if self._use_lstm:
-            feed_dict = {self.base_input : [s_t['image']],
-                self.base_last_action_reward_input : [last_action_reward],
+            feed_dict = {self.base_input : [state['observation']],
+                self.base_last_action_reward_input : [state['last_action_reward']],
                 self.base_initial_lstm_state0 : self.base_lstm_state_out[0],
                 self.base_initial_lstm_state1 : self.base_lstm_state_out[1]}
 
             if self._use_goal_input:
-                feed_dict[self.goal_input] = [s_t['goal']]
+                feed_dict[self.goal_input] = [state['desired_goal']]
 
             pi_out, v_out, self.base_lstm_state_out = sess.run( [self.base_pi, self.base_v, self.base_lstm_state],
                                                                                                                     feed_dict = feed_dict )
         else:
-            feed_dict = {self.base_input : [s_t['image']],
+            feed_dict = {self.base_input : [state['observation']],
                 self.base_last_action_reward_input : [last_action_reward]}
 
             if self._use_goal_input:
-                feed_dict[self.goal_input] = [s_t['goal']]
+                feed_dict[self.goal_input] = [state['desired_goal']]
 
             pi_out, v_out = sess.run([self.base_pi, self.base_v],
                                                              feed_dict = feed_dict)
@@ -441,26 +441,26 @@ class UnrealModel(object):
         return (pi_out[0], v_out[0])
 
     
-    def run_base_policy_value_pc_q(self, sess, s_t, last_action_reward):
+    def run_base_policy_value_pc_q(self, sess, state):
         # For display tool.
         if self._use_lstm:
-            feed_dict = {self.base_input : [s_t['image']],
-                self.base_last_action_reward_input : [last_action_reward],
+            feed_dict = {self.base_input : [state['observation']],
+                self.base_last_action_reward_input : [state['last_action_reward']],
                 self.base_initial_lstm_state0 : self.base_lstm_state_out[0],
                 self.base_initial_lstm_state1 : self.base_lstm_state_out[1]}
 
             if self._use_goal_input:
-                feed_dict[self.goal_input] = [s_t['goal']]
+                feed_dict[self.goal_input] = [state['desired_goal']]
                 
             pi_out, v_out, self.base_lstm_state_out, q_disp_out, q_max_disp_out = \
                     sess.run( [self.base_pi, self.base_v, self.base_lstm_state, self.pc_q_disp, self.pc_q_max_disp],
                                         feed_dict = feed_dict)
         else:
-            feed_dict = {self.base_input : [s_t['image']],
-                self.base_last_action_reward_input : [last_action_reward] }
+            feed_dict = {self.base_input : [state['observation']],
+                self.base_last_action_reward_input : [state['last_action_reward']] }
 
             if self._use_goal_input:
-                feed_dict[self.goal_input] = [s_t['goal']]
+                feed_dict[self.goal_input] = [state['desired_goal']]
 
             pi_out, v_out, q_disp_out, q_max_disp_out = \
                 sess.run( [self.base_pi, self.base_v, self.pc_q_disp, self.pc_q_max_disp],
@@ -470,51 +470,56 @@ class UnrealModel(object):
         return (pi_out[0], v_out[0], q_disp_out[0])
 
     
-    def run_base_value(self, sess, s_t, last_action_reward):
+    def run_base_value(self, sess, state):
         # This run_base_value() is used for calculating V for bootstrapping at the
         # end of LOCAL_T_MAX time step sequence.
         # When next sequence starts, V will be calculated again with the same state using updated network weights,
         # so we don't update LSTM state here.
         if self._use_lstm:
-            feed_dict = {self.base_input : [s_t['image']],
-                self.base_last_action_reward_input : [last_action_reward],
+            feed_dict = {self.base_input : [state['observation']],
+                self.base_last_action_reward_input : [state['last_action_reward']],
                 self.base_initial_lstm_state0 : self.base_lstm_state_out[0],
                 self.base_initial_lstm_state1 : self.base_lstm_state_out[1]}
             if self._use_goal_input:
-                feed_dict[self.goal_input] = [s_t['goal']]
+                feed_dict[self.goal_input] = [state['desired_goal']]
             
             v_out, _ = sess.run( [self.base_v, self.base_lstm_state],
                                                      feed_dict = feed_dict)
         else:
-            feed_dict = {self.base_input : [s_t['image']],
-                self.base_last_action_reward_input : [last_action_reward]}
+            feed_dict = {self.base_input : [state['observation']],
+                self.base_last_action_reward_input : [state['last_action_reward']]}
             if self._use_goal_input:
-                feed_dict[self.goal_input] = [s_t['goal']]
+                feed_dict[self.goal_input] = [state['desired_goal']]
 
             v_out = sess.run( self.base_v,
                                                 feed_dict = feed_dict)
         return v_out[0]
 
     
-    def run_pc_q_max(self, sess, s_t, last_action_reward):
-        q_max_out = sess.run( self.pc_q_max,
-                                                    feed_dict = {self.pc_input : [s_t['image']],
-                                                                             self.pc_last_action_reward_input : [last_action_reward]} )
+    def run_pc_q_max(self, sess, state):
+        q_max_out = sess.run( self.pc_q_max, feed_dict = {
+            self.pc_input: [state['observation']],
+            self.pc_last_action_reward_input: [state['last_action_reward']]
+        })
+
         return q_max_out[0]
 
     
-    def run_vr_value(self, sess, s_t, last_action_reward):
-        vr_v_out = sess.run( self.vr_v,
-                                                 feed_dict = {self.vr_input : [s_t['image']],
-                                                                            self.vr_last_action_reward_input : [last_action_reward]} )
+    def run_vr_value(self, sess, state):
+        vr_v_out = sess.run( self.vr_v, feed_dict = {
+            self.vr_input: [state['observation']],
+            self.vr_last_action_reward_input: [state['last_action_reward']]
+        })
         return vr_v_out[0]
 
     
     def run_rp_c(self, sess, state_history):
         # For display tool
-        frames = [s_t['image'] for s_t in state_history]
-        rp_c_out = sess.run( self.rp_c,
-                                                 feed_dict = {self.rp_input : frames} )
+        frames = [state['observation'] for state in state_history]
+        rp_c_out = sess.run( self.rp_c, feed_dict = {
+            self.rp_input : frames
+        })
+        
         return rp_c_out[0]
 
     

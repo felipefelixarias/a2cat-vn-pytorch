@@ -15,7 +15,8 @@ class UnrealAgent(AbstractAgent):
 
         super(UnrealAgent, self).__init__(base_name)
 
-        self.model = UnrealModel(action_space_size, 0, -1, use_lstm = use_lstm,
+        self.model = UnrealModel(action_space_size, -1, 
+                use_lstm = use_lstm,
                 use_pixel_change = use_pixel_change,
                 use_value_replay = use_value_replay,
                 use_reward_prediction = use_reward_prediction,
