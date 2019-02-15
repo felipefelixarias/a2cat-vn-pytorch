@@ -112,9 +112,9 @@ if __name__ == '__main__':
         agent = DeepQAgent(action_space_size, './checkpoints')
         return [agent]
 
-    def run_supervised_deterministic(action_space_size, **kwargs):
-        from experiments.supervised.experiment import SupervisedAgent
-        return [SupervisedAgent(action_space_size, './checkpoints', is_deterministic = True)]
+    def run_supervised(action_space_size, **kwargs):
+        from supervised.experiment import SupervisedAgent, ShortestPathAgent
+        return [SupervisedAgent(), ShortestPathAgent()]
 
     def run_unreal(action_space_size, **kwargs):
         from unreal.agent import UnrealAgent
@@ -125,7 +125,7 @@ if __name__ == '__main__':
         return [UnrealAgent(action_space_size, use_goal=True, use_lstm=False, use_pixel_change=False, use_reward_prediction=False, use_value_replay=False)]
     
     #run_evaluation(run_dqn)
-    #run_evaluation(run_supervised_deterministic)
-    run_evaluation(run_a3c)
+    run_evaluation(run_supervised)
+    #run_evaluation(run_a3c)
 
     
