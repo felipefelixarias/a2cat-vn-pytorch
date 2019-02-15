@@ -26,23 +26,24 @@ def create_model(actions):
         padding="valid",
         name="conv1")
 
-    model = Concatenate(3)([image_stream, goal_stream])
-    model = block1(model)
-
-    model = Conv2D(
+    block2 = Conv2D(
         filters=32, #TODO: test 64
         kernel_size=[4,4],
         strides=[2,2],
         activation="relu",
         padding="valid",
-        name="conv2")(model)
-    model = main_input
+        name="conv2")
+
+    image_stream = block2(block1(image_stream))
+    goal_stream = block2(block1(goal_stream))
+
+    model = Concatenate(3)([image_stream, goal_stream])
     model = Conv2D(
         filters = 32,
-        kernel_size = [12,12],
-        strides = [12,12],
-        activation = 'relu',
-        name = 'conv1'
+        kernel_size =(1,1),
+        strides = (1,1),
+        activation = "relu",
+        name = "merge"
     )(model)
 
     model = Flatten()(model)
@@ -98,14 +99,11 @@ class ShortestPathAgent(AbstractAgent):
 
 
 if __name__ == '__main__':
-    number_of_epochs = 100
+    number_of_epochs = 15
     batch_size = 32
     deterministic = True
     data, labels = utils.Dataset(utils.build_multiple_goal_dataset(deterministic), batch_size).numpy()
-    #data, labels = [np.repeat(x, 100, 0) for x in data], np.repeat(labels, 100, 0)
-
-    labels = np.eye(1122)
-    model = create_model(1122)
+    model = create_model(4)
     model.summary()
 
     name = f"supervised-{'deterministic' if deterministic else 'stochastic'}-model"
