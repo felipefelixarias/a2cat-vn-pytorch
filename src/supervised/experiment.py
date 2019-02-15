@@ -13,12 +13,12 @@ import keras
 from common.abstraction import AbstractAgent
 
 def create_model(actions):
-    main_input = Input(shape=list((84,84,)) + [3], name="main_input")
-    goal_input = Input(shape=list((84,84,)) + [3], name="goal_input")
-    inputs = [main_input, goal_input]
+    image_stream = Input(shape=list((84,84,)) + [3], name="main_input")
+    goal_stream = Input(shape=list((84,84,)) + [3], name="goal_input")
+    inputs = [image_stream, goal_stream]
 
     # Basic network
-    '''block1 = Conv2D(
+    block1 = Conv2D(
         filters=32,
         kernel_size=[8,8],
         strides=[4,4],
@@ -26,10 +26,8 @@ def create_model(actions):
         padding="valid",
         name="conv1")
 
-    image_stream = block1(main_input)
-    model = image_stream
-    #goal_stream = block1(goal_input)
-    #model = Concatenate(3)([image_stream, goal_stream])
+    model = Concatenate(3)([image_stream, goal_stream])
+    model = block1(model)
 
     model = Conv2D(
         filters=32, #TODO: test 64
@@ -37,7 +35,7 @@ def create_model(actions):
         strides=[2,2],
         activation="relu",
         padding="valid",
-        name="conv2")(model)'''
+        name="conv2")(model)
     model = main_input
     model = Conv2D(
         filters = 32,
@@ -49,10 +47,10 @@ def create_model(actions):
 
     model = Flatten()(model)
 
-    '''model = Dense(
+    model = Dense(
         units=256,
         activation="relu",
-        name="fc3")(model)'''
+        name="fc3")(model)
 
     model= Dense(
         units=actions,
@@ -65,10 +63,13 @@ def create_model(actions):
     return model
 
 class SupervisedAgent(AbstractAgent):
-    def __init__(self):
-        super().__init__('supervised')
-        self.model = model_from_json(open('./checkpoints/supervised-model.json', 'r').read())
-        self.model.load_weights('./checkpoints/supervised-model.h5')
+    def __init__(self, deterministic = True):
+        name = f"supervised-{'deterministic' if deterministic else 'stochastic'}"
+        super().__init__(name)
+
+        self.model = model_from_json(open('./checkpoints/%s-model.json' % name, 'r').read())
+        self.model.load_weights('./checkpoints/%s-model.h5' % name)
+        self.model.summary()
 
     def act(self, state):
         input_data = [[state['observation']]]#, [state['desired_goal']]]
@@ -97,17 +98,22 @@ class ShortestPathAgent(AbstractAgent):
 
 
 if __name__ == '__main__':
-    number_of_epochs = 10
+    number_of_epochs = 100
     batch_size = 32
-    data, labels = utils.Dataset(utils.build_single_goal_dataset(), batch_size).numpy()
-    data, labels = [np.repeat(x, 100, 0) for x in data], np.repeat(labels, 100, 0)
-    model = create_model(4)
+    deterministic = True
+    data, labels = utils.Dataset(utils.build_multiple_goal_dataset(deterministic), batch_size).numpy()
+    #data, labels = [np.repeat(x, 100, 0) for x in data], np.repeat(labels, 100, 0)
+
+    labels = np.eye(1122)
+    model = create_model(1122)
     model.summary()
 
+    name = f"supervised-{'deterministic' if deterministic else 'stochastic'}-model"
+
     model.fit(x = data, y = labels, epochs=number_of_epochs, batch_size = batch_size)
-    model.save_weights('./checkpoints/supervised-model.h5')
+    model.save_weights('./checkpoints/%s.h5' % name)
     json_string = model.to_json()
-    with open('./checkpoints/supervised-model.json', 'w+') as f:
+    with open('./checkpoints/%s.json' % name, 'w+') as f:
         f.write(json_string)
         f.flush()
 
