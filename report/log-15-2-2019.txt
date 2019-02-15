@@ -1,0 +1,4 @@
+Supervised learning for maze env. implementation
+- Implemented deterministic and non-deterministic strategies for maze environment (fixed, fixed goal)
+- With the deterministic strategy the loss was 0
+- With the non-deterministic strategy, all actions were also optimal
