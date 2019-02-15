@@ -27,7 +27,7 @@ class Agent:
         #    model_kwargs.update(self._model_kwargs)
         model = self._model_fn(name = self._name, device = self._device, **model_kwargs)
         print("Loading weights")
-        model.load_weights(path.join(checkpoint_dir, '%s.h5' % self._name))
+        model.load_weights(path.join(checkpoint_dir, 'main_weights.h5'))
         return (model, model_kwargs)
 
     def save(self):
