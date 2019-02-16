@@ -7,6 +7,7 @@ class AbstractTrainer:
     def __init__(self, env_kwargs, model_kwargs):
         self.env = self._wrap_env(gym.make(**env_kwargs))
         self.model = self._create_model(**model_kwargs)
+        self.name = 'trainer'
         pass
 
     def _wrap_env(self, env):
@@ -19,6 +20,9 @@ class AbstractTrainer:
     @abc.abstractclassmethod
     def process(self, **kwargs):
         pass
+
+    def __repr__(self):
+        return '<%sTrainer>' % self.name
 
     def run(self, process = None, **kwargs):
         if process is None:
