@@ -13,7 +13,7 @@ class AbstractTrainer:
         return env
 
     @abc.abstractclassmethod
-    def _create_model(self, model_kwargs):
+    def _create_model(self, **model_kwargs):
         pass
 
     @abc.abstractclassmethod
@@ -37,8 +37,8 @@ class AbstractTrainerWrapper(AbstractTrainer):
     def _wrap_env(self, env):
         return self.trainer._wrap_env(env)
 
-    def _create_model(self, model_kwargs):
-        return self.trainer._create_model(model_kwargs)
+    def _create_model(self, **model_kwargs):
+        return self.trainer._create_model(**model_kwargs)
 
     def process(self, **kwargs):
         return self.trainer.process(**kwargs)
