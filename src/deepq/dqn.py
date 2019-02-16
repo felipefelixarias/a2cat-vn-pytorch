@@ -131,6 +131,7 @@ class DeepQTrainer(SingleTrainer):
     def __init__(self, env_kwargs, model_kwargs, annealing_steps, preprocess_steps = 10000, max_episode_steps = None):
         super().__init__(env_kwargs, model_kwargs)
 
+        self.name = 'deepq'
         self._state = None
         self._episode_length = 0
         self._episode_reward = 0.0

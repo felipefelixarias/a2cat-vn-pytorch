@@ -1,16 +1,41 @@
 from common.train import AbstractTrainerWrapper
 import numpy as np
 
-class SaveTrainerWrapper(AbstractTrainerWrapper):
-    def __init__(self, *args, **kwargs):
+class SaveWrapper(AbstractTrainerWrapper):
+    def __init__(self, *args, model_directory = './checkpoints', saving_period = 10000, **kwargs):
         super().__init__(*args, **kwargs)
-        
+        self.model_directory = model_directory
+        self._last_save = 0
+        self.saving_period = saving_period
 
     def process(self, **kwargs):
-        res = super().process(**kwargs)
-        (tdiff, episode_end) = res
+        res = self.trainer.process()
+        (tdiff, _, _) = res
+        self._last_save += tdiff
 
+        if self._last_save >= self.saving_period:
+            self._save()
         return res
+
+    def _save(self):
+        print('Saving')
+        model = self.unwrapped.model
+        model.save_weights(self.model_directory + '/%s-weights.h5' % model.name)
+        with open(self.model_directory + '/%s-model.json' % model.name, 'w+') as f:
+            f.write(model.to_json())
+            f.flush()
+
+    def _run(self, **kwargs):
+        try:
+            super()._run(**kwargs)
+        except KeyboardInterrupt:
+            self._save()
+            raise
+
+        self._save()
+
+    def __repr__(self):
+        return '<Save %s>' % repr(self.trainer)
 
 class TimeLimitWrapper(AbstractTrainerWrapper):
     def __init__(self, max_time_steps, *args, **kwargs):
@@ -96,4 +121,4 @@ def wrap(trainer, max_number_of_episodes = None, max_time_steps = None, episode_
     if episode_log_interval is not None:
         trainer = EpisodeLoggerWrapper(episode_log_interval, trainer = trainer)
 
-    return trainer
+    return SaveWrapper(trainer)
