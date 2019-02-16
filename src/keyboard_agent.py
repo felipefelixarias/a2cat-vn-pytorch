@@ -14,7 +14,7 @@ flags = get_options('keyboard')
 
 class Explorer:
     def __init__(self):
-        self.env = ColorObservationWrapper(gym.make('Catch-v0'))
+        self.env = ColorObservationWrapper(gym.make('GridWorld-v0'))
         self.is_goal = isinstance(self.env.observation_space, gym.spaces.Dict)
 
         self.keyboard_map = {key: i for (i, key) in enumerate(['up', 'down', 'left', 'right']) }
@@ -39,7 +39,8 @@ class Explorer:
             if event.key == 's':
                 mpimg.imsave("output.png", state['observation'])
             elif event.key in ['up', 'down', 'right', 'left']:
-                state, _, done, _ = self.env.step(self.keyboard_map[event.key])
+                action = self.keyboard_map[event.key]
+                state, _, done, _ = self.env.step(action)
                 if done:
                     state = self.env.reset()
                 redraw(state)

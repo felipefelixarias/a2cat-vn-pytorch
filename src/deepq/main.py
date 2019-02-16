@@ -4,21 +4,20 @@ if __name__ == '__main__':
     parentdir = os.path.dirname(currentdir)
     sys.path.insert(0,parentdir)
 
-import deepq.experiment
+import deepq.dqn
 from common.train_wrappers import wrap
 import gym
 import gym_maze
 import deepq.catch_experiment
 
 if __name__ == '__main__':
-    total_steps = 1000000
-    trainer = deepq.experiment.DeepQTrainer(
-        env_kwargs = dict(id='Catch-v0'), 
-        model_kwargs = dict(action_space_size = 3),
-        annealing_steps = total_steps // 10,
-        max_episode_steps = None)
+    trainer = deepq.dqn.DeepQTrainer(
+        env_kwargs = dict(id='GridWorld-v0'), 
+        model_kwargs = dict(action_space_size = 4),
+        annealing_steps = 1000 * 50,
+        max_episode_steps = 50)
 
-    trainer = wrap(trainer, max_time_steps=total_steps, episode_log_interval=10)
+    trainer = wrap(trainer, max_number_of_episodes=10000, episode_log_interval=10)
     trainer.run()
 
 else:

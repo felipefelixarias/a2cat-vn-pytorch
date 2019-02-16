@@ -6,7 +6,7 @@ import threading
 class AbstractTrainer:
     def __init__(self, env_kwargs, model_kwargs):
         self.env = self._wrap_env(gym.make(**env_kwargs))
-        self.model = self._create_model(model_kwargs)
+        self.model = self._create_model(**model_kwargs)
         pass
 
     def _wrap_env(self, env):

@@ -128,14 +128,14 @@ class Replay:
         return batch
 
 class DeepQTrainer(SingleTrainer):
-    def __init__(self, env_kwargs, model_kwargs, annealing_steps, preprocess_steps = 10000, max_episode_steps = None):
+    def __init__(self, env_kwargs, model_kwargs, annealing_steps = 10000, preprocess_steps = 10000, max_episode_steps = None):
         super().__init__(env_kwargs, model_kwargs)
 
         self._state = None
         self._episode_length = 0
         self._episode_reward = 0.0
         self._local_timestep = 0
-        self._minibatch_size = 32
+        self._minibatch_size = 4
         self._global_t = 0
         self._annealing_steps = annealing_steps
         self._preprocess_steps = preprocess_steps
