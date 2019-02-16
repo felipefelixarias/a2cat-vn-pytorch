@@ -6,7 +6,7 @@ import threading
 class AbstractTrainer:
     def __init__(self, env_kwargs, model_kwargs):
         self.env = self._wrap_env(gym.make(**env_kwargs))
-        self.model = self._create_model(**model_kwargs)
+        self.model = self._create_model(model_kwargs)
         pass
 
     def _wrap_env(self, env):
@@ -20,20 +20,51 @@ class AbstractTrainer:
     def process(self, **kwargs):
         pass
 
+    def run(self, process = None, **kwargs):
+        if process is None:
+            process = self.process
+        if hasattr(self, '_run'):
+            self._run(process = process, **kwargs)
+        else:
+            raise Exception('Run is not implemented')
+
+
+class AbstractTrainerWrapper(AbstractTrainer):
+    def __init__(self, trainer, *args, **kwargs):
+        self.trainer = trainer
+        self.unwrapped = trainer.unwrapped if hasattr(trainer, 'unwrapped') else trainer
+
+    def _wrap_env(self, env):
+        return self.trainer._wrap_env(env)
+
+    def _create_model(self, model_kwargs):
+        return self.trainer._create_model(model_kwargs)
+
+    def process(self, **kwargs):
+        return self.trainer.process(**kwargs)
+
+    def _run(self, **kwargs):
+        self.trainer.run(**kwargs)
+
+    def stop(self, **kwargs):
+        self.trainer.stop(**kwargs)
+
 
 class SingleTrainer(AbstractTrainer):
-    def __init__(self, max_time_steps, env_kwargs, model_kwargs):
+    def __init__(self, env_kwargs, model_kwargs):
         super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
         self._global_t = None
-        self.max_time_steps = max_time_steps
         pass
 
-    def run(self):
+    def _run(self, process):
         global_t = 0
-        while global_t < self.max_time_steps:
-            tdiff, _ = self.process()
+        self._is_stopped = False
+        while not self._is_stopped:
+            tdiff, _, _ = process()
             global_t += tdiff
 
+    def stop(self):
+        self._is_stopped = True
 
 
 
@@ -71,7 +102,7 @@ class MultithreadTrainer(AbstractTrainer):
     def _process(self):
         raise Exception('Not supported')
 
-    def run(self):
+    def _run(self, process):
         self._agents = [MultithreadTrainer.AgentThreadWrapper(self, self._child_trainer, self._model_kwargs, self._env_kwargs) for _ in range(self._number_of_trainers)]
         self._train_threads = []
         for agent in self._agents:            
@@ -79,4 +110,3 @@ class MultithreadTrainer(AbstractTrainer):
             thread.setDaemon(True)
             self._train_threads.append(thread)          
             thread.start()
-            

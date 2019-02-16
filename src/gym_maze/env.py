@@ -25,6 +25,7 @@ class MazeEnv(gym.Env):
         self.action_space = gym.spaces.Discrete(4)
         self.observation_space = gym.spaces.Box(0, 255, (84, 84, 3), dtype=np.uint8)
         self._fixed_start = fixed_start
+        self._cache = dict()
 
     def _get_pixel(self, x, y):
         data_pos = y * self._maze_size + x
@@ -73,6 +74,9 @@ class MazeEnv(gym.Env):
         return (new_x, new_y), hit
 
     def _get_current_state(self):
+        if (self._pos + self._goal_pos) in self._cache:
+            return self._cache[self._pos + self._goal_pos]
+
         image = np.zeros((84, 84, 3), dtype=np.uint8)
 
         for y in range(self._maze_size):
@@ -83,6 +87,8 @@ class MazeEnv(gym.Env):
 
         self._put_pixel(image, self._pos[0], self._pos[1], 2)
         self._put_pixel(image, self._goal_pos[0], self._goal_pos[1], 3)
+
+        self._cache[self._pos + self._goal_pos] = image
         return image
 
     def _put_pixel(self, image, x, y, item):
@@ -176,6 +182,8 @@ class GoalMazeEnv(MazeEnv, gym.GoalEnv):
             desired_goal = image_space
         ))
 
+        self._cache = dict()
+
     def _get_positions(self):
         start_pos, goal_pos = super(GoalMazeEnv, self)._get_positions()
 
@@ -193,6 +201,9 @@ class GoalMazeEnv(MazeEnv, gym.GoalEnv):
                 return (start_pos, goal_pos)
 
     def _get_current_state(self):
+        if (self._pos + self._goal_pos) in self._cache:
+            return self._cache[self._pos + self._goal_pos]
+
         image = np.zeros((84, 84, 3), dtype=np.uint8)
         goal = np.zeros((84, 84, 3), dtype=np.uint8)
 
@@ -206,8 +217,11 @@ class GoalMazeEnv(MazeEnv, gym.GoalEnv):
         self._put_pixel(image, self._pos[0], self._pos[1], 2)
         self._put_pixel(goal, self._goal_pos[0], self._goal_pos[1], 2)
         
-        return dict(
+        state = dict(
             observation = image,
             achieved_goal = image,
             desired_goal = goal
         )
+
+        self._cache[self._pos + self._goal_pos] = state
+        return state
