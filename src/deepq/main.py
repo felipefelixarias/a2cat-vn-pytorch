@@ -12,7 +12,7 @@ import gym_maze
 if __name__ == '__main__':
     total_steps = 1000000
     trainer = deepq.experiment.DeepQTrainer(
-        env_kwargs = dict(id='Maze-v0', fixed_start = False), 
+        env_kwargs = dict(id='Maze-v0', fixed_start = True), 
         model_kwargs = dict(action_space_size = 4),
         annealing_steps = total_steps // 10)
 
