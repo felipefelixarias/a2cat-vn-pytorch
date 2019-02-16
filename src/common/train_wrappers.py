@@ -15,6 +15,8 @@ class SaveWrapper(AbstractTrainerWrapper):
 
         if self._last_save >= self.saving_period:
             self._save()
+            self._last_save = 0
+            
         return res
 
     def _save(self):
