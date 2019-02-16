@@ -19,7 +19,11 @@ class SaveWrapper(AbstractTrainerWrapper):
 
     def _save(self):
         print('Saving')
+        import os
         model = self.unwrapped.model
+        if not os.path.exists(self.model_directory):
+            os.makedirs(self.model_directory)
+            
         model.save_weights(self.model_directory + '/%s-weights.h5' % model.name)
         with open(self.model_directory + '/%s-model.json' % model.name, 'w+') as f:
             f.write(model.to_json())
