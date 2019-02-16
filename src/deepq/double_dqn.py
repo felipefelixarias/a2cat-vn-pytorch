@@ -145,7 +145,7 @@ class DoubleDeepQTrainer(SingleTrainer):
     def _wrap_env(self, env):
         return ColorObservationWrapper(env)
 
-    def _create_model(self, model_fn = model_fn, create_placeholders_fn):
+    def _create_model(self, model_fn, create_placeholders_fn):
         model = build_model_for_training(**model_kwargs)
         model.summary()
         return model

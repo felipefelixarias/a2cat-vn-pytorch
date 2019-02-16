@@ -12,3 +12,10 @@ register(
     entry_point='gym_maze:GoalMazeEnv',
     # max_episode_steps = 200,
 )
+
+
+register(
+    id='GridWorld-v0',
+    entry_point='gym_maze.envs.gridworld:GridWorldEnv',
+    # max_episode_steps = 200,
+)
