@@ -43,7 +43,7 @@ class MazeEnv(gym.Env):
         if not self._fixed_start:
             start_pos = goal_pos
             while start_pos == goal_pos:
-                start_pos = self._random.choice(self._iter_pos())
+                start_pos = self._random.choice(list(self._iter_pos()))
 
         return (start_pos, goal_pos)
 
