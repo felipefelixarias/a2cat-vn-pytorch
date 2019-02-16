@@ -279,7 +279,7 @@ def get_options():
     tf.app.flags.DEFINE_float('end_epsilon', 0.01, 'Final chance of random action')
     tf.app.flags.DEFINE_float('exploration_fraction', 0.1, 'Percentage of training spend on exploration')
     tf.app.flags.DEFINE_integer('pre_train_steps', 10000, 'How many steps of random actions before training begins.')
-    tf.app.flags.DEFINE_integer('total_timesteps', 100000, 'Total number of training steps.')
+    tf.app.flags.DEFINE_integer('total_timesteps', 200000, 'Total number of training steps.')
     tf.app.flags.DEFINE_integer('episode_length', 50, 'The max allowed length of our episode.')
     tf.app.flags.DEFINE_string("checkpoint_dir", "./checkpoints", "checkpoint directory")
     tf.app.flags.DEFINE_integer("replay_size", 50000, "Replay buffer size")
@@ -297,7 +297,7 @@ class Application:
     def run(self):
         
         device = "/gpu:0"
-        env = gym.make('GoalMaze-v0')
+        env = gym.make('GoalMaze-v0', fixed_start = True, fixed_goal = True)
 
         kwargs = dict(
             action_space_size = env.action_space.n,

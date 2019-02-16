@@ -73,7 +73,7 @@ class SupervisedAgent(AbstractAgent):
         self.model.summary()
 
     def act(self, state):
-        input_data = [[state['observation']]]#, [state['desired_goal']]]
+        input_data = [[state['observation']], [state['desired_goal']]]
         return np.argmax(self.model.predict(input_data)[0])
 
 class ShortestPathAgent(AbstractAgent):
@@ -101,7 +101,7 @@ class ShortestPathAgent(AbstractAgent):
 if __name__ == '__main__':
     number_of_epochs = 15
     batch_size = 32
-    deterministic = True
+    deterministic = False
     data, labels = utils.Dataset(utils.build_multiple_goal_dataset(deterministic), batch_size).numpy()
     model = create_model(4)
     model.summary()
