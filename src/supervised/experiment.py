@@ -99,7 +99,7 @@ class ShortestPathAgent(AbstractAgent):
 
 
 if __name__ == '__main__':
-    number_of_epochs = 15
+    number_of_epochs = 50
     batch_size = 32
     deterministic = False
     data, labels = utils.Dataset(utils.build_multiple_goal_dataset(deterministic), batch_size).numpy()
