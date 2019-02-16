@@ -17,13 +17,14 @@ def _get_maze(**kwargs):
 class MazeEnv(gym.Env):
     metadata = {'render.modes': ['rgb_array']}
 
-    def __init__(self, **kwargs):
+    def __init__(self, fixed_start = True, **kwargs):
         super(MazeEnv, self).__init__(**kwargs)
 
         (self._maze_size, self._map_data) = _get_maze(**kwargs)
         self._random = random.Random()
         self.action_space = gym.spaces.Discrete(4)
         self.observation_space = gym.spaces.Box(0, 255, (84, 84, 3), dtype=np.uint8)
+        self._fixed_start = fixed_start
 
     def _get_pixel(self, x, y):
         data_pos = y * self._maze_size + x
@@ -37,6 +38,11 @@ class MazeEnv(gym.Env):
                     start_pos = (x, y)
                 elif p == 'G':
                     goal_pos = (x, y)
+
+        if not self._fixed_start:
+            start_pos = None
+            while start_pos == goal_pos:
+                start_pos = self._random.choice(self._iter_pos())
 
         return (start_pos, goal_pos)
 
@@ -89,6 +95,15 @@ class MazeEnv(gym.Env):
         for i in range(12):
             for j in range(12):
                 image[12*y + j, 12*x + i, :] = colormap[item]
+
+    def _iter_pos(self):
+        for y in range(self._maze_size):
+            for x in range(self._maze_size):
+                p = self._get_pixel(x,y)
+                if p in ['S', 'G', '-']:
+                    yield (x, y)
+                else:
+                    pass
 
     def _action_to_change(self, action):
         dx = 0
@@ -147,11 +162,11 @@ class MazeEnv(gym.Env):
             super(MazeEnv, self).render(mode=mode)
 
 
-class GoalMazeEnv(gym.GoalEnv, MazeEnv):
+class GoalMazeEnv(MazeEnv, gym.GoalEnv):
     metadata = {'render.modes': ['rgb_array']}
 
-    def __init__(self, fixed_goal = False, **kwargs):
-        super(GoalMazeEnv, self).__init__(**kwargs)
+    def __init__(self, fixed_start = False, fixed_goal = False, **kwargs):
+        super(GoalMazeEnv, self).__init__(fixed_start = fixed_start, **kwargs)
 
         image_space = self.observation_space
         self._fixed_goal = fixed_goal
@@ -159,25 +174,23 @@ class GoalMazeEnv(gym.GoalEnv, MazeEnv):
             observation = image_space,
             achieved_goal = image_space,
             desired_goal = image_space
-        ))            
-
-    def _iter_pos(self):
-        for y in range(self._maze_size):
-            for x in range(self._maze_size):
-                p = self._get_pixel(x,y)
-                if p in ['S', 'G', '-']:
-                    yield (x, y)
-                else:
-                    pass
+        ))
 
     def _get_positions(self):
-        potentials = list(self._iter_pos())
-        _, goal_pos = super(GoalMazeEnv, self)._get_positions()
+        start_pos, goal_pos = super(GoalMazeEnv, self)._get_positions()
 
         if not self._fixed_goal:
-            return tuple(self._random.sample(potentials, 2))
+            return (start_pos, goal_pos)
         else:
-            return tuple(self._random.sample(potentials, 1)) + (goal_pos,)
+            potentials = list(self._iter_pos())
+            if not self._fixed_start:
+                return tuple(self._random.sample(potentials, 2))
+            else:
+                goal_pos = None
+                while goal_pos == start_pos:
+                    goal_pos = self._random.choice(potentials)
+
+                return (start_pos, goal_pos)
 
     def _get_current_state(self):
         image = np.zeros((84, 84, 3), dtype=np.uint8)
