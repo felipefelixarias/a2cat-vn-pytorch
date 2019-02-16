@@ -128,7 +128,7 @@ class Replay:
         return batch
 
 class DeepQTrainer(SingleTrainer):
-    def __init__(self, env_kwargs, model_kwargs, annealing_steps, preprocess_steps = 10000):
+    def __init__(self, env_kwargs, model_kwargs, annealing_steps, preprocess_steps = 10000, max_episode_steps = None):
         super().__init__(env_kwargs, model_kwargs)
 
         self._state = None
@@ -141,6 +141,7 @@ class DeepQTrainer(SingleTrainer):
         self._preprocess_steps = preprocess_steps
         self._replay = Replay(50000)
         self.model_kwargs = model_kwargs
+        self._max_episode_steps = max_episode_steps
 
     def _wrap_env(self, env):
         return ColorObservationWrapper(env)
@@ -181,7 +182,7 @@ class DeepQTrainer(SingleTrainer):
         self._episode_length += 1
         self._episode_reward += reward
 
-        if done:
+        if done or (self._max_episode_steps is not None and self._episode_length >= self._max_episode_steps):
             episode_end = (self._episode_length, self._episode_reward)
             self._episode_length = 0
             self._episode_reward = 0.0
