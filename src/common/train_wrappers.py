@@ -1,5 +1,7 @@
 from common.train import AbstractTrainerWrapper
 import numpy as np
+import os, math
+from util.metrics import MetricWriter
 
 class SaveWrapper(AbstractTrainerWrapper):
     def __init__(self, *args, model_directory = './checkpoints', saving_period = 10000, **kwargs):
@@ -16,12 +18,12 @@ class SaveWrapper(AbstractTrainerWrapper):
         if self._last_save >= self.saving_period:
             self._save()
             self._last_save = 0
-            
+
         return res
 
     def _save(self):
         print('Saving')
-        import os
+        
         model = self.unwrapped.model
         if not os.path.exists(self.model_directory):
             os.makedirs(self.model_directory)
@@ -81,6 +83,7 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         super().__init__(*args, **kwargs)
         self._log_t = 0
         self.logging_period = logging_period
+        self.writer = MetricWriter()
 
         self._global_t = 0
         self._episodes = 0
@@ -112,8 +115,20 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         self._data = []
         self._losses = []
         report = 'steps: {}, episodes: {}, reward: {:0.5f}, episode length: {}, loss: {:0.5f}'.format(self._global_t, self._episodes, reward, episode_length, loss)
+
+        metrics_row = self.writer \
+            .record(self._global_t) \
+            .scalar('reward', reward) \
+            .scalar('episode_length', episode_length)
+
         if stats is not None and 'epsilon' in stats:
             report += ', epsilon:{:0.3f}'.format(stats.get('epsilon'))
+            metrics_row = metrics_row.scalar('epsilon', stats.get('epsilon'))
+
+        metrics_row.flush()
+
+        if not math.isnan(loss):
+            metrics_row = metrics_row.scalar('loss', loss)
 
         print(report)
 
