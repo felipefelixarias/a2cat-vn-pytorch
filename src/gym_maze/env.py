@@ -8,7 +8,7 @@ import random
 def _get_maze(**kwargs):
     return (7, "--+---G" \
         "--+-+++" \
-        "S-+---+" \
+        "--+S--+" \
         "--+++--" \
         "--+-+--" \
         "--+----" \
@@ -145,7 +145,7 @@ class MazeEnv(gym.Env):
         if terminal:
             reward = 1
         elif hit:
-            reward = -1
+            reward = 0
         else:
             reward = 0
 
