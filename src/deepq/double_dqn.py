@@ -127,10 +127,11 @@ class Replay:
         batch = list(map(lambda *x:np.stack(x, axis = 0), *batch))
         return batch
 
-class DoubleDeepQTrainer(SingleTrainer):
-    def __init__(self, env_kwargs, model_fn, create_placeholders_fn, annealing_steps, preprocess_steps = 10000, max_episode_steps = None):
-        super().__init__(env_kwargs, dict(model_fn = model_fn, create_placeholders_fn = create_placeholders_fn))
+class DeepQTrainer(SingleTrainer):
+    def __init__(self, env_kwargs, model_kwargs, annealing_steps, preprocess_steps = 10000, max_episode_steps = None):
+        super().__init__(env_kwargs, model_kwargs)
 
+        self.name = 'deepq'
         self._state = None
         self._episode_length = 0
         self._episode_reward = 0.0
@@ -140,12 +141,13 @@ class DoubleDeepQTrainer(SingleTrainer):
         self._annealing_steps = annealing_steps
         self._preprocess_steps = preprocess_steps
         self._replay = Replay(50000)
+        self.model_kwargs = model_kwargs
         self._max_episode_steps = max_episode_steps
 
     def _wrap_env(self, env):
         return ColorObservationWrapper(env)
 
-    def _create_model(self, model_fn, create_placeholders_fn):
+    def _create_model(self, **model_kwargs):
         model = build_model_for_training(**model_kwargs)
         model.summary()
         return model
