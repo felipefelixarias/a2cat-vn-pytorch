@@ -117,7 +117,7 @@ class DeepQTrainer(SingleTrainer):
         return ColorObservationWrapper(env)
 
     @abc.abstractclassmethod
-    def create_inputs(self, name = 'main'):
+    def create_inputs(self, name = 'main', **kwargs):
         pass
 
     def _build_loss(self, q, actions, rewards, pcontinues, qtarget):
@@ -127,14 +127,14 @@ class DeepQTrainer(SingleTrainer):
     def create_backbone(self, *args, **kwargs):
         pass
 
-    def _build_model_for_training(self, action_space_size):
+    def _build_model_for_training(self, action_space_size, **kwargs):
         actions = tf.placeholder(tf.uint8, (None,))
         rewards = tf.placeholder(tf.float32, (None,))
         terminals = tf.placeholder(tf.bool, (None,))
         gamma = tf.placeholder_with_default(self.gamma, tuple())
 
-        inputs = self.create_inputs('main')
-        model_stream = self.create_backbone(action_space_size)
+        inputs = self.create_inputs('main', **self.model_kwargs)
+        model_stream = self.create_backbone(**self.model_kwargs)
         q = model_stream(inputs)
         model = Model(inputs = inputs, outputs = [q])
 
@@ -142,7 +142,7 @@ class DeepQTrainer(SingleTrainer):
         model.predict_on_batch = K.function(inputs = inputs, outputs = [K.argmax(q, axis = 1)])
         
         # Next input targets
-        next_step_inputs = self.create_inputs('next')
+        next_step_inputs = self.create_inputs('next', **self.model_kwargs)
         next_q = K.stop_gradient(model_stream(next_step_inputs))
         
         # Build loss
@@ -171,7 +171,7 @@ class DeepQTrainer(SingleTrainer):
         start_eps = self.epsilon_start
         end_eps = self.epsilon_end
         if self._global_t < self.preprocess_steps:
-            return start_eps
+            return 1.0
 
         return max(start_eps - (start_eps - end_eps) * ((self._global_t - self.preprocess_steps) / self.annealing_steps), end_eps)
 
@@ -181,6 +181,9 @@ class DeepQTrainer(SingleTrainer):
 
         return self.model.predict_on_batch([[state]])[0][0]
 
+    def _optimize(self):
+        state, action, reward, done, next_state = self._replay.sample(self.minibatch_size)
+        return self.model.train_on_batch([state, action, reward, done, next_state])
 
     def process(self):
         episode_end = None
@@ -193,7 +196,7 @@ class DeepQTrainer(SingleTrainer):
         old_state = self._state
         action = self.act(self._state)
 
-        self._state, reward, done, _ = self.env.step(action)
+        self._state, reward, done, env_props = self.env.step(action)
         self._replay.add((old_state, action, reward, done, self._state))
 
         self._episode_length += 1
@@ -205,11 +208,13 @@ class DeepQTrainer(SingleTrainer):
             self._episode_reward = 0.0
             self._state = self.env.reset()
 
-        stats = None
+        stats = dict()
         if self._global_t >= self.preprocess_steps:
-            state, action, reward, done, next_state = self._replay.sample(self.minibatch_size)
-            loss = self.model.train_on_batch([state, action, reward, done, next_state])
+            loss = self._optimize()
             stats = dict(loss = loss, epsilon = self.epsilon)
+
+        if 'win' in env_props:
+            stats['win'] = env_props['win']
         
         self._global_t += 1
         return (1, episode_end, stats)

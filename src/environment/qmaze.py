@@ -1,8 +1,26 @@
 import numpy as np
+import random
 import gym
 
+rat_mark = 0.5
+
+maze =  np.array([
+    [ 1.,  0.,  1.,  1.,  1.,  1.,  1.],
+    [ 1.,  1.,  1.,  0.,  0.,  1.,  0.],
+    [ 0.,  0.,  0.,  1.,  1.,  1.,  0.],
+    [ 1.,  1.,  1.,  1.,  0.,  0.,  1.],
+    [ 1.,  0.,  0.,  0.,  1.,  1.,  1.],
+    [ 1.,  0.,  1.,  1.,  1.,  1.,  1.],
+    [ 1.,  1.,  1.,  0.,  1.,  1.,  1.]
+])
+
+LEFT = 0
+UP = 1
+RIGHT = 2
+DOWN = 3
+
 class Qmaze(gym.Env):
-    def __init__(self, maze, rat=(0,0)):
+    def __init__(self, rat=(0,0)):
         self._maze = np.array(maze)
         nrows, ncols = self._maze.shape
         self.target = (nrows-1, ncols-1)   # target cell where the "cheese" is
@@ -12,22 +30,22 @@ class Qmaze(gym.Env):
             raise Exception("Invalid maze: target cell cannot be blocked!")
         if not rat in self.free_cells:
             raise Exception("Invalid Rat Location: must sit on a free cell")
-        self.reset(rat)
+        
+        self.original_rat = rat
 
-    def reset(self, rat):
-        self.rat = rat
-        self.maze = np.copy(self._maze)
-        nrows, ncols = self.maze.shape
-        row, col = rat
+    def reset(self):
+        self.rat = random.choice(self.free_cells)
+        self.maze = np.copy(self._maze)        
+        row, col = self.rat
         self.maze[row, col] = rat_mark
         self.state = (row, col, 'start')
         self.min_reward = -0.5 * self.maze.size
         self.total_reward = 0
         self.visited = set()
+        return self.observe()
 
     def update_state(self, action):
-        nrows, ncols = self.maze.shape
-        nrow, ncol, nmode = rat_row, rat_col, mode = self.state
+        nrow, ncol, nmode = rat_row, rat_col, _ = self.state
 
         if self.maze[rat_row, rat_col] > 0.0:
             self.visited.add((rat_row, rat_col))  # mark visited cell
@@ -66,17 +84,21 @@ class Qmaze(gym.Env):
         if mode == 'valid':
             return -0.04
 
-    def act(self, action):
+    def step(self, action):
         self.update_state(action)
         reward = self.get_reward()
         self.total_reward += reward
         status = self.game_status()
         envstate = self.observe()
-        return envstate, reward, status
+
+        stats = dict()
+        if status != 'not_over':
+            stats['win'] = status == 'win'
+        return envstate, reward, status != 'not_over', stats
 
     def observe(self):
         canvas = self.draw_env()
-        envstate = canvas.reshape((1, -1))
+        envstate = canvas.reshape((-1,))
         return envstate
 
     def draw_env(self):
@@ -130,3 +152,9 @@ class Qmaze(gym.Env):
             actions.remove(2)
 
         return actions
+
+
+gym.register(
+    id = 'QMaze-v0', 
+    entry_point='environment.qmaze:Qmaze'
+)
