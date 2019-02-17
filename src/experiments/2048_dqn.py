@@ -89,7 +89,7 @@ if __name__ == '__main__':
         env_kwargs = dict(id='2048-v0'), 
         model_kwargs = dict(action_space_size = 4))
 
-    trainer = wrap(trainer, max_time_steps=1000000, episode_log_interval=10).compile()
+    trainer = wrap(trainer, max_time_steps=20000000, episode_log_interval=10).compile()
     trainer.run()
 
 else:
