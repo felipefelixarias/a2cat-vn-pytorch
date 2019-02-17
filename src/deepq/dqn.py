@@ -1,13 +1,15 @@
 from keras.layers import Dense, Conv2D, Input, Flatten, Concatenate, Lambda
-from keras.models import Model
+from keras.models import Model, model_from_json
 from keras import optimizers
 from common.train import SingleTrainer, AbstractTrainer
 from common.env_wrappers import ColorObservationWrapper
+from common.abstraction import AbstractAgent
 from trfl import qlearning
 import keras.backend as K
 import tensorflow as tf
 import numpy as np
 import random
+import os
 import abc
 
 class Replay:
@@ -231,6 +233,22 @@ class DeepQTrainer(SingleTrainer):
         return (1, episode_end, stats)
 
 
+class DeepQAgent(AbstractAgent):
+    def __init__(self, checkpoint_dir = './checkpoints', name = 'deepq'):
+        super().__init__(name)
+
+        self._load(checkpoint_dir)
+
+    def _load(self, checkpoint_dir):
+        with open(os.path.join(checkpoint_dir, '%s-model.json' % self.name), 'r') as f:
+            self.model = model_from_json(f.read())
+        self.model.load_weights(os.path.join(checkpoint_dir, '%s-weights.h5' % self.name))
+
+    def wrap_env(self, env):
+        return env
+
+    def act(self, state):
+        return np.argmax(self.model.predict(state))
 
 class AtariDeepQTrainer(DeepQTrainer):
     def __init__(self, env_id):
