@@ -11,17 +11,44 @@ import environment.qmaze
 from functools import reduce
 import deepq.catch_experiment
 from keras.layers import Input, Dense, Concatenate, Lambda, PReLU
+from keras.models import Model
 import keras.backend as K
+
+class QMazeModel(Model):
+    def __init__(self, maze_size, action_space_size, **kwargs):
+        super().__init__(self, **kwargs)
+        self.dense1 = Dense(maze_size, input_shape=(maze_size,))
+        self.prelu1 = PReLU()
+        self.dense2 = Dense(maze_size)
+        self.prelu2 = PReLU()
+        self.dense3 = Dense(action_space_size)
+
+        self._maze_size = maze_size
+        pass
+
+    def create_inputs(self, name = 'main'):
+        return [Input(shape = (self._maze_size,), name = name + '_input')]
+
+    def call(self, inputs):
+        model = inputs
+        model = self.dense1(model)
+        model = self.prelu1(model)
+        model = self.dense2(model)
+        model = self.prelu2(model)
+        model = self.dense3(model)
+        return model
+
 
 class Trainer(deepq.dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = 'deepq-cartpole'
 
-        self.epsilon_start = 0.1
+        self.epsilon_start = 1.0
         self.epsilon_end = 0.1
+        self.annealing_steps = 15000
         self.preprocess_steps = 1000
-        self.replay_size = 49 * 8
+        self.replay_size = 10000
         self.minibatch_size = 32
         self.gamma = 0.95
         self.max_episode_steps = None
