@@ -2,6 +2,7 @@ from common.train import AbstractTrainerWrapper
 import numpy as np
 import os, math
 from util.metrics import MetricWriter
+from collections import defaultdict
 
 class SaveWrapper(AbstractTrainerWrapper):
     def __init__(self, *args, model_directory = './checkpoints', saving_period = 10000, **kwargs):
@@ -78,17 +79,71 @@ class EpisodeNumberLimitWrapper(AbstractTrainerWrapper):
     def __repr__(self):
         return '<EpisodeNumberLimit(%s) %s>' % (self.max_number_of_episodes, repr(self.trainer))
 
+class SummaryWriter:
+    def __init__(self, writer):
+        self.accumulatives = defaultdict(list)
+        self.lastvalues = dict()
+        self.writer = writer
+
+    def add_last_value_scalar(self, name, value):
+        self.lastvalues[name] = value
+
+    def add_scalar(self, name, value):
+        self.accumulatives[name] = value
+
+    def _format_number(self, number):
+        if isinstance(number, int):
+            return str(number)
+
+        return '{:.3f}'.format(number)
+
+    def summary(self, global_t):
+        values = [('step', global_t)]
+        values.extend((key, value) for key, value in self.lastvalues.items())
+        values.extend((key, np.mean(x)) for key, x in self.accumulatives.items())
+        return ', '.join('{}: {}'.format(key, self._format_number(val)) for key, val in values)
+
+    def commit(self, global_t):
+        metrics_row = self.writer \
+            .record(global_t)
+
+        for (key, val) in self.accumulatives.items():
+            metrics_row = metrics_row.scalar(key, np.mean(val))
+
+        for (key, value) in self.lastvalues.items():
+            metrics_row = metrics_row.scalar(key, value)
+
+        metrics_row = metrics_row.flush()
+        self.lastvalues = dict()
+        self.accumulatives = defaultdict(list)
+        return metrics_row
+
+
 class EpisodeLoggerWrapper(AbstractTrainerWrapper):
     def __init__(self, logging_period = 10, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._log_t = 0
         self.logging_period = logging_period
-        self.writer = MetricWriter()
+        self.summary_writer = SummaryWriter(MetricWriter())
 
         self._global_t = 0
         self._episodes = 0
         self._data = []
         self._losses = []
+
+    def compile(self, compiled_agent = None, **kwargs):
+        compiled_agent = super().compile(compiled_agent = compiled_agent, **kwargs)
+        old_process = compiled_agent.process
+        def late_process(**kwargs):
+            data = old_process(**kwargs)
+            if self._log_t >= self.logging_period:
+                print(self.summary_writer.summary(self._global_t))
+                self.summary_writer.commit(self._global_t)
+                self._log_t = 0
+            return data
+
+        compiled_agent.process = late_process
+        return compiled_agent    
 
     def process(self, **kwargs):
         tdiff, episode_end, stats = self.trainer.process(**kwargs)
@@ -96,13 +151,14 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         if episode_end is not None:
             self._episodes += 1
             self._log_t += 1
-            self._data.append(episode_end)
-            if stats is not None and 'loss' in stats:
-                self._losses.append(stats.get('loss'))
 
-            if self._log_t >= self.logging_period:
-                self.log(stats)
-                self._log_t = 0
+            episode_length, reward = episode_end
+            self.summary_writer.add_last_value_scalar('episodes', self._episodes)
+            self.summary_writer.add_scalar('episode_length', episode_length)
+            self.summary_writer.add_scalar('reward', reward)
+            if stats is not None:
+                for key, val in stats.items():
+                    self.summary_writer.add_scalar(key, val)
 
         return (tdiff, episode_end, stats)
 
