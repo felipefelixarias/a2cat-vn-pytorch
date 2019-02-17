@@ -120,46 +120,57 @@ class DeepQTrainer(SingleTrainer):
     def create_inputs(self, name = 'main', **kwargs):
         pass
 
-    def _build_loss(self, q, actions, rewards, pcontinues, qtarget):
-        return qlearning(q, actions, rewards, pcontinues, qtarget)
-
     @abc.abstractclassmethod
     def create_backbone(self, *args, **kwargs):
         pass
 
     def _build_model_for_training(self, action_space_size, **kwargs):
-        actions = tf.placeholder(tf.uint8, (None,))
-        rewards = tf.placeholder(tf.float32, (None,))
-        terminals = tf.placeholder(tf.bool, (None,))
-        gamma = tf.placeholder_with_default(self.gamma, tuple())
-
         inputs = self.create_inputs('main', **self.model_kwargs)
         model_stream = self.create_backbone(**self.model_kwargs)
-        q = model_stream(inputs)
-        model = Model(inputs = inputs, outputs = [q])
+        model = Model(inputs = inputs, outputs = [model_stream(inputs)])
 
-        # Create predict function
-        model.predict_on_batch = K.function(inputs = inputs, outputs = [K.argmax(q, axis = 1)])
-        
-        # Next input targets
-        next_step_inputs = self.create_inputs('next', **self.model_kwargs)
-        next_q = K.stop_gradient(model_stream(next_step_inputs))
-        
-        # Build loss
-        pcontinues = (1.0 - tf.to_float(terminals)) * gamma
-        loss, _ = self._build_loss(q, actions, rewards, pcontinues, next_q)
-        loss = K.mean(loss)
+        with K.name_scope('training'):
+            actions = tf.placeholder(tf.uint8, (None,))
+            rewards = tf.placeholder(tf.float32, (None,))
+            terminals = tf.placeholder(tf.bool, (None,))
+            gamma = tf.placeholder_with_default(self.gamma, tuple())
+
+            # Q value
+            q = model.output
+            
+            # Next input targets
+            next_step_inputs = self.create_inputs('next', **self.model_kwargs)
+
+            # Q value for next state
+            next_q = K.stop_gradient(model_stream(next_step_inputs))
+            
+            # Build loss
+            pcontinues = (1.0 - tf.to_float(terminals)) * gamma
+            loss, _ = qlearning(q, actions, rewards, pcontinues, next_q)
+            loss = K.mean(loss)
 
 
-        # Build optimize
-        optimizer = tf.train.AdamOptimizer(0.001)
-        update = optimizer.minimize(loss)
+            # Build optimize
+            optimizer = tf.train.AdamOptimizer(0.001)
+            update = optimizer.minimize(loss)
+
+            update_op = [tf.assign(*a) for a in model.updates]
+            with tf.control_dependencies([update]):
+                with tf.control_dependencies(update_op):
+                    update_op = tf.no_op()
+
+
+        # Initalize optimizer parameters
+        init_op = tf.global_variables_initializer()
+        sess = K.get_session()
+        sess.run(init_op)
+
         train_on_batch = K.Function(model.inputs + [actions, rewards, terminals] + next_step_inputs, [loss], updates = [update])
         model.train_on_batch = train_on_batch
 
-        # Return model for evaluation and training
+        # Create predict function
+        model.predict_on_batch = K.function(inputs = inputs, outputs = [K.argmax(q, axis = 1)])
         return model
-
 
     def _create_model(self, **model_kwargs):
         model = self._build_model_for_training(**model_kwargs)
