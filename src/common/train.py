@@ -37,6 +37,7 @@ class AbstractTrainerWrapper(AbstractTrainer):
     def __init__(self, trainer, *args, **kwargs):
         self.trainer = trainer
         self.unwrapped = trainer.unwrapped if hasattr(trainer, 'unwrapped') else trainer
+        self.summary_writer = trainer.summary_writer if hasattr(trainer, 'summary_writer') else None
 
     def _wrap_env(self, env):
         return self.trainer._wrap_env(env)
@@ -52,6 +53,22 @@ class AbstractTrainerWrapper(AbstractTrainer):
 
     def stop(self, **kwargs):
         self.trainer.stop(**kwargs)
+
+    def compile(self, compiled_agent = None, **kwargs):
+        if compiled_agent is None:
+            compiled_agent = CompiledTrainer(self)
+
+        if hasattr(self.trainer, 'compile'):
+            self.trainer.compile(compiled_agent = compiled_agent, **kwargs)
+
+        return compiled_agent
+
+class CompiledTrainer(AbstractTrainerWrapper):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def __repr__(self):
+        return '<Compiled %s>' % self.trainer.__repr__()
 
 
 class SingleTrainer(AbstractTrainer):
