@@ -83,13 +83,17 @@ class SummaryWriter:
     def __init__(self, writer):
         self.accumulatives = defaultdict(list)
         self.lastvalues = dict()
+        self.cummulatives = defaultdict(lambda: 0)
         self.writer = writer
 
     def add_last_value_scalar(self, name, value):
         self.lastvalues[name] = value
 
     def add_scalar(self, name, value):
-        self.accumulatives[name] = value
+        self.accumulatives[name].append(value)
+
+    def add_cummulative(self, name, value):
+        self.cummulatives[name] += value
 
     def _format_number(self, number):
         if isinstance(number, int):
@@ -101,6 +105,7 @@ class SummaryWriter:
         values = [('step', global_t)]
         values.extend((key, value) for key, value in self.lastvalues.items())
         values.extend((key, np.mean(x)) for key, x in self.accumulatives.items())
+        values.extend((key, x) for key, x in self.cummulatives.items())
         return ', '.join('{}: {}'.format(key, self._format_number(val)) for key, val in values)
 
     def commit(self, global_t):
@@ -156,9 +161,14 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
             self.summary_writer.add_last_value_scalar('episodes', self._episodes)
             self.summary_writer.add_scalar('episode_length', episode_length)
             self.summary_writer.add_scalar('reward', reward)
-            if stats is not None:
-                for key, val in stats.items():
-                    self.summary_writer.add_scalar(key, val)
+
+        if stats is not None:
+            if 'loss' in stats:
+                self.summary_writer.add_scalar('loss', stats.get('loss'))
+
+            if 'win' in stats:
+                self.summary_writer.add_scalar('win_rate', float(stats.get('win')))
+                self.summary_writer.add_cummulative('win_count', int(stats.get('win')))                    
 
         return (tdiff, episode_end, stats)
 
