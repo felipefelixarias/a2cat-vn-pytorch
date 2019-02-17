@@ -23,7 +23,7 @@ class Trainer(deepq.dqn.DeepQTrainer):
         self.max_episode_steps = None
 
 
-    def create_inputs(self, name):
+    def create_inputs(self, name, **kwargs):
         return [Input(shape = (4,), name = name + '_input')]
 
     def create_backbone(self, action_space_size, **kwargs):
