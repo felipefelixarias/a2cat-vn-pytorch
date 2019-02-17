@@ -29,67 +29,6 @@ class Replay:
         batch = list(map(lambda *x:np.stack(x, axis = 0), *batch))
         return batch
 
-def create_model(action_space_size):
-    block1 = Conv2D(
-        filters=32,
-        kernel_size=[8,8],
-        strides=[4,4],
-        activation="relu",
-        padding="valid",
-        name="conv1")
-
-    block2 = Conv2D(
-        filters=32, #TODO: test 64
-        kernel_size=[4,4],
-        strides=[2,2],
-        activation="relu",
-        padding="valid",
-        name="conv2")
-
-    concatenate3 = Concatenate(3)
-
-    layer3 = Conv2D(
-        filters = 32,
-        kernel_size =(1,1),
-        strides = (1,1),
-        activation = "relu",
-        name = "merge"
-    )
-
-    flatten3 = Flatten()
-    layer4 = Dense(
-        units=256,
-        activation="relu",
-        name="fc3")
-
-    adventage = Dense(
-        units=action_space_size,
-        activation=None,
-        name="policy_fc"
-    )
-
-    value = Dense(
-        units=1,
-        name="value_fc"
-    )
-
-    final_merge = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)),name="final_out")
-
-    def call(inputs):
-        streams = list(map(lambda x: block2(block1(x)), inputs))
-        if len(streams) > 1:
-            model = concatenate3(streams)
-            model = layer3(model)
-        else:
-            model = streams[0]
-
-        model = flatten3(model)
-        model = layer4(model)
-        model = final_merge([value(model), adventage(model)])
-        return model
-
-    return call
-
 def update_target_graph(main_graph, target_graph, tau):
     updated_weights = (np.array(main_graph.get_weights()) * tau) + \
         (np.array(target_graph.get_weights()) * (1 - tau))
@@ -135,38 +74,43 @@ class DeepQTrainer(SingleTrainer):
         pass
 
     def _build_model_for_training(self, **kwargs):
-        actions = tf.placeholder(tf.uint8, (None,))
-        rewards = tf.placeholder(tf.float32, (None,))
-        terminals = tf.placeholder(tf.bool, (None,))
+        with K.name_scope('training'):
+            actions = tf.placeholder(tf.uint8, (None,))
+            rewards = tf.placeholder(tf.float32, (None,))
+            terminals = tf.placeholder(tf.bool, (None,))
 
-        inputs = self.create_inputs('main')
-        model_stream = self.create_backbone()
-        target_model_stream = self.create_backbone()
+            inputs = self.create_inputs('main')
+            model_stream = self.create_backbone()
+            target_model_stream = self.create_backbone()
 
-        q = model_stream(inputs)
-        q_selector = target_model_stream(inputs)
-        model = Model(inputs = inputs, outputs = [q])
-        target_model = Model(inputs = inputs, outputs = [q_selector])
+            q = model_stream(inputs)
+            q_selector = target_model_stream(inputs)
+            model = Model(inputs = inputs, outputs = [q])
+            target_model = Model(inputs = inputs, outputs = [q_selector])
 
-        # Create predict function
-        model.predict_on_batch = K.function(inputs = inputs, outputs = [K.argmax(q, axis = 1)])
-        
-        # Next input targets
-        next_step_inputs = self.create_inputs('next')
-        next_q = K.stop_gradient(model_stream(next_step_inputs))
-        
-        # Build loss
-        pcontinues = (1.0 - tf.to_float(terminals)) * self.gamma
-        loss, _ = self._build_loss(q, actions, rewards, pcontinues, next_q, q_selector)
-        loss = K.mean(loss)
+            # Create predict function
+            model.predict_on_batch = K.function(inputs = inputs, outputs = [K.argmax(q, axis = 1)])
+            
+            # Next input targets
+            next_step_inputs = self.create_inputs('next')
+            next_q = K.stop_gradient(model_stream(next_step_inputs))
+            
+            # Build loss
+            pcontinues = (1.0 - tf.to_float(terminals)) * self.gamma
+            loss, _ = self._build_loss(q, actions, rewards, pcontinues, next_q, q_selector)
+            loss = K.mean(loss)
 
 
-        # Build optimize
-        optimizer = tf.train.AdamOptimizer(0.001)
-        update = optimizer.minimize(loss)
-        train_on_batch = K.Function(inputs + [actions, rewards, terminals] + next_step_inputs, [loss], updates = [update])
-        model.train_on_batch = train_on_batch
+            # Build optimize
+            optimizer = tf.train.AdamOptimizer(0.001)
+            update = optimizer.minimize(loss)
+            train_on_batch = K.Function(inputs + [actions, rewards, terminals] + next_step_inputs, [loss], updates = [update])
+            model.train_on_batch = train_on_batch
 
+        init = tf.global_variables_initializer()
+        sess = K.get_session()
+        sess.run(init)
+    
         # Return model for evaluation and training
         return model, partial(update_target_graph, model, target_model)
 

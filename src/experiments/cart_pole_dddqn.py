@@ -21,7 +21,7 @@ class Trainer(deepq.double_dqn.DeepQTrainer):
         self.preprocess_steps = 1000
         self.replay_size = 50000
         self.max_episode_steps = None
-        self.sync_steps = 200
+        self.sync_steps = 1000
 
 
     def create_inputs(self, name):
@@ -61,7 +61,7 @@ if __name__ == '__main__':
         env_kwargs = dict(id='CartPole-v0'), 
         model_kwargs = dict(action_space_size = 2))
 
-    trainer = wrap(trainer, max_time_steps=100000, episode_log_interval=10).compile()
+    trainer = wrap(trainer, max_number_of_episodes=1000, episode_log_interval=10).compile()
     trainer.run()
 
 else:

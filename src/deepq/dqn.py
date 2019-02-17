@@ -165,7 +165,7 @@ class DeepQTrainer(SingleTrainer):
         sess = K.get_session()
         sess.run(init_op)
 
-        train_on_batch = K.Function(model.inputs + [actions, rewards, terminals] + next_step_inputs, [loss], updates = [update])
+        train_on_batch = K.Function(model.inputs + [actions, rewards, terminals] + next_step_inputs, [loss], updates = [update_op])
         model.train_on_batch = train_on_batch
 
         # Create predict function
