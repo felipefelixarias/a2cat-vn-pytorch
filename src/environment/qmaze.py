@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import gym
+import gym.spaces
 
 rat_mark = 0.5
 
@@ -20,7 +21,7 @@ RIGHT = 2
 DOWN = 3
 
 class Qmaze(gym.Env):
-    def __init__(self, rat=(0,0)):
+    def __init__(self, rat=(0,0), maze = maze, rewards = [1.0, -0.75, -0.04, -0.25]):
         self._maze = np.array(maze)
         nrows, ncols = self._maze.shape
         self.target = (nrows-1, ncols-1)   # target cell where the "cheese" is
@@ -32,12 +33,13 @@ class Qmaze(gym.Env):
             raise Exception("Invalid Rat Location: must sit on a free cell")
         
         self.original_rat = rat
+        self.rewards = rewards
 
         self.action_space = gym.spaces.Discrete(4)
         self.observation_space = gym.spaces.Box(0, 1, (49,), np.float32)
 
-    def reset(self):
-        self.rat = random.choice(self.free_cells)
+    def reset(self, rat_pos = None):
+        self.rat = rat_pos if rat_pos is not None else random.choice(self.free_cells)
         self.maze = np.copy(self._maze)        
         row, col = self.rat
         self.maze[row, col] = rat_mark
@@ -77,15 +79,15 @@ class Qmaze(gym.Env):
         rat_row, rat_col, mode = self.state
         nrows, ncols = self.maze.shape
         if rat_row == nrows-1 and rat_col == ncols-1:
-            return 1.0
+            return self.rewards[0]
         if mode == 'blocked':
             return self.min_reward - 1
         if (rat_row, rat_col) in self.visited:
-            return -0.25
+            return self.rewards[3]
         if mode == 'invalid':
-            return -0.75
+            return self.rewards[1]
         if mode == 'valid':
-            return -0.04
+            return self.rewards[2]
 
     def step(self, action):
         self.update_state(action)
@@ -155,6 +157,27 @@ class Qmaze(gym.Env):
             actions.remove(2)
 
         return actions
+
+    def render(self, mode = 'human'):
+        if mode == 'human':
+            import matplotlib.pyplot as plt
+            plt.grid('on')
+            nrows, ncols = self.maze.shape
+            ax = plt.gca()
+            ax.set_xticks(np.arange(0.5, nrows, 1))
+            ax.set_yticks(np.arange(0.5, ncols, 1))
+            ax.set_xticklabels([])
+            ax.set_yticklabels([])
+            canvas = np.copy(self.maze)
+            for row,col in self.visited:
+                canvas[row,col] = 0.6
+            rat_row, rat_col, _ = self.state
+            canvas[rat_row, rat_col] = 0.3   # rat cell
+            canvas[nrows-1, ncols-1] = 0.9 # cheese cell
+            img = plt.imshow(canvas, interpolation='none', cmap='gray')
+            plt.show()
+            return img
+
 
 
 gym.register(

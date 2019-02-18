@@ -5,16 +5,20 @@ import threading
 
 class AbstractTrainer:
     def __init__(self, env_kwargs, model_kwargs):
-        self.env = self._wrap_env(gym.make(**env_kwargs))
-        self.model = self._create_model(**model_kwargs)
+        self.env = None
+        self._env_kwargs = env_kwargs
+        self.model = None
+        self._model_kwargs = model_kwargs
         self.name = 'trainer'
+
+        self.is_initialized = False
         pass
 
     def _wrap_env(self, env):
         return env
 
     @abc.abstractclassmethod
-    def _create_model(self, **model_kwargs):
+    def _initialize(self, **model_kwargs):
         pass
 
     @abc.abstractclassmethod
@@ -24,13 +28,28 @@ class AbstractTrainer:
     def __repr__(self):
         return '<%sTrainer>' % self.name
 
-    def run(self, process = None, **kwargs):
-        if process is None:
-            process = self.process
+    def run(self, process, **kwargs):
         if hasattr(self, '_run'):
+            self.env = self._wrap_env(gym.make(**self._env_kwargs))
+            self.model = self._initialize(**self._model_kwargs)
             self._run(process = process, **kwargs)
         else:
             raise Exception('Run is not implemented')
+
+    def compile(self, compiled_agent = None, **kwargs):
+        if compiled_agent is None:
+            compiled_agent = CompiledTrainer(self)
+
+        def run_fn(**kwargs):
+            if not hasattr(self, '_run'):
+                raise Exception('Run is not implemented')
+
+            self.env = self._wrap_env(gym.make(**self._env_kwargs))
+            self.model = self._initialize(**self._model_kwargs) 
+            self._run(compiled_agent.process)
+            
+        compiled_agent.run = run_fn
+        return compiled_agent
 
 
 class AbstractTrainerWrapper(AbstractTrainer):
@@ -39,16 +58,10 @@ class AbstractTrainerWrapper(AbstractTrainer):
         self.unwrapped = trainer.unwrapped if hasattr(trainer, 'unwrapped') else trainer
         self.summary_writer = trainer.summary_writer if hasattr(trainer, 'summary_writer') else None
 
-    def _wrap_env(self, env):
-        return self.trainer._wrap_env(env)
-
-    def _create_model(self, **model_kwargs):
-        return self.trainer._create_model(**model_kwargs)
-
     def process(self, **kwargs):
         return self.trainer.process(**kwargs)
 
-    def _run(self, **kwargs):
+    def run(self, **kwargs):
         self.trainer.run(**kwargs)
 
     def stop(self, **kwargs):
@@ -57,15 +70,13 @@ class AbstractTrainerWrapper(AbstractTrainer):
     def compile(self, compiled_agent = None, **kwargs):
         if compiled_agent is None:
             compiled_agent = CompiledTrainer(self)
-
-        if hasattr(self.trainer, 'compile'):
-            self.trainer.compile(compiled_agent = compiled_agent, **kwargs)
-
-        return compiled_agent
+        return self.trainer.compile(compiled_agent = compiled_agent, **kwargs)
+        
 
 class CompiledTrainer(AbstractTrainerWrapper):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, target, *args, **kwargs):
+        super().__init__(self, *args, **kwargs)
+        self.process = target.process
 
     def __repr__(self):
         return '<Compiled %s>' % self.trainer.__repr__()

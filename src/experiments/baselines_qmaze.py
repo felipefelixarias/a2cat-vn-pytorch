@@ -18,7 +18,7 @@ def callback(lcl, _glb):
 
 def main():
     env = gym.make("QMaze-v0")
-    act = deepq.learn(
+    act, policy = deepq.learn(
         env,
         network='mlp',
         lr=1e-3,
