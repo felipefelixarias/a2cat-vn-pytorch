@@ -529,7 +529,12 @@ def learn(env,
                 logger.log("Restored model with mean reward: {}".format(saved_mean_reward))
             load_variables(model_file)
 
-    return act
+        input_ph = make_obs_ph('input').get()
+        output = q_func(input_ph, 4, scope="q_func", reuse=True)
+        def eval_q(input):
+            return sess.run(output, feed_dict = { input_ph: input})
+
+    return act, eval_q
 
 
 

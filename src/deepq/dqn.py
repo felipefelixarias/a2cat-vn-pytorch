@@ -12,8 +12,6 @@ import random
 import os
 import abc
 
-from baselines.deepq import 
-
 class Replay:
     def __init__(self, size):
         self.buffer = []
@@ -95,6 +93,7 @@ def create_model(action_space_size):
 
 class DeepQTrainer(SingleTrainer):
     def __init__(self, env_kwargs, model_kwargs):
+        super().__init__(env_kwargs, model_kwargs)
         self.name = 'deepq'        
         self.minibatch_size = 32
         self.gamma = 0.99
@@ -105,10 +104,7 @@ class DeepQTrainer(SingleTrainer):
         self.preprocess_steps = 100000
         self.replay_size = 50000
         self.model_kwargs = model_kwargs
-        self.max_episode_steps = None       
-        
-        # Initialize model and everything
-        super().__init__(env_kwargs, model_kwargs)
+        self.max_episode_steps = None  
 
         self._global_t = 0
         self._state = None
@@ -125,19 +121,17 @@ class DeepQTrainer(SingleTrainer):
         pass
 
     @abc.abstractclassmethod
-    def create_backbone(self, *args, **kwargs):
+    def create_model(self, inputs, *args, **kwargs):
         pass
 
     def _build_model_for_training(self, action_space_size, **kwargs):
         inputs = self.create_inputs('main', **self.model_kwargs)
-        model_stream = self.create_backbone(**self.model_kwargs)
-        model = Model(inputs = inputs, outputs = [model_stream(inputs)])
+        model = self.create_model(inputs, **self.model_kwargs)
 
         with K.name_scope('training'):
             actions = tf.placeholder(tf.uint8, (None,))
             rewards = tf.placeholder(tf.float32, (None,))
             terminals = tf.placeholder(tf.bool, (None,))
-            gamma = tf.placeholder_with_default(self.gamma, tuple())
 
             # Q value
             q = model.output
@@ -146,10 +140,10 @@ class DeepQTrainer(SingleTrainer):
             next_step_inputs = self.create_inputs('next', **self.model_kwargs)
 
             # Q value for next state
-            next_q = K.stop_gradient(model_stream(next_step_inputs))
+            next_q = K.stop_gradient(model(next_step_inputs))
             
             # Build loss
-            pcontinues = (1.0 - tf.to_float(terminals)) * gamma
+            pcontinues = (1.0 - tf.to_float(terminals)) * self.gamma
             loss, _ = qlearning(q, actions, rewards, pcontinues, next_q)
             loss = K.mean(loss)
 
@@ -169,14 +163,14 @@ class DeepQTrainer(SingleTrainer):
         sess = K.get_session()
         sess.run(init_op)
 
-        train_on_batch = K.Function(model.inputs + [actions, rewards, terminals] + next_step_inputs, [loss], updates = [update_op])
+        train_on_batch = K.Function(model.inputs + [actions, rewards, terminals] + next_step_inputs, [loss], updates = [update])
         model.train_on_batch = train_on_batch
 
         # Create predict function
         model.predict_on_batch = K.function(inputs = inputs, outputs = [K.argmax(q, axis = 1)])
         return model
 
-    def _create_model(self, **model_kwargs):
+    def _initialize(self, **model_kwargs):
         model = self._build_model_for_training(**model_kwargs)
         model.summary()
         return model

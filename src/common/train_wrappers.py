@@ -34,9 +34,9 @@ class SaveWrapper(AbstractTrainerWrapper):
             f.write(model.to_json())
             f.flush()
 
-    def _run(self, **kwargs):
+    def run(self, **kwargs):
         try:
-            super()._run(**kwargs)
+            super().run(**kwargs)
         except KeyboardInterrupt:
             self._save()
             raise
@@ -85,6 +85,7 @@ class SummaryWriter:
         self.lastvalues = dict()
         self.cummulatives = defaultdict(lambda: 0)
         self.writer = writer
+        self.window_size = 100
 
     def add_last_value_scalar(self, name, value):
         self.lastvalues[name] = value
@@ -104,7 +105,7 @@ class SummaryWriter:
     def summary(self, global_t):
         values = [('step', global_t)]
         values.extend((key, value) for key, value in self.lastvalues.items())
-        values.extend((key, np.mean(x)) for key, x in self.accumulatives.items())
+        values.extend((key, np.mean(x[-self.window_size:])) for key, x in self.accumulatives.items())
         values.extend((key, x) for key, x in self.cummulatives.items())
         return ', '.join('{}: {}'.format(key, self._format_number(val)) for key, val in values)
 
@@ -120,7 +121,6 @@ class SummaryWriter:
 
         metrics_row = metrics_row.flush()
         self.lastvalues = dict()
-        self.accumulatives = defaultdict(list)
         return metrics_row
 
 
