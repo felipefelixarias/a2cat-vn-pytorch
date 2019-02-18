@@ -12,8 +12,6 @@ import random
 import os
 import abc
 
-from baselines.deepq import 
-
 class Replay:
     def __init__(self, size):
         self.buffer = []

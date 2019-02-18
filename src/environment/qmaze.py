@@ -33,6 +33,9 @@ class Qmaze(gym.Env):
         
         self.original_rat = rat
 
+        self.action_space = gym.spaces.Discrete(4)
+        self.observation_space = gym.spaces.Box(0, 1, (49,), np.float32)
+
     def reset(self):
         self.rat = random.choice(self.free_cells)
         self.maze = np.copy(self._maze)        
