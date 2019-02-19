@@ -2,7 +2,6 @@ import abc
 import gym
 import threading
 
-
 class AbstractTrainer:
     def __init__(self, env_kwargs, model_kwargs):
         self.env = None
