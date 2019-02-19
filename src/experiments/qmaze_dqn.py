@@ -75,7 +75,7 @@ if __name__ == '__main__':
         env_kwargs = dict(id='QMaze-v0'), 
         model_kwargs = dict(action_space_size = 4, maze_size = 49))
 
-    trainer = wrap(trainer, max_time_steps=100000, episode_log_interval=10).compile()
+    trainer = wrap(trainer, max_time_steps=100000, episode_log_interval=10, save = False).compile()
     trainer.run()
 
 else:
