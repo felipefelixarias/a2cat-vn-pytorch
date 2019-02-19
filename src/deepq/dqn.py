@@ -4,31 +4,16 @@ from keras import optimizers
 from common.train import SingleTrainer, AbstractTrainer
 from common.env_wrappers import ColorObservationWrapper
 from common.abstraction import AbstractAgent
-from trfl import qlearning
+from trfl import qlearning, double_qlearning
 import keras.backend as K
 import tensorflow as tf
 import numpy as np
 import random
 import os
+from collections import namedtuple
 import abc
 
-class Replay:
-    def __init__(self, size):
-        self.buffer = []
-        self.size = size
-        self._last_idx = 0
-
-    def add(self, item):
-        if len(self.buffer) >= self.size:
-            self.buffer[self._last_idx] = item
-            self._last_idx = (self._last_idx + 1) % self.size
-        else:
-            self.buffer.append(item)
-
-    def sample(self, n):
-        batch = random.sample(self.buffer, min(n, len(self.buffer)))
-        batch = list(map(lambda *x:np.stack(x, axis = 0), *batch))
-        return batch
+from deepq.replay import ReplayBuffer
 
 def create_model(action_space_size):
     block1 = Conv2D(
@@ -100,9 +85,11 @@ class DeepQTrainer(SingleTrainer):
         self.epsilon_start = 1.0
         self.epsilon_end = 0.02
         
+        self.update_period = 500 # Double DQN update period
         self.annealing_steps = 100000
         self.preprocess_steps = 100000
         self.replay_size = 50000
+        self.learning_rate = 0.001
         self.model_kwargs = model_kwargs
         self.max_episode_steps = None  
 
@@ -124,54 +111,66 @@ class DeepQTrainer(SingleTrainer):
     def create_model(self, inputs, *args, **kwargs):
         pass
 
-    def _build_model_for_training(self, action_space_size, **kwargs):
-        inputs = self.create_inputs('main', **self.model_kwargs)
+
+    def _build_model_for_training(self):
+        inputs = self.create_inputs("main", **self.model_kwargs)
         model = self.create_model(inputs, **self.model_kwargs)
+        model_vars = model.trainable_weights
+        q = model.output        
 
-        with K.name_scope('training'):
-            actions = tf.placeholder(tf.uint8, (None,))
-            rewards = tf.placeholder(tf.float32, (None,))
-            terminals = tf.placeholder(tf.bool, (None,))
+        with tf.name_scope('train'):
+            # Input placeholders
+            actions = tf.placeholder(tf.int32, [None], name="action")
+            rewards = tf.placeholder(tf.float32, [None], name="reward")
+            inputs_next = self.create_inputs("next", **self.model_kwargs)
+            terminates = tf.placeholder(tf.float32, [None], name="terminate")
 
-            # Q value
-            q = model.output
-            
-            # Next input targets
-            next_step_inputs = self.create_inputs('next', **self.model_kwargs)
+            # Target network            
+            target_model = self.create_model(inputs_next, **self.model_kwargs)
+            target_vars = target_model.trainable_weights
 
-            # Q value for next state
-            next_q = K.stop_gradient(model(next_step_inputs))
-            
-            # Build loss
-            pcontinues = (1.0 - tf.to_float(terminals)) * self.gamma
-            loss, _ = qlearning(q, actions, rewards, pcontinues, next_q)
-            loss = K.mean(loss)
+            q_next = K.stop_gradient(target_model.output)            
+            q_next_online_net = K.stop_gradient(model(inputs_next))
 
-
-            # Build optimize
-            optimizer = tf.train.AdamOptimizer(0.001)
-            update = optimizer.minimize(loss)
-
-            update_op = [tf.assign(*a) for a in model.updates]
-            with tf.control_dependencies([update]):
-                with tf.control_dependencies(update_op):
-                    update_op = tf.no_op()
+            # Loss
+            pcontinues = (1.0 - terminates) * self.gamma
+            errors, _info = double_qlearning(q, actions, rewards, pcontinues, q_next, q_next_online_net)
 
 
-        # Initalize optimizer parameters
-        init_op = tf.global_variables_initializer()
-        sess = K.get_session()
-        sess.run(init_op)
+            td_error = _info.td_error
 
-        train_on_batch = K.Function(model.inputs + [actions, rewards, terminals] + next_step_inputs, [loss], updates = [update])
-        model.train_on_batch = train_on_batch
+            loss = tf.reduce_mean(errors)
+            optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
+            optimize_expr = optimizer.minimize(loss, var_list=model_vars)
 
-        # Create predict function
-        model.predict_on_batch = K.function(inputs = inputs, outputs = [K.argmax(q, axis = 1)])
+            # update_target_fn will be called periodically to copy Q network to target Q network
+            update_target_expr = tf.group(*[var_target.assign(var) for var, var_target in zip(model_vars, target_vars)])
+
+        # Create callable functions
+        train_fn = K.function(inputs + [
+                actions,
+                rewards,                                 
+                terminates,
+            ] + inputs_next,
+            outputs=[tf.reduce_mean(td_error)],
+            updates=[optimize_expr]
+        )
+
+        act_fn = K.function(inputs = inputs, outputs = [K.argmax(q, axis = 1)])
+        update_fn = K.function([], [], updates=[update_target_expr])
+
+        self._update_parameters = lambda: update_fn([])
+        self._train = train_fn
+        self._act = lambda x: act_fn([x])
         return model
 
+
     def _initialize(self, **model_kwargs):
-        model = self._build_model_for_training(**model_kwargs)
+        self._replay = ReplayBuffer(self.replay_size)
+
+        sess = tf.Session()
+        K.set_session(sess)
+        model = self._build_model_for_training()
         model.summary()
         return model
 
@@ -188,25 +187,28 @@ class DeepQTrainer(SingleTrainer):
         if random.random() < self.epsilon:
             return random.randrange(self.model_kwargs.get('action_space_size'))
 
-        return self.model.predict_on_batch([[state]])[0][0]
+        return self._act(state[None])[0]
 
     def _optimize(self):
-        state, action, reward, done, next_state = self._replay.sample(self.minibatch_size)
-        return self.model.train_on_batch([state, action, reward, done, next_state])
+        state, action, reward, next_state, done = self._replay.sample(self.minibatch_size)
+        td_losses = self._train([state, action, reward, done, next_state])
+        loss = np.mean(td_losses)
+        if self._global_t % 500 == 0:
+            self._update_parameters()
+
+        return loss
 
     def process(self):
         episode_end = None
 
         if self._state is None:
             self._state = self.env.reset()
-        if self._replay is None:
-            self._replay = Replay(self.replay_size)
 
         old_state = self._state
         action = self.act(self._state)
 
         self._state, reward, done, env_props = self.env.step(action)
-        self._replay.add((old_state, action, reward, done, self._state))
+        self._replay.add(old_state, action, reward, self._state, done)
 
         self._episode_length += 1
         self._episode_reward += reward
