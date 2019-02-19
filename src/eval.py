@@ -1,8 +1,10 @@
 from environment.environment import Environment
-from common.abstraction import LambdaAgent, RandomAgent
+from common.core import LambdaAgent, RandomAgent
 import numpy as np
 import gym
 import gym_maze
+import random
+from common.console import print_progress
 
 def create_baselines(action_space_size, seed = None):
     return [RandomAgent(action_space_size)] + \
@@ -11,7 +13,6 @@ def create_baselines(action_space_size, seed = None):
 class Evaluation:
     def __init__(self, env_kwargs, seed = None):
         self._env = gym.make(**env_kwargs)
-        self._env = gym.wrappers.TimeLimit(self._env, max_episode_steps=50)
         self._action_space_size = self._env.action_space.n
         self._results = dict()
         self._number_of_episodes = 1000
@@ -19,6 +20,9 @@ class Evaluation:
         self._seed = seed or random.random()
 
     def run(self, agent):
+        print('Evaluating %s' % agent.name)
+        print_progress(0, self._number_of_episodes)
+
         if hasattr(self._env, 'seed'):
             self._env.seed(self._seed)
 
@@ -27,7 +31,7 @@ class Evaluation:
 
         episode_lengths = []
         rewards = []
-        for _ in range(self._number_of_episodes):
+        for i in range(self._number_of_episodes):
             state = env.reset()
             agent.reset_state()
 
@@ -35,14 +39,16 @@ class Evaluation:
             total_reward = 0
             done = False
 
-            while not done and (env.spec.timestep_limit is not None and episode_length < env.spec.timestep_limit):
+            while not done:
                 action = agent.act(state)
                 state, reward, done, _ = env.step(action)
                 total_reward += reward
                 episode_length += 1
 
             episode_lengths.append(episode_length)
-            rewards.append(reward)
+            rewards.append(total_reward)
+
+            print_progress(i+1, self._number_of_episodes)
         
         self._results[agent.name] = dict(
             mean_reward = np.mean(rewards),
@@ -61,13 +67,12 @@ class Evaluation:
         return self._results
 
 
-def run_evaluation(agents):
+def run_evaluation(name, env_kwargs, agents):
     import matplotlib.pyplot as plt
     import csv
     from os import path
     import os
 
-    env_kwargs = dict(id = 'GoalMaze-v0', fixed_goal = True)
     seed = 1
     bins = 10
     results_dir = './results'
@@ -76,7 +81,6 @@ def run_evaluation(agents):
 
 
     eval = Evaluation(env_kwargs, seed = seed)
-    agents = agents(action_space_size = eval._env.action_space.n)
     for agent in agents:
         eval.run(agent)
 
@@ -84,10 +88,10 @@ def run_evaluation(agents):
         f = plt.figure()
         plt.hist(val.get('episode_lengths'))
         plt.show()
-        f.savefig(path.join(results_dir, '%s-episode-lengths.pdf' % key), bbox_inches='tight')
+        f.savefig(path.join(results_dir, '%s-%s-episode-lengths.pdf' % (name, key)), bbox_inches='tight')
 
-    if path.exists(path.join(results_dir, 'results.csv')):
-        with open(path.join(results_dir, 'results.csv'), newline='') as inputFile:  
+    if path.exists(path.join(results_dir, '%s-results.csv' % name)):
+        with open(path.join(results_dir, '%s-results.csv' % name), newline='') as inputFile:  
             reader = csv.reader(inputFile)
             rows = list(reader)
     else:
@@ -99,7 +103,7 @@ def run_evaluation(agents):
 
     rows = [rows[0]] + [x for (key, x) in old_data.items()]
 
-    with open(path.join(results_dir, 'results.csv'), 'w+') as outputFile:
+    with open(path.join(results_dir, '%s-results.csv' % name), 'w+') as outputFile:
         writer = csv.writer(outputFile)
         writer.writerows(rows)
         outputFile.flush()
@@ -125,7 +129,9 @@ if __name__ == '__main__':
         return [UnrealAgent(action_space_size, use_goal=True, use_lstm=False, use_pixel_change=False, use_reward_prediction=False, use_value_replay=False)]
     
     #run_evaluation(run_dqn)
-    run_evaluation(run_supervised)
+    # run_evaluation(run_supervised)
     #run_evaluation(run_a3c)
+    import environment.qmaze
+    run_evaluation('qmaze', dict(id = 'QMaze-v0'), create_baselines(4))
 
     

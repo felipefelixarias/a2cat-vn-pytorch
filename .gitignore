@@ -109,3 +109,4 @@ venv.bak/
 /results
 /src/logs
 /src/checkpoints
+/src/results

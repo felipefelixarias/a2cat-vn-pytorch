@@ -26,9 +26,12 @@ def make_trainer(id, **kwargs):
     return instance
 
 def make_agent(id, **kwargs):
-    wargs = dict(**_agent_registry[id])
-    del wargs['trainer']
+    if isinstance(id, str):
+        wargs = dict(**_agent_registry[id])
+        del wargs['agent']
 
-    wargs.update(kwargs)
-    instance = _agent_registry[id]['agent'](**wargs)
-    return instance
+        wargs.update(kwargs)
+        instance = _agent_registry[id]['agent'](name = id, **wargs)
+        return instance
+    else:
+        return id(**kwargs)

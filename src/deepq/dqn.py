@@ -4,7 +4,6 @@ from keras import optimizers
 from common.train import SingleTrainer, AbstractTrainer
 from common import AbstractAgent
 from common.env_wrappers import ColorObservationWrapper
-from common import AbstractAgent
 from trfl import qlearning, double_qlearning
 import keras.backend as K
 import tensorflow as tf
@@ -77,7 +76,7 @@ def create_model(action_space_size):
 
     return call
 
-class DeepQTrainer(SingleTrainer, AbstractAgent):
+class DeepQTrainer(SingleTrainer):
     def __init__(self, name, env_kwargs, model_kwargs):
         super().__init__(name = name, env_kwargs = env_kwargs, model_kwargs = model_kwargs)  
         self.name = name     
@@ -256,16 +255,5 @@ class DeepQAgent(AbstractAgent):
         return env
 
     def act(self, state):
-        return np.argmax(self.model.predict(state))
-
-class AtariDeepQTrainer(DeepQTrainer):
-    def __init__(self, env_id):
-        super().__init__(env_kwargs = dict(id = env_id), model_kwargs = dict())
-
-        self.replay_size = 100000
-
-    def create_inputs(self, name = 'main'):
-        return [Input(shape=list((84,84,)) + [3], name="%s_observation" % name)]
-
-    def create_backbone(self, *args, **kwargs):
-        return create_model(*args, **kwargs)
+        print(state.shape)
+        return np.argmax(self.model.predict([state[None]])[0])
