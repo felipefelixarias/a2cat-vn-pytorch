@@ -7,14 +7,13 @@ import numpy as np
 from options import get_options
 from common.env_wrappers import ColorObservationWrapper
 import gym
-import gym_maze
-import deepq.catch_experiment
+import environment.qmaze
 
 flags = get_options('keyboard')
 
 class Explorer:
     def __init__(self):
-        self.env = ColorObservationWrapper(gym.make('GridWorld-v0'))
+        self.env = gym.make('Maze-v0') #ColorObservationWrapper(gym.make('Maze-v0'))
         self.is_goal = isinstance(self.env.observation_space, gym.spaces.Dict)
 
         self.keyboard_map = {key: i for (i, key) in enumerate(['up', 'down', 'left', 'right']) }

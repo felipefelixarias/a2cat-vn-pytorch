@@ -2,7 +2,6 @@ from environment.environment import Environment
 from common.core import LambdaAgent, RandomAgent
 import numpy as np
 import gym
-import gym_maze
 import random
 from common.console import print_progress
 from common import make_agent
@@ -134,7 +133,9 @@ if __name__ == '__main__':
     #run_evaluation(run_a3c)
     import environment.qmaze
     import experiments.qmaze_dqn
+    from supervised.experiment import ShortestPathAgent
     # run_evaluation('qmaze', dict(id = 'QMaze-v0'), create_baselines(4))
-    run_evaluation('qmaze', dict(id = 'QMaze-v0'), [make_agent('deepq-qmaze')])
+    #run_evaluation('qmaze', dict(id = 'QMaze-v0'), [make_agent('deepq-qmaze')])
+    run_evaluation('qmaze', dict(id = 'QMaze-v0'), [ShortestPathAgent()])
 
     

@@ -10,7 +10,7 @@ from keras.layers import Input, Dense, Conv2D, Concatenate, Flatten, BatchNormal
 from keras.models import Model, model_from_json
 from keras import optimizers
 import keras
-from common.abstraction import AbstractAgent
+from common import AbstractAgent
 
 def create_model(actions):
     image_stream = Input(shape=list((84,84,)) + [3], name="main_input")
@@ -91,10 +91,10 @@ class ShortestPathAgent(AbstractAgent):
         return env
 
     def act(self, state):
-        if self._actions is None or self._goal != self.env._goal_pos:
-            self._actions, _ = utils.build_graph_from_env(self.env)
+        if self._actions is None or self._goal != self.env.target:
+            self._actions, _ = utils.build_graph_from_qmaze(self.env)
 
-        return np.argmax(self._actions[self.env._pos[0], self.env._pos[1], :])
+        return np.argmax(self._actions[self.env.position[0], self.env.position[1], :])
 
 
 

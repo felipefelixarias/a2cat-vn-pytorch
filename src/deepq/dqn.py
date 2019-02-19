@@ -17,7 +17,7 @@ from deepq.replay import ReplayBuffer
 
 class DeepQTrainer(SingleTrainer):
     def __init__(self, name, env_kwargs, model_kwargs):
-        super().__init__(name = name, env_kwargs = env_kwargs, model_kwargs = model_kwargs)  
+        super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)  
         self.name = name     
         self.minibatch_size = 32
         self.gamma = 0.99
