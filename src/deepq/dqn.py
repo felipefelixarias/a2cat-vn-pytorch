@@ -3,7 +3,7 @@ from keras.models import Model, model_from_json
 from keras import optimizers
 from common.train import SingleTrainer, AbstractTrainer
 from common.env_wrappers import ColorObservationWrapper
-from common.abstraction import AbstractAgent
+from common import AbstractAgent
 from trfl import qlearning, double_qlearning
 import keras.backend as K
 import tensorflow as tf
@@ -157,11 +157,13 @@ class DeepQTrainer(SingleTrainer):
         )
 
         act_fn = K.function(inputs = inputs, outputs = [K.argmax(q, axis = 1)])
+        q_fn = K.function(inputs = inputs, outputs = [q])
         update_fn = K.function([], [], updates=[update_target_expr])
 
         self._update_parameters = lambda: update_fn([])
         self._train = train_fn
         self._act = lambda x: act_fn([x])
+        self._q = lambda x: q_fn([x])[0]
         return model
 
 

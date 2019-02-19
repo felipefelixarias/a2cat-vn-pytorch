@@ -6,6 +6,7 @@ if __name__ == '__main__':
 
 from deepq import dqn as dqn
 from common.train_wrappers import wrap
+
 import gym
 import environment.qmaze
 from functools import reduce
@@ -13,6 +14,7 @@ import deepq.catch_experiment
 from keras.layers import Input, Dense, Concatenate, Lambda, PReLU
 from keras.models import Model
 import keras.backend as K
+from common import register_trainer, make_trainer
 
 class QMazeModel(Model):
     def __init__(self, maze_size, action_space_size, **kwargs):
@@ -39,11 +41,11 @@ class QMazeModel(Model):
         return model
 
 
+@register_trainer('deepq-qmaze', max_time_steps = 100000, episode_log_interval = 10, save = False)
 class Trainer(dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.name = 'deepq-cartpole'
-
+        self.name = 'deepq-qmaze'
         self.epsilon_start = 1.0
         self.epsilon_end = 0.02
         self.annealing_steps = 10000
@@ -71,11 +73,12 @@ class Trainer(dqn.DeepQTrainer):
         return env
 
 if __name__ == '__main__':
-    trainer = Trainer(
+    trainer = make_trainer(
+        id = 'deepq-qmaze',
         env_kwargs = dict(id='QMaze-v0'), 
-        model_kwargs = dict(action_space_size = 4, maze_size = 49))
+        model_kwargs = dict(action_space_size = 4, maze_size = 49)
+    )
 
-    trainer = wrap(trainer, max_time_steps=100000, episode_log_interval=10, save = False).compile()
     trainer.run()
 
 else:
