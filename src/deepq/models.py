@@ -1,63 +1,41 @@
 from keras.layers import Dense, Conv2D, Input, Flatten, Concatenate, Lambda
 from keras.models import Model
 
-def atari_backbone(action_space_size):
-    block1 = Conv2D(
+def atari(inputs, action_space_size, **kwargs):
+    model = inputs[0]
+    
+    model = Conv2D(
         filters=32,
         kernel_size=[8,8],
         strides=[4,4],
         activation="relu",
         padding="valid",
-        name="conv1")
+        name="conv1")(inputs)
 
-    block2 = Conv2D(
+    model = Conv2D(
         filters=32, #TODO: test 64
         kernel_size=[4,4],
         strides=[2,2],
         activation="relu",
         padding="valid",
-        name="conv2")
+        name="conv2")(model)
 
-    concatenate3 = Concatenate(3)
+    model = Concatenate(3)(model)
 
-    layer3 = Conv2D(
+    model = Conv2D(
         filters = 32,
         kernel_size =(1,1),
         strides = (1,1),
         activation = "relu",
         name = "merge"
-    )
+    )(model)
 
-    flatten3 = Flatten()
-    layer4 = Dense(
-        units=256,
-        activation="relu",
-        name="fc3")
+    model = Flatten()(model)
+    action = Dense(units=256, activation="relu", name="action_fc_1")(model)
+    action = Dense(units=action_space_size, activation=None, name="action_fc_2")(action)
 
-    adventage = Dense(
-        units=action_space_size,
-        activation=None,
-        name="policy_fc"
-    )
+    state = Dense(units=256, activation="relu", name="state_fc_1")(model)
+    state = Dense(units=1, name="state_fc_2")(state)
 
-    value = Dense(
-        units=1,
-        name="value_fc"
-    )
-
-    final_merge = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)),name="final_out")
-
-    def call(inputs):
-        streams = list(map(lambda x: block2(block1(x)), inputs))
-        if len(streams) > 1:
-            model = concatenate3(streams)
-            model = layer3(model)
-        else:
-            model = streams[0]
-
-        model = flatten3(model)
-        model = layer4(model)
-        model = final_merge([value(model), adventage(model)])
-        return model
-
-    return call
+    model = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)),name="merge_q")([state, action])
+    return Model(inputs = inputs, outputs = [model])
