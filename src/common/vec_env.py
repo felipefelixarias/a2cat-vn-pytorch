@@ -113,7 +113,7 @@ class VecEnv(ABC):
 
 def worker(remote, parent_remote, env_fn_wrapper):
     parent_remote.close()
-    env = env_fn_wrapper.x()
+    env = env_fn_wrapper()
     try:
         while True:
             cmd, data = remote.recv()
@@ -155,7 +155,7 @@ class SubprocVecEnv(VecEnv):
         self.closed = False
         nenvs = len(env_fns)
         self.remotes, self.work_remotes = zip(*[Pipe() for _ in range(nenvs)])
-        self.ps = [Process(target=worker, args=(work_remote, remote, CloudpickleWrapper(env_fn)))
+        self.ps = [Process(target=worker, args=(work_remote, remote, env_fn))
                    for (work_remote, remote, env_fn) in zip(self.work_remotes, self.remotes, env_fns)]
         for p in self.ps:
             p.daemon = True  # if the main process crashes, we should not cause things to hang
