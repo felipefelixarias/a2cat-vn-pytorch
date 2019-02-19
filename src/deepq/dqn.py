@@ -25,7 +25,7 @@ class DeepQTrainer(SingleTrainer):
         self.epsilon_end = 0.02
         
         self.update_period = 500 # Double DQN update period
-        self.annealing_steps = 100000
+        self.annealing_steps = 200000
         self.preprocess_steps = 100000
         self.replay_size = 50000
         self.learning_rate = 0.001
@@ -140,7 +140,7 @@ class DeepQTrainer(SingleTrainer):
     def _optimize(self):
         state, action, reward, next_state, done = self._replay.sample(self.minibatch_size)
         td_losses = self._train([state, action, reward, done, next_state])
-        loss = np.mean(td_losses)
+        loss = np.mean(np.abs(td_losses))
         if self._global_t % self.update_period == 0:
             self._update_parameters()
 

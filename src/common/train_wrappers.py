@@ -198,7 +198,7 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
 
         print(report)
 
-def wrap(trainer, max_number_of_episodes = None, max_time_steps = None, episode_log_interval = None, save = True):
+def wrap(trainer, max_number_of_episodes = None, max_time_steps = None, episode_log_interval = None, save = True, saving_period = 10000):
     if max_time_steps is not None:
         trainer = TimeLimitWrapper(max_time_steps, trainer = trainer)
 
@@ -209,6 +209,6 @@ def wrap(trainer, max_number_of_episodes = None, max_time_steps = None, episode_
         trainer = EpisodeLoggerWrapper(episode_log_interval, trainer = trainer)
 
     if save:
-        trainer = SaveWrapper(trainer)
+        trainer = SaveWrapper(trainer, saving_period = saving_period)
 
     return trainer
