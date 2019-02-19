@@ -129,8 +129,8 @@ class DeepQTrainer(SingleTrainer):
             target_model = self.create_model(inputs_next, **self.model_kwargs)
             target_vars = target_model.trainable_weights
 
-            q_next = K.stop_gradient(target_model.output)            
-            q_next_online_net = K.stop_gradient(model(inputs_next))
+            q_next = tf.stop_gradient(target_model.output)            
+            q_next_online_net = tf.stop_gradient(model(inputs_next))
 
             # Loss
             pcontinues = (1.0 - terminates) * self.gamma
