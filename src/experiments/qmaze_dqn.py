@@ -83,6 +83,3 @@ if __name__ == '__main__':
     # agent = make_agent('deepq-qmaze')
 
     trainer.run()
-
-else:
-    raise('This script cannot be imported')

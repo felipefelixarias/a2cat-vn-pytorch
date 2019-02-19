@@ -5,6 +5,7 @@ import gym
 import gym_maze
 import random
 from common.console import print_progress
+from common import make_agent
 
 def create_baselines(action_space_size, seed = None):
     return [RandomAgent(action_space_size)] + \
@@ -132,6 +133,8 @@ if __name__ == '__main__':
     # run_evaluation(run_supervised)
     #run_evaluation(run_a3c)
     import environment.qmaze
-    run_evaluation('qmaze', dict(id = 'QMaze-v0'), create_baselines(4))
+    import experiments.qmaze_dqn
+    # run_evaluation('qmaze', dict(id = 'QMaze-v0'), create_baselines(4))
+    run_evaluation('qmaze', dict(id = 'QMaze-v0'), [make_agent('deepq-qmaze')])
 
     
