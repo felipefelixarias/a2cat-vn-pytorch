@@ -3,17 +3,17 @@ import gym
 import threading
 
 class AbstractTrainer:
-    def __init__(self, env_kwargs, model_kwargs):
+    def __init__(self, env_kwargs, model_kwargs, **kwargs):
+        super().__init__(**kwargs)
         self.env = None
         self._env_kwargs = env_kwargs
         self.model = None
         self._model_kwargs = model_kwargs
-        self.name = 'trainer'
 
         self.is_initialized = False
         pass
 
-    def _wrap_env(self, env):
+    def wrap_env(self, env):
         return env
 
     @abc.abstractclassmethod
@@ -29,7 +29,7 @@ class AbstractTrainer:
 
     def run(self, process, **kwargs):
         if hasattr(self, '_run'):
-            self.env = self._wrap_env(gym.make(**self._env_kwargs))
+            self.env = self.wrap_env(gym.make(**self._env_kwargs))
             self.model = self._initialize(**self._model_kwargs)
             self._run(process = process, **kwargs)
         else:
@@ -43,7 +43,7 @@ class AbstractTrainer:
             if not hasattr(self, '_run'):
                 raise Exception('Run is not implemented')
 
-            self.env = self._wrap_env(gym.make(**self._env_kwargs))
+            self.env = self.wrap_env(gym.make(**self._env_kwargs))
             self.model = self._initialize(**self._model_kwargs) 
             self._run(compiled_agent.process)
             
@@ -82,8 +82,8 @@ class CompiledTrainer(AbstractTrainerWrapper):
 
 
 class SingleTrainer(AbstractTrainer):
-    def __init__(self, env_kwargs, model_kwargs):
-        super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self._global_t = None
         pass
 

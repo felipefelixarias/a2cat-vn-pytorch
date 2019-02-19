@@ -1,13 +1,8 @@
 import common.train_wrappers as wrappers
+from common.core import AbstractAgent
 
 _registry = dict()
 _agent_registry = dict()
-def register_trainer(id, **kwargs):
-    def wrap(trainer):
-        _registry[id] = dict(trainer = trainer, **kwargs)
-        return trainer
-    return wrap
-
 
 def register_agent(id, **kwargs):
     def wrap(agent):
@@ -16,8 +11,14 @@ def register_agent(id, **kwargs):
 
     return wrap
 
+def register_trainer(id, **kwargs):
+    def wrap(trainer):
+        _registry[id] = dict(trainer = trainer, **kwargs)
+        return trainer
+    return wrap
+
 def make_trainer(id, **kwargs):
-    instance = _registry[id]['trainer'](**kwargs)
+    instance = _registry[id]['trainer'](name = id, **kwargs)
 
     wargs = dict(**_registry[id])
     del wargs['trainer']

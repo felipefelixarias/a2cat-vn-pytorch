@@ -115,7 +115,7 @@ class DeepQTrainer(SingleTrainer):
         self._local_timestep = 0
         self._replay = None
 
-    def _wrap_env(self, env):
+    def wrap_env(self, env):
         return ColorObservationWrapper(env)
 
     @abc.abstractclassmethod

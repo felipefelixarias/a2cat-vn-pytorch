@@ -41,11 +41,10 @@ class QMazeModel(Model):
         return model
 
 
-@register_trainer('deepq-qmaze', max_time_steps = 100000, episode_log_interval = 10, save = False)
+@register_trainer('deepq-qmaze', max_time_steps = 100000, episode_log_interval = 10)
 class Trainer(dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.name = 'deepq-qmaze'
         self.epsilon_start = 1.0
         self.epsilon_end = 0.02
         self.annealing_steps = 10000
@@ -69,7 +68,7 @@ class Trainer(dqn.DeepQTrainer):
         model = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)))([state_stream, action_stream])
         return Model(inputs = inputs, outputs = [model])
 
-    def _wrap_env(self, env):
+    def wrap_env(self, env):
         return env
 
 @register_agent('deepq-qmaze')

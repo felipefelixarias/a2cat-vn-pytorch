@@ -3,7 +3,8 @@ import abc
 import gym
 
 class AbstractAgent:
-    def __init__(self, name):
+    def __init__(self, name, **kwargs):
+        super().__init__(**kwargs)
         self.name = name
 
     @abc.abstractclassmethod

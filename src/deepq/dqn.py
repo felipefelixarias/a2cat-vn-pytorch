@@ -2,6 +2,7 @@ from keras.layers import Dense, Conv2D, Input, Flatten, Concatenate, Lambda
 from keras.models import Model, model_from_json
 from keras import optimizers
 from common.train import SingleTrainer, AbstractTrainer
+from common import AbstractAgent
 from common.env_wrappers import ColorObservationWrapper
 from common import AbstractAgent
 from trfl import qlearning, double_qlearning
@@ -76,10 +77,10 @@ def create_model(action_space_size):
 
     return call
 
-class DeepQTrainer(SingleTrainer):
-    def __init__(self, env_kwargs, model_kwargs):
-        super().__init__(env_kwargs, model_kwargs)
-        self.name = 'deepq'        
+class DeepQTrainer(SingleTrainer, AbstractAgent):
+    def __init__(self, name, env_kwargs, model_kwargs):
+        super().__init__(name = name, env_kwargs = env_kwargs, model_kwargs = model_kwargs)  
+        self.name = name     
         self.minibatch_size = 32
         self.gamma = 0.99
         self.epsilon_start = 1.0
@@ -100,7 +101,7 @@ class DeepQTrainer(SingleTrainer):
         self._local_timestep = 0
         self._replay = None
 
-    def _wrap_env(self, env):
+    def wrap_env(self, env):
         return ColorObservationWrapper(env)
 
     @abc.abstractclassmethod
@@ -189,10 +190,13 @@ class DeepQTrainer(SingleTrainer):
 
         return max(start_eps - (start_eps - end_eps) * ((self._global_t - self.preprocess_steps) / self.annealing_steps), end_eps)
 
-    def act(self, state):
+    def step(self, state):
         if random.random() < self.epsilon:
             return random.randrange(self.model_kwargs.get('action_space_size'))
 
+        return self.act(state)
+
+    def act(self, state):
         return self._act(state[None])[0]
 
     def _optimize(self):
