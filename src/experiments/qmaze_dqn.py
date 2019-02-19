@@ -10,7 +10,6 @@ from common.train_wrappers import wrap
 import gym
 import environment.qmaze
 from functools import reduce
-import deepq.catch_experiment
 from keras.layers import Input, Dense, Concatenate, Lambda, PReLU
 from keras.models import Model
 import keras.backend as K

@@ -49,6 +49,22 @@ class Qmaze(gym.Env):
         self.visited = set()
         return self.observe()
 
+    @property
+    def position(self):
+        y, x, _ = self.state
+        return (x, y)
+
+    def _change_to_action(self, d):
+        dy, dx = d
+        if dx == -1:
+            return LEFT
+        elif dx == 1:
+            return RIGHT
+        elif dy == -1:
+            return UP
+        else:
+            return DOWN
+
     def update_state(self, action):
         nrow, ncol, nmode = rat_row, rat_col, _ = self.state
 
@@ -70,7 +86,7 @@ class Qmaze(gym.Env):
             elif action == DOWN:
                 nrow += 1
         else:                  # invalid action, no change in rat position
-            mode = 'invalid'
+            nmode = 'invalid'
 
         # new state
         self.state = (nrow, ncol, nmode)
@@ -179,8 +195,22 @@ class Qmaze(gym.Env):
             return img
 
 
+class Maze(Qmaze):
+    def observe(self):
+        canvas = np.expand_dims(self.maze, 2).repeat(3, axis = 2)
+        rat_row, rat_col, _ = self.state
+        canvas[rat_row, rat_col, :] = [1.0, 0, 0]
+        envstate = canvas.repeat(12, axis = 1).repeat(12, axis = 0)
+        return envstate
+
+
 
 gym.register(
     id = 'QMaze-v0', 
     entry_point='environment.qmaze:Qmaze'
+)
+
+gym.register(
+    id = 'Maze-v0', 
+    entry_point='environment.qmaze:Maze'
 )

@@ -20,9 +20,6 @@ def build_graph(maze, goal, change_to_action):
         if distances[pos] < dist:
             return
 
-        if distances[pos] > dist:
-            actions[pos[0], pos[1]] = 0
-
         run_neighboors = distances[pos] != dist
         d = (cal_pos[0] - pos[0], cal_pos[1] - pos[1])
         actions[pos[0], pos[1], change_to_action(d)] = 1 
@@ -41,10 +38,6 @@ def build_graph(maze, goal, change_to_action):
 def build_graph_from_env(env):
     is_empty = lambda point: env._get_pixel(point[0], point[1]) != '+'
     return build_graph(((env._maze_size, env._maze_size,), is_empty,), env._goal_pos, env._change_to_action)
-
-def build_graph_from_qmaze(qmaze):
-    is_empty = lambda point: qmaze.maze[point[0], point[1]] != 0.0
-    return build_graph(((7,7), is_empty,), (qmaze.target[1], qmaze.target[0]), qmaze._change_to_action)
 
 def iterate_env_positions(goalenv):
     return list(goalenv._iter_pos())
