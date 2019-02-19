@@ -255,5 +255,4 @@ class DeepQAgent(AbstractAgent):
         return env
 
     def act(self, state):
-        print(state.shape)
         return np.argmax(self.model.predict([state[None]])[0])
