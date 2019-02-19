@@ -44,7 +44,7 @@ class Trainer(deepq.dqn.DeepQTrainer):
         self.replay_size = 100000
         self.max_episode_steps = None
 
-    def _wrap_env(self, env):
+    def wrap_env(self, env):
         env.reset()
         return EnvWrapper(env)
 

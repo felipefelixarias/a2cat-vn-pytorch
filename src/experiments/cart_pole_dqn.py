@@ -53,7 +53,7 @@ class Trainer(deepq.dqn.DeepQTrainer):
 
         return call
 
-    def _wrap_env(self, env):
+    def wrap_env(self, env):
         return env
 
 if __name__ == '__main__':
