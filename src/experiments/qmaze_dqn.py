@@ -14,7 +14,7 @@ import deepq.catch_experiment
 from keras.layers import Input, Dense, Concatenate, Lambda, PReLU
 from keras.models import Model
 import keras.backend as K
-from common import register_trainer, make_trainer
+from common import register_trainer, make_trainer, register_agent
 
 class QMazeModel(Model):
     def __init__(self, maze_size, action_space_size, **kwargs):
@@ -41,7 +41,7 @@ class QMazeModel(Model):
         return model
 
 
-@register_trainer('deepq-qmaze', max_time_steps = 100000, episode_log_interval = 10, save = False)
+@register_trainer('deepq-qmaze', max_time_steps = 100000, episode_log_interval = 10)
 class Trainer(dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -71,6 +71,11 @@ class Trainer(dqn.DeepQTrainer):
 
     def _wrap_env(self, env):
         return env
+
+@register_agent('deepq-qmaze')
+class Agent(dqn.DeepQAgent):
+    def __init__(self):
+        super().__init__('deepq-qmaze')
 
 if __name__ == '__main__':
     trainer = make_trainer(
