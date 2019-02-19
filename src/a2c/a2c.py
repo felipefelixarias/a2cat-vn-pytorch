@@ -1,3 +1,7 @@
+from abc import abstractclassmethod
+from trfl import sequence_advantage_actor_critic_loss
+import keras.backend as K
+
 import gym
 import time
 from common.vec_env import SubprocVecEnv
@@ -231,82 +235,129 @@ def learn(
     return model
 
 
+
+
 class Trainer:
     def __init__(self):
         self.n_steps = 5
-        self.n_env = 0
+        self.n_env = 3
         self.env_kwargs = dict(id = 'QMaze-v0')
         self.total_timesteps = 1000000
+        self.gamma = 0.99
+        self.learning_rate = 0.001
+        self.max_grad_norm = 40.0
 
-    def create_model(self):
+    @abstractclassmethod
+    def create_model(self, inputs):
+        pass
+
+    @abstractclassmethod
+    def create_inputs(self, name = 'main'):
         pass
 
     def _initialize(self):
-        self.env = SubprocVecEnv([lambda: gym.make(**self.env_kwargs) for _ in range(self.n_envs)])
+        self.env = SubprocVecEnv([lambda: gym.make(**self.env_kwargs) for _ in range(self.n_env)])
         self._build_graph()
 
-        self.obs = np.zeros((self.n_env,) + self.env.observation_space.shape, dtype=self.env.observation_space.dtype.name)
-        self.obs[:] = self.env.reset()
+        #self.obs = np.zeros((self.n_env,) + self.env.observation_space.shape, dtype=self.env.observation_space.dtype.name)
+        #self.obs[:] = self.env.reset()
+        self.obs = None
 
         self.batch_ob_shape = (self.n_env*self.n_steps,) + self.env.observation_space.shape
+        self._experience = []
 
     def _build_graph(self):
-        model = self.create_model()
+        sess = K.get_session()
+
+        inputs = self.create_inputs('main')
+        model = self.create_model(inputs)
+
+        with tf.name_scope('training'):
+            actions = tf.placeholder(dtype = tf.int32, shape = (None, self.n_env), name = 'actions')
+            rewards = tf.placeholder(dtype = tf.float32, shape = (None, self.n_env), name = 'rewards')
+            terminals = tf.placeholder(dtype = tf.bool, shape = (self.n_env), name = 'terminals')
+            bootstrap_value = tf.placeholder(dtype = tf.float32, shape = (self.n_env), name = 'bootstrap_value')
+            learning_rate = tf.placeholder(dtype = tf.float32, name = 'learning_rate')
+
+            last_pcontinues = 1.0 - tf.to_float(terminals) * self.gamma
+            pcontinues = tf.ones_like(rewards[:-1]) * self.gamma
+            pcontinues = tf.concat([pcontinues, tf.reshape(last_pcontinues, [1, -1])], axis = 0)
+
+            policy_logits, baseline_values = model.outputs
+            policy_logits = tf.transpose(policy_logits, [1, 0, 2])
+            baseline_values = tf.reshape(tf.transpose(baseline_values, [1, 0, 2]), [self.n_env, -1])
+            
+            losses, extra = sequence_advantage_actor_critic_loss(policy_logits, baseline_values, actions, rewards, pcontinues, bootstrap_value)
+            loss = tf.reduce_mean(losses)
+
+            optimizer = tf.train.RMSPropOptimizer(learning_rate = self.learning_rate)
+
+            params = model.trainable_weights
+            grads = tf.gradients(loss, params)
+            if self.max_grad_norm is not None:
+                grads, grad_norm = tf.clip_by_global_norm(grads, self.max_grad_norm)
+            grads = list(zip(grads, params))
+
+            # Create optimize op
+            optimize_op = optimizer.apply_gradients(grads)
+
+
+        sess.run(tf.global_variables_initializer())
+
+        def train(b_inputs, b_bactions, b_rewards, b_terminals, b_bootstrap_value):
+            return sess.run([loss, optimize_op], feed_dict = {
+                learning_rate: self.learning_rate,
+                inputs: b_inputs,
+                actions:b_bactions,
+                rewards: b_rewards,
+                terminals: b_terminals,
+                bootstrap_value: b_bootstrap_value
+            })[0]
+
+        def predict_single(s_inputs):
+            res = sess.run([policy_logits, baseline_values], feed_dict = {
+                inputs: np.expand_dims(s_inputs, 1)
+            })
+            
+            return (res[0][:, 0], res[1][:, 0])
+        
+        self._train = train
+        self._predict_single = predict_single
 
     def act(self, state):
-        pass
+        pvalues, baseline_values = self._predict_single(state)
+
+        s = pvalues.cumsum(axis=1)
+        r = np.random.rand(pvalues.shape[0])
+        actions = (s < r).sum(axis=1)
+        return actions, baseline_values
 
     def _sample_experience_batch(self):
-        mb_obs, mb_rewards, mb_actions, mb_values, mb_dones = [],[],[],[],[]
-        mb_states = self.states
+        if self.obs is None:
+            self.obs = self.env.reset()
+
+        batch = []
         for n in range(self.n_steps):
             # Given observations, take action and value (V(s))
             # We already have self.obs because Runner superclass run self.obs[:] = env.reset() on init
-            actions, values, states, _ = self.model.step(self.obs, S=self.states, M=self.dones)
-
-            # Append the experiences
-            mb_obs.append(np.copy(self.obs))
-            mb_actions.append(actions)
-            mb_values.append(values)
-            mb_dones.append(self.dones)
-
-            # Take actions in env and look the results
+            actions, values = self.act(self.obs)
             obs, rewards, dones, _ = self.env.step(actions)
-            self.states = states
-            self.dones = dones
+            batch.append([np.copy(self.obs), actions, rewards])
             self.obs = obs
-            mb_rewards.append(rewards)
-        mb_dones.append(self.dones)
+            
+            if np.any(dones):
+                # Any environment ended
+                # We need to end this cycle
+                # And return uncomplete minibatch
+                break
+        
+        _, bootstrap_values = self.act(self.obs)
+        bootstrap_values = (1.0 - dones) * bootstrap_values # Remove value of finished episode
 
-        # Batch of steps to batch of rollouts
-        mb_obs = np.asarray(mb_obs, dtype=self.ob_dtype).swapaxes(1, 0).reshape(self.batch_ob_shape)
-        mb_rewards = np.asarray(mb_rewards, dtype=np.float32).swapaxes(1, 0)
-        mb_actions = np.asarray(mb_actions, dtype=self.model.train_model.action.dtype.name).swapaxes(1, 0)
-        mb_values = np.asarray(mb_values, dtype=np.float32).swapaxes(1, 0)
-        mb_dones = np.asarray(mb_dones, dtype=np.bool).swapaxes(1, 0)
-        mb_masks = mb_dones[:, :-1]
-        mb_dones = mb_dones[:, 1:]
-
-
-        if self.gamma > 0.0:
-            # Discount/bootstrap off value fn
-            last_values = self.model.value(self.obs, S=self.states, M=self.dones).tolist()
-            for n, (rewards, dones, value) in enumerate(zip(mb_rewards, mb_dones, last_values)):
-                rewards = rewards.tolist()
-                dones = dones.tolist()
-                if dones[-1] == 0:
-                    rewards = discount_with_dones(rewards+[value], dones+[0], self.gamma)[:-1]
-                else:
-                    rewards = discount_with_dones(rewards, dones, self.gamma)
-
-                mb_rewards[n] = rewards
-
-        mb_actions = mb_actions.reshape(self.batch_action_shape)
-
-        mb_rewards = mb_rewards.flatten()
-        mb_values = mb_values.flatten()
-        mb_masks = mb_masks.flatten()
-        return mb_obs, mb_states, mb_rewards, mb_masks, mb_actions, mb_values
+        # Convert data to acceptable format
+        batched = tuple(map(lambda *x: np.stack(x, axis = 1), *batch))
+        batched = batched + (dones, bootstrap_values,)
+        return batched
 
     def _get_end_stats(self):
         return None
@@ -335,6 +386,22 @@ class Trainer:
                 logger.dump_tabular()
 
         return (nbatch, self._get_end_stats(), dict())
+
+from keras.layers import Dense, Input, TimeDistributed
+from keras.models import Model
+
+class SomeTrainer(Trainer):
+    def __init__(self):
+        super().__init__()
+
+    def create_inputs(self, name):
+        return Input(batch_shape=(self.n_env, None, 49))
+
+    def create_model(self, inputs):
+        model = TimeDistributed(Dense(256, activation = 'relu'))(inputs)
+        policy_logits = TimeDistributed(Dense(4, activation= 'softmax'))(model)
+        baseline_values = TimeDistributed(Dense(1, activation = None))(model)
+        return Model(inputs = [inputs], outputs = [policy_logits, baseline_values])
 
 
 
