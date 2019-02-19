@@ -143,6 +143,9 @@ class DeepQTrainer(SingleTrainer):
             optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
             optimize_expr = optimizer.minimize(loss, var_list=model_vars)
 
+            with tf.control_dependencies([optimize_expr]):
+                optimize_expr = tf.group(*[tf.assign(*a) for a in model.updates])
+
             # update_target_fn will be called periodically to copy Q network to target Q network
             update_target_expr = tf.group(*[var_target.assign(var) for var, var_target in zip(model_vars, target_vars)])
 
@@ -152,7 +155,7 @@ class DeepQTrainer(SingleTrainer):
                 rewards,                                 
                 terminates,
             ] + inputs_next,
-            outputs=[tf.reduce_mean(td_error)],
+            outputs=[td_error],
             updates=[optimize_expr]
         )
 
