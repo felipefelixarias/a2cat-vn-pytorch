@@ -1,6 +1,7 @@
 from abc import abstractclassmethod
 from trfl import sequence_advantage_actor_critic_loss
 import keras.backend as K
+from functools import reduce
 
 if __name__ == '__main__':
     import os,sys,inspect
@@ -246,14 +247,16 @@ def learn(
 
 
 
-
-class Trainer:
-    def __init__(self):
+from common.train import SingleTrainer
+class Trainer(SingleTrainer):
+    def __init__(self, name, env_kwargs, model_kwargs):
+        super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
+        self.name = name
         self.n_steps = 5
         self.n_env = 3
-        self.env_kwargs = dict(id = 'QMaze-v0')
         self.total_timesteps = 1000000
         self.gamma = 0.99
+        self.entropy_coef = 0.01
         self.learning_rate = 0.001
         self.max_grad_norm = 40.0
 
@@ -265,9 +268,11 @@ class Trainer:
     def create_inputs(self, name = 'main'):
         pass
 
-    def _initialize(self):
-        self.env = DummyVecEnv([lambda: gym.make(**self.env_kwargs) for _ in range(self.n_env)])
-        self._build_graph()
+    def wrap_env(self, env):
+        return DummyVecEnv([lambda: gym.make(**self._env_kwargs) for _ in range(self.n_env)])
+
+    def _initialize(self, **model_kwargs):
+        model = self._build_graph()
 
         #self.obs = np.zeros((self.n_env,) + self.env.observation_space.shape, dtype=self.env.observation_space.dtype.name)
         #self.obs[:] = self.env.reset()
@@ -275,6 +280,24 @@ class Trainer:
 
         self.batch_ob_shape = (self.n_env*self.n_steps,) + self.env.observation_space.shape
         self._experience = []
+        self._reports = [(0, 0.0) for _ in range(self.n_env)]
+        self._cum_reports = [(0, [], []) for _ in range(self.n_env)]
+        return model
+
+    def _update_report(self, rewards, terminals):
+        self._reports = [(x + (1 - a), y + b) for (x, y), a, b in zip(self._reports, terminals, rewards)]
+        for i, terminal in enumerate(terminals):
+            if terminal:
+                (ep, leng, rew) = self._cum_reports[i]
+                leng.append(self._reports[i][0])
+                rew.append(self._reports[i][1])
+                self._cum_reports[i] = (ep + 1, leng, rew)
+                self._reports[i] = (0, 0.0)
+
+    def _collect_report(self):
+        output = list(map(lambda *x: reduce(lambda a,b:a+b, x), *self._cum_reports))
+        self._cum_reports = [(0, [], []) for _ in range(self.n_env)]
+        return output
 
     def _build_graph(self):
         sess = K.get_session()
@@ -297,7 +320,7 @@ class Trainer:
             policy_logits = tf.transpose(policy_logits, [1, 0, 2])
             baseline_values = tf.reshape(tf.transpose(baseline_values, [1, 0, 2]), [-1, self.n_env])
             
-            losses, extra = sequence_advantage_actor_critic_loss(policy_logits, baseline_values, actions, rewards, pcontinues, bootstrap_value)
+            losses, extra = sequence_advantage_actor_critic_loss(policy_logits, baseline_values, actions, rewards, pcontinues, bootstrap_value, entropy_cost=self.entropy_coef)
             loss = tf.reduce_mean(losses)
 
             optimizer = tf.train.RMSPropOptimizer(learning_rate = self.learning_rate)
@@ -335,6 +358,7 @@ class Trainer:
         
         self._train = train
         self._predict_single = predict_single
+        return model
 
     def act(self, state):
         pvalues, baseline_values = self._predict_single(state)
@@ -355,6 +379,7 @@ class Trainer:
             actions, values = self.act(self.obs)
             obs, rewards, dones, _ = self.env.step(actions)
             batch.append([np.copy(self.obs), actions, rewards])
+            self._update_report(rewards, dones)
             self.obs = obs
             
             if np.any(dones):
@@ -369,60 +394,68 @@ class Trainer:
         # Convert data to acceptable format
         batched = tuple(map(lambda *x: np.stack(x, axis = 1), *batch))
         batched = batched + (dones, bootstrap_values,)
-        return batched
+        return batched, self._collect_report()
 
     def _get_end_stats(self):
         return None
 
-    def run(self):
-        self._initialize()
+    def process(self):
+        batch, ep_stats = self._sample_experience_batch()
+        time_moved = batch[0].shape[1]
 
-        nbatch = self.n_env * self.n_steps
-        for update in range(1, self.total_timesteps//nbatch+1):
-            batch = self._sample_experience_batch()
+        self._train(*batch)
+        #policy_loss, value_loss, policy_entropy = self.model.train(obs, states, rewards, masks, actions, values)
+        #nseconds = time.time()-tstart
 
-            self._train(*batch)
-            print('update done')
+        # Calculate the fps (frame per second)
+        #fps = int((update*nbatch)/nseconds)
+        '''if update % log_interval == 0 or update == 1:
+            # Calculates if value function is a good predicator of the returns (ev > 1)
+            # or if it's just worse than predicting nothing (ev =< 0)
+            ev = explained_variance(values, rewards)
+            logger.record_tabular("nupdates", update)
+            logger.record_tabular("total_timesteps", update*nbatch)
+            logger.record_tabular("fps", fps)
+            logger.record_tabular("policy_entropy", float(policy_entropy))
+            logger.record_tabular("value_loss", float(value_loss))
+            logger.record_tabular("explained_variance", float(ev))
+            logger.dump_tabular()'''
 
-
-            #policy_loss, value_loss, policy_entropy = self.model.train(obs, states, rewards, masks, actions, values)
-            #nseconds = time.time()-tstart
-
-            # Calculate the fps (frame per second)
-            #fps = int((update*nbatch)/nseconds)
-            '''if update % log_interval == 0 or update == 1:
-                # Calculates if value function is a good predicator of the returns (ev > 1)
-                # or if it's just worse than predicting nothing (ev =< 0)
-                ev = explained_variance(values, rewards)
-                logger.record_tabular("nupdates", update)
-                logger.record_tabular("total_timesteps", update*nbatch)
-                logger.record_tabular("fps", fps)
-                logger.record_tabular("policy_entropy", float(policy_entropy))
-                logger.record_tabular("value_loss", float(value_loss))
-                logger.record_tabular("explained_variance", float(ev))
-                logger.dump_tabular()'''
-
-        return (nbatch, self._get_end_stats(), dict())
+        return (time_moved * self.n_env, ep_stats, dict())
 
 from keras.layers import Dense, Input, TimeDistributed
 from keras.models import Model
+from common import register_trainer, make_trainer
 
+
+def mlp(inputs, action_space_size, **kwargs):
+    model = Dense(64, activation = 'tanh')(inputs[0])
+    model = Dense(64, activation = 'tanh')(model)
+    action_stream = Dense(256, activation = 'relu')(model)
+    action_stream = Dense(action_space_size, activation = None)(action_stream)
+    state_stream = Dense(256, activation = 'relu')(model)
+    state_stream = Dense(1, activation = None)(state_stream)
+    model = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)))([state_stream, action_stream])
+    return Model(inputs = inputs, outputs = [model])
+
+@register_trainer('test-a2c', episode_log_interval = 20)
 class SomeTrainer(Trainer):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(env_kwargs = dict(id = 'QMaze-v0'), model_kwargs = dict(), **kwargs)
 
     def create_inputs(self, name):
         return Input(batch_shape=(self.n_env, None, 49))
 
     def create_model(self, inputs):
-        model = TimeDistributed(Dense(256, activation = 'relu'))(inputs)
+        model = Dense(64, activation = 'tanh')(inputs)
+        model = Dense(64, activation = 'tanh')(model)
         policy_logits = TimeDistributed(Dense(4, activation= 'softmax'))(model)
         baseline_values = TimeDistributed(Dense(1, activation = None))(model)
         return Model(inputs = [inputs], outputs = [policy_logits, baseline_values])
 
 
 if __name__ == '__main__':
-    t = SomeTrainer()
+    t = make_trainer('test-a2c')
     t.run()
 
 
