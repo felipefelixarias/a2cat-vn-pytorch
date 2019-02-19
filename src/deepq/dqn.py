@@ -193,7 +193,7 @@ class DeepQTrainer(SingleTrainer):
         state, action, reward, next_state, done = self._replay.sample(self.minibatch_size)
         td_losses = self._train([state, action, reward, done, next_state])
         loss = np.mean(td_losses)
-        if self._global_t % 500 == 0:
+        if self._global_t % self.update_period == 0:
             self._update_parameters()
 
         return loss
