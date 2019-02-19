@@ -8,12 +8,13 @@ from options import get_options
 from common.env_wrappers import ColorObservationWrapper
 import gym
 import environment.qmaze
+import environment
 
 flags = get_options('keyboard')
 
 class Explorer:
     def __init__(self):
-        self.env = gym.make('Maze-v0') #ColorObservationWrapper(gym.make('Maze-v0'))
+        self.env = gym.make('Mushroom-v0') #ColorObservationWrapper(gym.make('Maze-v0'))
         self.is_goal = isinstance(self.env.observation_space, gym.spaces.Dict)
 
         self.keyboard_map = {key: i for (i, key) in enumerate(['up', 'down', 'left', 'right']) }

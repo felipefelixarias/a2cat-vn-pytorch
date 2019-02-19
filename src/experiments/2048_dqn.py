@@ -11,6 +11,8 @@ import gym_2048
 from keras.layers import Input, Dense, Concatenate, Lambda
 import keras.backend as K
 import numpy as np
+from deepq.models import mlp
+from common import register_trainer, make_trainer, register_agent
 
 class EnvWrapper(gym.Wrapper):
     def reset(self):
@@ -33,15 +35,19 @@ class EnvWrapper(gym.Wrapper):
     def observation(self, observation):
         return np.reshape(np.log(1.0 + observation) / np.log(2048), (-1,))
 
+@register_trainer('deepq-2048', max_time_steps=1000000, episode_log_interval=10, saving_period = 100000)
 class Trainer(deepq.dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.name = 'deepq-2048'
+        super().__init__(*args, 
+            env_kwargs = dict(id='2048-v0'), 
+            model_kwargs = dict(action_space_size = 4), 
+            **kwargs)
 
         self.gamma = 0.99
         self.annealing_steps = 100000
-        self.preprocess_steps = 100000
-        self.replay_size = 100000
+        self.preprocess_steps = 10000
+        self.learning_rate = 0.001
+        self.replay_size = 50000
         self.max_episode_steps = None
 
     def wrap_env(self, env):
@@ -51,46 +57,12 @@ class Trainer(deepq.dqn.DeepQTrainer):
     def create_inputs(self, name, **kwargs):
         return [Input(shape = (16,), name = name + '_input')]
 
-    def create_backbone(self, action_space_size, **kwargs):
-        layer1 = Dense(
-            units=64,
-            activation="relu",
-            name="fc1")
+    def create_model(self, inputs, action_space_size, **kwargs):
+        return mlp(inputs, action_space_size)
 
-        layer2 = Dense(
-            units=256,
-            activation="relu",
-            name="fc2")
-
-
-        adventage = Dense(
-            units=action_space_size,
-            activation=None,
-            name="policy_fc"
-        )
-
-        value = Dense(
-            units=1,
-            name="value_fc"
-        )
-
-        final_merge = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)),name="final_out")
-
-        def call(inputs):
-            model = layer2(layer1(inputs[0]))
-            model = final_merge([value(model), adventage(model)])
-            return model
-
-        return call
-
+register_agent('deepq-2048')(deepq.dqn.DeepQAgent)
 
 if __name__ == '__main__':
-    trainer = Trainer(
-        env_kwargs = dict(id='2048-v0'), 
-        model_kwargs = dict(action_space_size = 4))
-
-    trainer = wrap(trainer, max_time_steps=20000000, episode_log_interval=10).compile()
+    np.warnings.filterwarnings('ignore')
+    trainer = make_trainer('deepq-2048')
     trainer.run()
-
-else:
-    raise('This script cannot be imported')

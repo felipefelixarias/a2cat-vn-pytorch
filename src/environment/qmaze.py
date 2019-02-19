@@ -52,7 +52,7 @@ class Qmaze(gym.Env):
     @property
     def position(self):
         y, x, _ = self.state
-        return (x, y)
+        return (y, x)
 
     def _change_to_action(self, d):
         dy, dx = d
@@ -202,8 +202,6 @@ class Maze(Qmaze):
         canvas[rat_row, rat_col, :] = [1.0, 0, 0]
         envstate = canvas.repeat(12, axis = 1).repeat(12, axis = 0)
         return envstate
-
-
 
 gym.register(
     id = 'QMaze-v0', 
