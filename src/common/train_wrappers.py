@@ -154,13 +154,24 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         tdiff, episode_end, stats = self.trainer.process(**kwargs)
         self._global_t += tdiff
         if episode_end is not None:
-            self._episodes += 1
-            self._log_t += 1
+            if len(episode_end) == 3:
+                eps, episode_lengths, rewards = episode_end
+                self._episodes += eps
+                self._log_t += eps
+                for l, rw in zip(episode_lengths, rewards):                    
+                    self.summary_writer.add_scalar('episode_length', l)
+                    self.summary_writer.add_scalar('reward', rw)
 
-            episode_length, reward = episode_end
-            self.summary_writer.add_last_value_scalar('episodes', self._episodes)
-            self.summary_writer.add_scalar('episode_length', episode_length)
-            self.summary_writer.add_scalar('reward', reward)
+                self.summary_writer.add_last_value_scalar('episodes', self._episodes)
+
+            else:
+                self._episodes += 1
+                self._log_t += 1
+                
+                episode_length, reward = episode_end
+                self.summary_writer.add_last_value_scalar('episodes', self._episodes)
+                self.summary_writer.add_scalar('episode_length', episode_length)
+                self.summary_writer.add_scalar('reward', reward)
 
         if stats is not None:
             if 'loss' in stats:
