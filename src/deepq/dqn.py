@@ -118,12 +118,12 @@ class DeepQTrainer(SingleTrainer):
         model_vars = model.trainable_weights
         q = model.output        
 
-        with tf.name_scope('train'):
+        with tf.name_scope('training'):
             # Input placeholders
-            actions = tf.placeholder(tf.int32, [None], name="action")
-            rewards = tf.placeholder(tf.float32, [None], name="reward")
+            actions = tf.placeholder(tf.int32, (None,), name="action")
+            rewards = tf.placeholder(tf.float32, (None,), name="reward")
             inputs_next = self.create_inputs("next", **self.model_kwargs)
-            terminates = tf.placeholder(tf.float32, [None], name="terminate")
+            terminates = tf.placeholder(tf.bool, (None,), name="terminate")
 
             # Target network            
             target_model = self.create_model(inputs_next, **self.model_kwargs)
@@ -133,13 +133,13 @@ class DeepQTrainer(SingleTrainer):
             q_next_online_net = tf.stop_gradient(model(inputs_next))
 
             # Loss
-            pcontinues = (1.0 - terminates) * self.gamma
+            pcontinues = (1.0 - tf.to_float(terminates)) * self.gamma
             errors, _info = double_qlearning(q, actions, rewards, pcontinues, q_next, q_next_online_net)
 
 
             td_error = _info.td_error
 
-            loss = tf.reduce_mean(errors)
+            loss = K.mean(errors)
             optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate)
             optimize_expr = optimizer.minimize(loss, var_list=model_vars)
 
@@ -165,7 +165,7 @@ class DeepQTrainer(SingleTrainer):
 
         self._update_parameters = lambda: update_fn([])
         self._train = train_fn
-        self._act = lambda x: act_fn([x])
+        self._act = lambda x: act_fn([x])[0]
         self._q = lambda x: q_fn([x])[0]
         return model
 
@@ -173,9 +173,10 @@ class DeepQTrainer(SingleTrainer):
     def _initialize(self, **model_kwargs):
         self._replay = ReplayBuffer(self.replay_size)
 
-        sess = tf.Session()
-        K.set_session(sess)
+        sess = K.get_session()
         model = self._build_model_for_training()
+
+        tf.global_variables_initializer().run(session = sess)
         model.summary()
         return model
 
