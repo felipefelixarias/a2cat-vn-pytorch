@@ -2,9 +2,19 @@ from abc import abstractclassmethod
 from trfl import sequence_advantage_actor_critic_loss
 import keras.backend as K
 
+if __name__ == '__main__':
+    import os,sys,inspect
+    currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    parentdir = os.path.dirname(currentdir)
+    sys.path.insert(0,parentdir)
+
+import gym
+import environment.qmaze
+
 import gym
 import time
 from common.vec_env import SubprocVecEnv
+from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 import numpy as np
 
 import time
@@ -256,7 +266,7 @@ class Trainer:
         pass
 
     def _initialize(self):
-        self.env = SubprocVecEnv([lambda: gym.make(**self.env_kwargs) for _ in range(self.n_env)])
+        self.env = DummyVecEnv([lambda: gym.make(**self.env_kwargs) for _ in range(self.n_env)])
         self._build_graph()
 
         #self.obs = np.zeros((self.n_env,) + self.env.observation_space.shape, dtype=self.env.observation_space.dtype.name)
@@ -285,7 +295,7 @@ class Trainer:
 
             policy_logits, baseline_values = model.outputs
             policy_logits = tf.transpose(policy_logits, [1, 0, 2])
-            baseline_values = tf.reshape(tf.transpose(baseline_values, [1, 0, 2]), [self.n_env, -1])
+            baseline_values = tf.reshape(tf.transpose(baseline_values, [1, 0, 2]), [-1, self.n_env])
             
             losses, extra = sequence_advantage_actor_critic_loss(policy_logits, baseline_values, actions, rewards, pcontinues, bootstrap_value)
             loss = tf.reduce_mean(losses)
@@ -305,6 +315,8 @@ class Trainer:
         sess.run(tf.global_variables_initializer())
 
         def train(b_inputs, b_bactions, b_rewards, b_terminals, b_bootstrap_value):
+            b_bactions = np.transpose(b_bactions)
+            b_rewards = np.transpose(b_rewards)
             return sess.run([loss, optimize_op], feed_dict = {
                 learning_rate: self.learning_rate,
                 inputs: b_inputs,
@@ -319,7 +331,7 @@ class Trainer:
                 inputs: np.expand_dims(s_inputs, 1)
             })
             
-            return (res[0][:, 0], res[1][:, 0])
+            return (res[0][0], res[1][:, 0])
         
         self._train = train
         self._predict_single = predict_single
@@ -328,7 +340,7 @@ class Trainer:
         pvalues, baseline_values = self._predict_single(state)
 
         s = pvalues.cumsum(axis=1)
-        r = np.random.rand(pvalues.shape[0])
+        r = np.random.rand(pvalues.shape[0], 1)
         actions = (s < r).sum(axis=1)
         return actions, baseline_values
 
@@ -363,17 +375,22 @@ class Trainer:
         return None
 
     def run(self):
+        self._initialize()
+
         nbatch = self.n_env * self.n_steps
         for update in range(1, self.total_timesteps//nbatch+1):
-            # Get mini batch of experiences
-            obs, states, rewards, masks, actions, values = self._sample_experience_batch()
+            batch = self._sample_experience_batch()
 
-            policy_loss, value_loss, policy_entropy = self.model.train(obs, states, rewards, masks, actions, values)
-            nseconds = time.time()-tstart
+            self._train(*batch)
+            print('update done')
+
+
+            #policy_loss, value_loss, policy_entropy = self.model.train(obs, states, rewards, masks, actions, values)
+            #nseconds = time.time()-tstart
 
             # Calculate the fps (frame per second)
-            fps = int((update*nbatch)/nseconds)
-            if update % log_interval == 0 or update == 1:
+            #fps = int((update*nbatch)/nseconds)
+            '''if update % log_interval == 0 or update == 1:
                 # Calculates if value function is a good predicator of the returns (ev > 1)
                 # or if it's just worse than predicting nothing (ev =< 0)
                 ev = explained_variance(values, rewards)
@@ -383,7 +400,7 @@ class Trainer:
                 logger.record_tabular("policy_entropy", float(policy_entropy))
                 logger.record_tabular("value_loss", float(value_loss))
                 logger.record_tabular("explained_variance", float(ev))
-                logger.dump_tabular()
+                logger.dump_tabular()'''
 
         return (nbatch, self._get_end_stats(), dict())
 
@@ -402,6 +419,11 @@ class SomeTrainer(Trainer):
         policy_logits = TimeDistributed(Dense(4, activation= 'softmax'))(model)
         baseline_values = TimeDistributed(Dense(1, activation = None))(model)
         return Model(inputs = [inputs], outputs = [policy_logits, baseline_values])
+
+
+if __name__ == '__main__':
+    t = SomeTrainer()
+    t.run()
 
 
 
