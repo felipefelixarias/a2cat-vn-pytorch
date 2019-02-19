@@ -41,7 +41,7 @@ class QMazeModel(Model):
         return model
 
 
-@register_trainer('deepq-qmaze', max_time_steps = 100000, episode_log_interval = 10)
+@register_trainer('deepq-qmaze', max_time_steps = 100000, episode_log_interval = 10, save = False)
 class Trainer(dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
