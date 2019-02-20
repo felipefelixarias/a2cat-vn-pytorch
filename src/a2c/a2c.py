@@ -287,13 +287,13 @@ class Trainer(SingleTrainer):
     def __init__(self, name, env_kwargs, model_kwargs):
         super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
         self.name = name
-        self.n_steps = 20
-        self.n_env = 5
+        self.n_steps = 5
+        self.n_env = 16
         self.total_timesteps = 1000000
-        self.gamma = 0.95
+        self.gamma = 0.99
         self.entropy_coef = 0.01
-        self.learning_rate = 0.001
-        self.max_grad_norm = 40.0
+        self.learning_rate = 7e-4
+        self.max_grad_norm = 0.5
 
         self.rollouts = RolloutStorage()
 
@@ -449,7 +449,7 @@ class Trainer(SingleTrainer):
         # Calculate the fps (frame per second)
         fps = int(self._global_t/nseconds)
         
-        '''if self._lastlog > 100:
+        if self._lastlog > 100:
             # Calculates if value function is a good predicator of the returns (ev > 1)
             # or if it's just worse than predicting nothing (ev =< 0)
             #ev = explained_variance(values, rewards)
@@ -458,12 +458,11 @@ class Trainer(SingleTrainer):
             logger.record_tabular("fps", fps)
             logger.record_tabular("policy_entropy", float(policy_entropy))
             logger.record_tabular("value_loss", float(value_loss))
-            logger.record_tabular("rewards", sum(sum(batch[2])))
+            #logger.record_tabular("rewards", sum(sum(batch[2])))
             #logger.record_tabular("explained_variance", float(ev))
             logger.dump_tabular()
             self._lastlog = 0
         self._lastlog += 1
-        '''
         return (time_moved * self.n_env, ep_stats, dict())
 
 from keras.layers import Dense, Input, TimeDistributed
