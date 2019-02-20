@@ -307,7 +307,7 @@ class Trainer(SingleTrainer, ActorCriticModelBase):
         loss, policy_loss, value_loss, policy_entropy = self._train(*batch)
 
         fps = int(self._global_t/ (time.time() - self._tstart))
-        metric_context.add_last_value_scalar('updates', 1)
+        metric_context.add_cummulative('updates', 1)
         metric_context.add_scalar('loss', loss)
         metric_context.add_scalar('value_loss', value_loss)
         metric_context.add_scalar('policy_loss', policy_loss)
