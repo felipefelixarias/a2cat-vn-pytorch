@@ -18,28 +18,6 @@ from common.vec_env import SubprocVecEnv
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 
 
-RecurrentModel = namedtuple('RecurrentModel', ['model', 'inputs','outputs', 'states_in', 'states_out', 'mask'])
-
-def expand_recurrent_model(model):
-    states_in = []
-    pure_inputs = [x for x in model.inputs]
-    
-    mask = None
-    for x in model.inputs:
-        if 'rnn_state' in x.name:
-            states_in.append(x)
-            pure_inputs.remove(x)
-        if 'rnn_mask' in x.name:
-            mask = x
-            pure_inputs.remove(x)
-
-    pure_outputs = model.outputs[:-len(states_in)] if len(states_in) > 0 else model.outputs
-    states_out = model.outputs[-len(states_in):] if len(states_in) > 0 else []
-
-    assert mask is not None
-    return RecurrentModel(model, pure_inputs, pure_outputs, states_in, states_out, mask)
-
-
 class A2CModelBase:
     def __init__(self):
         self.entropy_coefficient = 0.01
@@ -55,9 +33,6 @@ class A2CModelBase:
     def create_model(self):
         pass
 
-    def _create_initial_state(self, state_in):
-        return [np.zeros((self.n_envs,) + tuple(x.shape[1:])) for x in state_in]
-
     @property
     def learning_rate(self):
         return 7e-4
@@ -68,10 +43,7 @@ class A2CModelBase:
 
         # Create model and outputs
         model = self.create_model(**model_kwargs)
-        rnn_model = expand_recurrent_model(model)
-
-        self._initial_state = self._create_initial_state(rnn_model.states_in)
-        policy, values = rnn_model.outputs
+        policy, values = model.outputs
         values = tf.squeeze(values, axis = 2)
         
         policy_distribution = tf.distributions.Categorical(probs = policy)
@@ -115,16 +87,14 @@ class A2CModelBase:
 
 
         # Create train fn
-        def train(b_obs, b_returns, b_masks, b_actions, b_values, states = []):
+        def train(b_obs, b_returns, b_masks, b_actions, b_values, b_states = None):
             b_adventages = b_returns - b_values
             feed_dict = {
-                rnn_model.inputs[0]:b_obs, 
+                model.inputs[0]:b_obs, 
                 actions:b_actions, 
                 adventages:b_adventages, 
                 returns:b_returns, 
-                learning_rate:self.learning_rate,
-                rnn_model.mask: b_masks,
-                **{state: value for state, value in zip(rnn_model.states_in, states)}
+                learning_rate:self.learning_rate
             }
 
             loss_v, policy_loss_v, value_loss_v, policy_entropy_v, _ = sess.run(
@@ -134,31 +104,25 @@ class A2CModelBase:
             return loss_v, policy_loss_v, value_loss_v, policy_entropy_v
 
         # Create step fn
-        def step(observation, mask, states = []):
+        def step(observation, S = None, M = None):
             # This function takes single batch of observations
             # Returns also single batch of returns
             observation = observation.reshape([self.n_envs, -1] + list(observation.shape[1:]))
-            mask = mask.reshape([self.n_envs, -1])
-            action_v, value_v, state_out_v = sess.run([action, values, rnn_model.states_out], feed_dict={
-                model.inputs[0]: observation,
-                rnn_model.mask: mask,
-                **{state: value for state, value in zip(rnn_model.states_in, states)}
+            action_v, value_v = sess.run([action, values], feed_dict={
+                model.inputs[0]: observation
             })
 
             action_v = action_v.squeeze(1)
-            value_v = value_v.squeeze(1)
-            return [action_v, value_v, state_out_v, None]
+            value_v = value_v.squeeze(1)        
+            return [action_v, value_v, None, None]
 
         # Create value fn
-        def value(observation, mask, states = []):
+        def value(observation, S = None, M = None):
             # This function takes single batch of observations
             # Returns also single batch of returns
             observation = observation.reshape([self.n_envs, -1] + list(observation.shape[1:]))
-            mask = mask.reshape([self.n_envs, -1])
             values_v = sess.run(values, feed_dict={
-                model.inputs[0]: observation,
-                rnn_model.mask: mask,
-                **{state: value for state, value in zip(rnn_model.states_in, states)}
+                model.inputs[0]: observation
             }).reshape([-1])
 
             return values_v
@@ -251,7 +215,7 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
         for _ in range(self.n_steps):
             # Given observations, take action and value (V(s))
             # We already have self.obs because Runner superclass run self.obs[:] = env.reset() on init
-            actions, values, states, _ = self._step(observations, terminals, states)  
+            actions, values, states, _ = self._step(observations, S=states, M=terminals)  
 
             # Take actions in env and look the results
             next_observations, rewards, terminals, _ = self.env.step(actions)
@@ -260,10 +224,9 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
             batch.append((np.copy(observations), actions, values, rewards, terminals))
             observations = next_observations
 
-        last_values = self._value(observations, terminals, states)
+        last_values = self._value(observations, S=states, M=terminals)
 
         batched = batch_experience(batch, last_values, self._last_terminals, self.gamma)
-        batched = batched + (self._last_states,)
 
         # Prepare next batch starting point
         self._last_terminals = terminals
