@@ -16,7 +16,7 @@ class SomeTrainer(Trainer):
         super().__init__(env_kwargs = dict(id = 'PongNoFrameskip-v4'), model_kwargs = dict(), **kwargs)
 
     def create_inputs(self, name):
-        return Input(batch_shape=(self.n_env, None, 49))
+        return Input(batch_shape=(self.n_env, None) + self.env.observation_space.shape)
 
     def create_model(self, inputs):
         from keras.models import Model
@@ -56,7 +56,7 @@ class SomeTrainer(Trainer):
             kernel_initializer=layer_initializer))(model)
 
         actor = TimeDistributed(Dense(
-            units = 4, 
+            units = self.env.action_space.n, 
             activation= 'softmax',
             bias_initializer='zeros',
             kernel_initializer = initializers.Orthogonal(gain=0.01)))(model)
