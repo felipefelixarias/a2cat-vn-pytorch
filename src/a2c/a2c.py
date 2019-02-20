@@ -1,82 +1,24 @@
-if __name__ == '__main__':
-    import os,sys,inspect
-    currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    parentdir = os.path.dirname(currentdir)
-    sys.path.insert(0,parentdir)
 from abc import abstractclassmethod
+from collections import namedtuple
 from functools import reduce
+import functools
+import time
+import gym
 
+import numpy as np
+import tensorflow as tf
 from keras.layers import Dense, Input, TimeDistributed
 import keras.backend as K
-from keras import initializers
+from keras.models import Model, Sequential
+from keras.initializers import Orthogonal
 
 from common import register_trainer, make_trainer, MetricContext
-import gym
-import environment.qmaze
-
-import gym
-import time
+from common.train import SingleTrainer
 from common.vec_env import SubprocVecEnv
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-import numpy as np
-
-import time
-import functools
-import tensorflow as tf
-
-from baselines import logger
-
-from baselines.common import set_global_seeds, explained_variance
-from baselines.common import tf_util
 
 
-from baselines.a2c.utils import Scheduler, find_trainable_variables
-
-from tensorflow import losses
-from keras.layers import Input
-
-from baselines.common.models import get_network_builder
-from baselines.common.input import observation_placeholder, encode_observation
-from baselines.common.distributions import make_pdtype
-from baselines.common.tf_util import adjust_shape
-from baselines.a2c.utils import fc
-from baselines.common import tf_util
-from baselines.common.mpi_running_mean_std import RunningMeanStd
-
-from keras.layers import Dense, TimeDistributed, Input
-from keras.models import Sequential
-def mlp(num_layers=2, num_hidden=64, activation=tf.tanh, layer_norm=False):
-    return Sequential(layers = [
-        Dense(64, activation='tanh'),
-        Dense(64, activation='tanh'),
-    ])
-    
-    def network_fn(X):
-        h = tf.layers.flatten(X)
-        for i in range(num_layers):
-            h = fc(h, 'mlp_fc{}'.format(i), nh=num_hidden, init_scale=np.sqrt(2))
-            if layer_norm:
-                h = tf.contrib.layers.layer_norm(h, center=True, scale=True)
-            h = activation(h)
-
-        return h
-
-    return network_fn
-
-from baselines.a2c.utils import fc
-from keras.initializers import Orthogonal
-from keras.models import Model as MD
-
-def get_model(n_envs, observation_space, action_space):
-    input_placeholder = Input(batch_shape=(n_envs, None) + observation_space.shape)
-    policy_latent = TimeDistributed(mlp())(input_placeholder)
-    value_latent =TimeDistributed(mlp())(input_placeholder)
-    
-    policy_probs = TimeDistributed(Dense(action_space.n, bias_initializer = 'zeros', activation='softmax', kernel_initializer = Orthogonal(gain=0.01)))(policy_latent)
-    value = TimeDistributed(Dense(1, bias_initializer = 'zeros', kernel_initializer = Orthogonal(gain = 1.0)))(value_latent)
-    return MD(inputs = [input_placeholder], outputs = [policy_probs, value])
-
-class ActorCriticModelBase:
+class A2CModelBase:
     def __init__(self):
         self.entropy_coefficient = 0.01
         self.value_coefficient = 0.5
@@ -123,7 +65,7 @@ class ActorCriticModelBase:
         entropy = tf.reduce_mean(policy_distribution.entropy())
 
         # Value loss
-        value_loss = losses.mean_squared_error(values, returns)
+        value_loss = tf.losses.mean_squared_error(values, returns)
 
         # Total loss
         loss = policy_gradient_loss \
@@ -191,11 +133,6 @@ class ActorCriticModelBase:
         return model
 
 
-
-from common.train import SingleTrainer
-
-from collections import namedtuple
-
 Experience = namedtuple('Experience', ['observations', 'returns', 'masks', 'actions', 'values'])
 def batch_experience(batch, last_values, previous_batch_terminals, gamma):
     # Batch in time dimension
@@ -213,7 +150,7 @@ def batch_experience(batch, last_values, previous_batch_terminals, gamma):
     return Experience(b_observations, b_returns[:, :-1], b_masks, b_actions, b_values)
 
 
-class Trainer(SingleTrainer, ActorCriticModelBase):
+class A2CTrainer(SingleTrainer, A2CModelBase):
     def __init__(self, name, env_kwargs, model_kwargs):
         super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
         self.name = name
@@ -315,21 +252,3 @@ class Trainer(SingleTrainer, ActorCriticModelBase):
         metric_context.add_last_value_scalar('fps', fps)
         self._global_t += self.n_steps * self.n_envs
         return (self.n_steps * self.n_envs, experience_stats, metric_context)
-
-
-@register_trainer('test-a2c', episode_log_interval = 100, save = False)
-class SomeTrainer(Trainer):
-    def __init__(self, **kwargs):
-        super().__init__(env_kwargs = dict(id = 'CartPole-v0'), model_kwargs = dict(), **kwargs)
-
-    def create_model(self, **model_kwargs):
-        return get_model(self.n_envs, self.env.observation_space, self.env.action_space)
-
-
-if __name__ == '__main__':
-    t = make_trainer('test-a2c')
-    t.run()
-
-
-
-
