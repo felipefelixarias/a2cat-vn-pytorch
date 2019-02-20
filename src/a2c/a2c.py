@@ -36,7 +36,7 @@ def expand_recurrent_model(model):
     pure_outputs = model.outputs[:-len(states_in)] if len(states_in) > 0 else model.outputs
     states_out = model.outputs[-len(states_in):] if len(states_in) > 0 else []
 
-    assert mask is not None
+    assert len(states_in) == 0 or mask is not None
     return RecurrentModel(model, pure_inputs, pure_outputs, states_in, states_out, mask)
 
 
@@ -123,10 +123,10 @@ class A2CModelBase:
                 adventages:b_adventages, 
                 returns:b_returns, 
                 learning_rate:self.learning_rate,
-                rnn_model.mask: b_masks,
                 **{state: value for state, value in zip(rnn_model.states_in, states)}
             }
-
+            if rnn_model.mask is not None:
+                feed_dict[rnn_model.mask] = b_masks
             loss_v, policy_loss_v, value_loss_v, policy_entropy_v, _ = sess.run(
                 [loss, policy_gradient_loss, value_loss, entropy, optimize_op],
                 feed_dict=feed_dict
@@ -139,11 +139,15 @@ class A2CModelBase:
             # Returns also single batch of returns
             observation = observation.reshape([self.n_envs, -1] + list(observation.shape[1:]))
             mask = mask.reshape([self.n_envs, -1])
-            action_v, value_v, state_out_v = sess.run([action, values, rnn_model.states_out], feed_dict={
+            feed_dict = {
                 model.inputs[0]: observation,
-                rnn_model.mask: mask,
                 **{state: value for state, value in zip(rnn_model.states_in, states)}
-            })
+            }
+
+            if rnn_model.mask is not None:
+                feed_dict[rnn_model.mask] = mask
+
+            action_v, value_v, state_out_v = sess.run([action, values, rnn_model.states_out], feed_dict=feed_dict)
 
             action_v = action_v.squeeze(1)
             value_v = value_v.squeeze(1)
@@ -155,11 +159,13 @@ class A2CModelBase:
             # Returns also single batch of returns
             observation = observation.reshape([self.n_envs, -1] + list(observation.shape[1:]))
             mask = mask.reshape([self.n_envs, -1])
-            values_v = sess.run(values, feed_dict={
+            feed_dict = {
                 model.inputs[0]: observation,
-                rnn_model.mask: mask,
                 **{state: value for state, value in zip(rnn_model.states_in, states)}
-            }).reshape([-1])
+            }
+            if rnn_model.mask is not None:
+                feed_dict[rnn_model.mask] = mask
+            values_v = sess.run(values, feed_dict=feed_dict).reshape([-1])
 
             return values_v
 
