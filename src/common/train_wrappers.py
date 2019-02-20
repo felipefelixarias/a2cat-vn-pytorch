@@ -79,12 +79,11 @@ class EpisodeNumberLimitWrapper(AbstractTrainerWrapper):
     def __repr__(self):
         return '<EpisodeNumberLimit(%s) %s>' % (self.max_number_of_episodes, repr(self.trainer))
 
-class SummaryWriter:
-    def __init__(self, writer):
+class MetricContext:
+    def __init__(self):
         self.accumulatives = defaultdict(list)
         self.lastvalues = dict()
         self.cummulatives = defaultdict(lambda: 0)
-        self.writer = writer
         self.window_size = 100
 
     def add_last_value_scalar(self, name, value):
@@ -109,8 +108,18 @@ class SummaryWriter:
         values.extend((key, x) for key, x in self.cummulatives.items())
         return ', '.join('{}: {}'.format(key, self._format_number(val)) for key, val in values)
 
-    def commit(self, global_t):
-        metrics_row = self.writer \
+    def flush(self, other):
+        for key, val in self.lastvalues.items():
+            other.lastvalues[key] = val
+
+        for key, val in self.cummulatives.items():
+            other.cummulatives[key] += val
+
+        for key, val in self.accumulatives.items():
+            other.accumulatives[key].extend(val)
+
+    def collect(self, writer, global_t):
+        metrics_row = writer \
             .record(global_t)
 
         for (key, val) in self.accumulatives.items():
@@ -129,7 +138,8 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         super().__init__(*args, **kwargs)
         self._log_t = 0
         self.logging_period = logging_period
-        self.summary_writer = SummaryWriter(MetricWriter())
+        self.metric_writer = MetricWriter()
+        self.metric_collector = MetricContext()
 
         self._global_t = 0
         self._episodes = 0
@@ -142,8 +152,8 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         def late_process(**kwargs):
             data = old_process(**kwargs)
             if self._log_t >= self.logging_period:
-                print(self.summary_writer.summary(self._global_t))
-                self.summary_writer.commit(self._global_t)
+                print(self.metric_collector.summary(self._global_t))
+                self.metric_collector.collect(self.metric_writer, self._global_t)
                 self._log_t = 0
             return data
 
@@ -159,27 +169,30 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
                 self._episodes += eps
                 self._log_t += eps
                 for l, rw in zip(episode_lengths, rewards):                    
-                    self.summary_writer.add_scalar('episode_length', l)
-                    self.summary_writer.add_scalar('reward', rw)
+                    self.metric_collector.add_scalar('episode_length', l)
+                    self.metric_collector.add_scalar('reward', rw)
 
-                self.summary_writer.add_last_value_scalar('episodes', self._episodes)
+                self.metric_collector.add_last_value_scalar('episodes', self._episodes)
 
             else:
                 self._episodes += 1
                 self._log_t += 1
                 
                 episode_length, reward = episode_end
-                self.summary_writer.add_last_value_scalar('episodes', self._episodes)
-                self.summary_writer.add_scalar('episode_length', episode_length)
-                self.summary_writer.add_scalar('reward', reward)
+                self.metric_collector.add_last_value_scalar('episodes', self._episodes)
+                self.metric_collector.add_scalar('episode_length', episode_length)
+                self.metric_collector.add_scalar('reward', reward)
 
-        if stats is not None:
+        if stats is not None and isinstance(stats, dict):
             if 'loss' in stats:
-                self.summary_writer.add_scalar('loss', stats.get('loss'))
+                self.metric_collector.add_scalar('loss', stats.get('loss'))
 
             if 'win' in stats:
-                self.summary_writer.add_scalar('win_rate', float(stats.get('win')))
-                self.summary_writer.add_cummulative('win_count', int(stats.get('win')))                    
+                self.metric_collector.add_scalar('win_rate', float(stats.get('win')))
+                self.metric_collector.add_cummulative('win_count', int(stats.get('win')))
+
+        elif stats is not None:
+            stats.flush(self.metric_collector)             
 
         return (tdiff, episode_end, stats)
 
@@ -193,7 +206,7 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         self._losses = []
         report = 'steps: {}, episodes: {}, reward: {:0.5f}, episode length: {}, loss: {:0.5f}'.format(self._global_t, self._episodes, reward, episode_length, loss)
 
-        metrics_row = self.writer \
+        metrics_row = self.metric_writer \
             .record(self._global_t) \
             .scalar('reward', reward) \
             .scalar('episode_length', episode_length)

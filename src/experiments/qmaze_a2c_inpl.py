@@ -45,5 +45,5 @@ class EnvWrapper(gym.Wrapper):
 
 env = DummyVecEnv([lambda: gym.make('QMaze-v0') for _ in range(n_envs)])
 
-
+env = DummyVecEnv([lambda: gym.make('CartPole-v0') for _ in range(16)])
 learn('mlp', env)
