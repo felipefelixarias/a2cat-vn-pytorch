@@ -8,3 +8,7 @@ Supervised learning for maze env. implementation
     DQN implementation
     Experimenting with different environment
     Trying (1,0) reward (not punishing the agent for hitting the wall)
+
+20-2-2019
+    Finished A2C implementation
+    
