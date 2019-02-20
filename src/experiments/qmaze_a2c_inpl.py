@@ -43,7 +43,7 @@ class EnvWrapper(gym.Wrapper):
     def observation(self, observation):
         return np.reshape(np.log(1.0 + observation) / np.log(2048), (-1,))
 
-env = DummyVecEnv([lambda: EnvWrapper(gym.make('2048-v0')) for _ in range(n_envs)])
+env = DummyVecEnv([lambda: gym.make('QMaze-v0') for _ in range(n_envs)])
 
 
 learn('mlp', env)

@@ -34,6 +34,41 @@ from baselines.a2c.runner import Runner
 
 from tensorflow import losses
 
+class RolloutStorage(object):
+    def __init__(self):
+        self._terminates = None
+        self._states = None
+        self.batch = []
+
+    @property
+    def terminates(self):
+        return self._terminates
+
+    @property
+    def states(self):
+        return self._states
+
+    def insert(self, obs, rewards, actions, values, terminates, states = None):
+        self.batch.append([obs, rewards, actions, values, terminates])
+        self._terminates = terminates
+        self._states = states
+
+    def clear(self):
+        self.batch.clear()
+
+    def sample(self, gamma, last_values):
+        obs, rewards, actions, values, terminates = tuple(map(lambda *x: np.stack(x, axis = 1), *self.batch))
+
+        batch_size = obs.shape[:2]
+        returns = np.zeros(shape = (batch_size[0], batch_size[1] + 1), dtype = np.float32)
+        returns[:,-1] = last_values
+        for step in reversed(range(rewards.shape[1])):
+            returns[:, step] = returns[:, step + 1] * \
+                gamma * (1.0 - terminates)[:, step] + rewards[:, step]
+
+        return obs, actions, returns[:,:-1]
+        
+
 class Model(object):
 
     """
@@ -252,13 +287,15 @@ class Trainer(SingleTrainer):
     def __init__(self, name, env_kwargs, model_kwargs):
         super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
         self.name = name
-        self.n_steps = 5
-        self.n_env = 3
+        self.n_steps = 20
+        self.n_env = 5
         self.total_timesteps = 1000000
-        self.gamma = 0.99
+        self.gamma = 0.95
         self.entropy_coef = 0.01
         self.learning_rate = 0.001
         self.max_grad_norm = 40.0
+
+        self.rollouts = RolloutStorage()
 
     @abstractclassmethod
     def create_model(self, inputs):
@@ -282,6 +319,11 @@ class Trainer(SingleTrainer):
         self._experience = []
         self._reports = [(0, 0.0) for _ in range(self.n_env)]
         self._cum_reports = [(0, [], []) for _ in range(self.n_env)]
+
+        self._global_t = 0
+        self._lastlog = 0
+        self._tstart = time.time()
+        self._n_updates = 0
         return model
 
     def _update_report(self, rewards, terminals):
@@ -299,31 +341,36 @@ class Trainer(SingleTrainer):
         self._cum_reports = [(0, [], []) for _ in range(self.n_env)]
         return output
 
+    def _build_loss(self, policy_probs, values, returns, actions, action_space_size):
+        policy_logits = tf.log(tf.clip_by_value(policy_probs, K.epsilon(), 1.0))
+        entropy = -tf.reduce_mean(tf.reduce_sum(policy_probs * policy_logits, reduction_indices = -1))
+    
+        selected_logits = tf.reduce_sum(tf.one_hot(actions, action_space_size) * policy_logits, axis = -1)
+
+        adventages = returns - values
+        value_loss = 0.5 * tf.reduce_mean(tf.square(adventages))
+        policy_loss = -tf.reduce_mean(tf.stop_gradient(adventages) * selected_logits)
+
+        loss = self.entropy_coef * entropy + value_loss + policy_loss
+        return loss, policy_loss, value_loss, entropy 
+
     def _build_graph(self):
+        action_space_size = self.env.action_space.n
         sess = K.get_session()
 
         inputs = self.create_inputs('main')
         model = self.create_model(inputs)
+        policy_probs, baseline_values = model.outputs
 
         with tf.name_scope('training'):
-            actions = tf.placeholder(dtype = tf.int32, shape = (None, self.n_env), name = 'actions')
-            rewards = tf.placeholder(dtype = tf.float32, shape = (None, self.n_env), name = 'rewards')
-            terminals = tf.placeholder(dtype = tf.bool, shape = (self.n_env), name = 'terminals')
-            bootstrap_value = tf.placeholder(dtype = tf.float32, shape = (self.n_env), name = 'bootstrap_value')
+            returns = tf.placeholder(dtype = tf.float32, shape = (self.n_env, None), name = 'returns')
+            actions = tf.placeholder(dtype = tf.int32, shape = (self.n_env, None), name = 'actions')
             learning_rate = tf.placeholder(dtype = tf.float32, name = 'learning_rate')
 
-            last_pcontinues = 1.0 - tf.to_float(terminals) * self.gamma
-            pcontinues = tf.ones_like(rewards[:-1]) * self.gamma
-            pcontinues = tf.concat([pcontinues, tf.reshape(last_pcontinues, [1, -1])], axis = 0)
+            baseline_values_shaped = tf.reshape(baseline_values, [self.n_env, -1])
+            loss, policy_loss, value_loss, entropy = self._build_loss(policy_probs, baseline_values_shaped, returns, actions, action_space_size)
 
-            policy_logits, baseline_values = model.outputs
-            policy_logits = tf.transpose(policy_logits, [1, 0, 2])
-            baseline_values = tf.reshape(tf.transpose(baseline_values, [1, 0, 2]), [-1, self.n_env])
-            
-            losses, extra = sequence_advantage_actor_critic_loss(policy_logits, baseline_values, actions, rewards, pcontinues, bootstrap_value, entropy_cost=self.entropy_coef)
-            loss = tf.reduce_mean(losses)
-
-            optimizer = tf.train.RMSPropOptimizer(learning_rate = self.learning_rate)
+            optimizer = tf.train.RMSPropOptimizer(learning_rate = self.learning_rate, decay = 0.99, epsilon = 1e-5)
 
             params = model.trainable_weights
             grads = tf.gradients(loss, params)
@@ -337,24 +384,20 @@ class Trainer(SingleTrainer):
 
         sess.run(tf.global_variables_initializer())
 
-        def train(b_inputs, b_bactions, b_rewards, b_terminals, b_bootstrap_value):
-            b_bactions = np.transpose(b_bactions)
-            b_rewards = np.transpose(b_rewards)
-            return sess.run([loss, optimize_op], feed_dict = {
+        def train(b_inputs, b_returns, b_actions):
+            return sess.run([loss, entropy, policy_loss, value_loss, optimize_op], feed_dict = {
                 learning_rate: self.learning_rate,
                 inputs: b_inputs,
-                actions:b_bactions,
-                rewards: b_rewards,
-                terminals: b_terminals,
-                bootstrap_value: b_bootstrap_value
-            })[0]
+                returns: b_returns,
+                actions: b_actions
+            })[:-1]
 
         def predict_single(s_inputs):
-            res = sess.run([policy_logits, baseline_values], feed_dict = {
+            res = sess.run([policy_probs, baseline_values], feed_dict = {
                 inputs: np.expand_dims(s_inputs, 1)
             })
-            
-            return (res[0][0], res[1][:, 0])
+
+            return (res[0][:, 0], res[1][:, 0, 0])
         
         self._train = train
         self._predict_single = predict_single
@@ -372,73 +415,63 @@ class Trainer(SingleTrainer):
         if self.obs is None:
             self.obs = self.env.reset()
 
-        batch = []
         for n in range(self.n_steps):
             # Given observations, take action and value (V(s))
             # We already have self.obs because Runner superclass run self.obs[:] = env.reset() on init
             actions, values = self.act(self.obs)
             obs, rewards, dones, _ = self.env.step(actions)
-            batch.append([np.copy(self.obs), actions, rewards])
+
+            self.rollouts.insert(obs, rewards, actions, values, dones, None)
             self._update_report(rewards, dones)
             self.obs = obs
-            
-            if np.any(dones):
-                # Any environment ended
-                # We need to end this cycle
-                # And return uncomplete minibatch
-                break
         
         _, bootstrap_values = self.act(self.obs)
         bootstrap_values = (1.0 - dones) * bootstrap_values # Remove value of finished episode
 
         # Convert data to acceptable format
-        batched = tuple(map(lambda *x: np.stack(x, axis = 1), *batch))
-        batched = batched + (dones, bootstrap_values,)
+        batched = self.rollouts.sample(self.gamma, bootstrap_values)
+        self.rollouts.clear()
         return batched, self._collect_report()
 
     def _get_end_stats(self):
         return None
 
     def process(self):
-        batch, ep_stats = self._sample_experience_batch()
-        time_moved = batch[0].shape[1]
+        (obs, actions, returns), ep_stats = self._sample_experience_batch()
+        time_moved = obs.shape[1]
 
-        self._train(*batch)
+        loss, policy_entropy, policy_loss, value_loss = self._train(obs, returns, actions)
         #policy_loss, value_loss, policy_entropy = self.model.train(obs, states, rewards, masks, actions, values)
-        #nseconds = time.time()-tstart
+        nseconds = time.time()-self._tstart
+        self._global_t += time_moved * self.n_env
+        self._n_updates += 1
 
         # Calculate the fps (frame per second)
-        #fps = int((update*nbatch)/nseconds)
-        '''if update % log_interval == 0 or update == 1:
+        fps = int(self._global_t/nseconds)
+        
+        '''if self._lastlog > 100:
             # Calculates if value function is a good predicator of the returns (ev > 1)
             # or if it's just worse than predicting nothing (ev =< 0)
-            ev = explained_variance(values, rewards)
-            logger.record_tabular("nupdates", update)
-            logger.record_tabular("total_timesteps", update*nbatch)
+            #ev = explained_variance(values, rewards)
+            logger.record_tabular("nupdates", self._n_updates)
+            logger.record_tabular("total_timesteps", self._global_t)
             logger.record_tabular("fps", fps)
             logger.record_tabular("policy_entropy", float(policy_entropy))
             logger.record_tabular("value_loss", float(value_loss))
-            logger.record_tabular("explained_variance", float(ev))
-            logger.dump_tabular()'''
-
+            logger.record_tabular("rewards", sum(sum(batch[2])))
+            #logger.record_tabular("explained_variance", float(ev))
+            logger.dump_tabular()
+            self._lastlog = 0
+        self._lastlog += 1
+        '''
         return (time_moved * self.n_env, ep_stats, dict())
 
 from keras.layers import Dense, Input, TimeDistributed
-from keras.models import Model
+from keras import initializers
 from common import register_trainer, make_trainer
 
 
-def mlp(inputs, action_space_size, **kwargs):
-    model = Dense(64, activation = 'tanh')(inputs[0])
-    model = Dense(64, activation = 'tanh')(model)
-    action_stream = Dense(256, activation = 'relu')(model)
-    action_stream = Dense(action_space_size, activation = None)(action_stream)
-    state_stream = Dense(256, activation = 'relu')(model)
-    state_stream = Dense(1, activation = None)(state_stream)
-    model = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)))([state_stream, action_stream])
-    return Model(inputs = inputs, outputs = [model])
-
-@register_trainer('test-a2c', episode_log_interval = 20)
+@register_trainer('test-a2c', episode_log_interval = 100, save = False)
 class SomeTrainer(Trainer):
     def __init__(self, **kwargs):
         super().__init__(env_kwargs = dict(id = 'QMaze-v0'), model_kwargs = dict(), **kwargs)
@@ -447,11 +480,48 @@ class SomeTrainer(Trainer):
         return Input(batch_shape=(self.n_env, None, 49))
 
     def create_model(self, inputs):
-        model = Dense(64, activation = 'tanh')(inputs)
-        model = Dense(64, activation = 'tanh')(model)
-        policy_logits = TimeDistributed(Dense(4, activation= 'softmax'))(model)
-        baseline_values = TimeDistributed(Dense(1, activation = None))(model)
-        return Model(inputs = [inputs], outputs = [policy_logits, baseline_values])
+        from keras.models import Model
+        from math import sqrt
+
+        layer_initializer = initializers.Orthogonal(gain=sqrt(2))
+        actor = TimeDistributed(Dense(
+            units = 64, 
+            activation = 'tanh',
+            bias_initializer = 'zeros',
+            kernel_initializer = layer_initializer))(inputs)
+
+        actor = TimeDistributed(Dense(
+            units = 64, 
+            activation = 'tanh',
+            bias_initializer = 'zeros',
+            kernel_initializer = layer_initializer))(actor)
+        actor = TimeDistributed(Dense(
+            units = 4, 
+            activation= 'softmax',
+            bias_initializer='zeros',
+            kernel_initializer = initializers.Orthogonal(gain=0.01)))(actor)
+
+
+        critic = TimeDistributed(Dense(
+            units = 64, 
+            activation = 'tanh',
+            bias_initializer = 'zeros',
+            kernel_initializer = layer_initializer))(inputs)
+
+        critic = TimeDistributed(Dense(
+            units = 64, 
+            activation = 'tanh',
+            bias_initializer = 'zeros',
+            kernel_initializer = layer_initializer))(critic)
+
+        critic = TimeDistributed(Dense(
+            units = 1,
+            activation = None,
+            bias_initializer='zeros',
+            kernel_initializer=layer_initializer
+        ))(critic)
+
+        return Model(inputs = [inputs], outputs = [actor, critic])
 
 
 if __name__ == '__main__':
