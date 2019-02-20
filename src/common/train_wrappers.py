@@ -2,7 +2,9 @@ from common.train import AbstractTrainerWrapper
 import numpy as np
 import os, math
 from util.metrics import MetricWriter
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
+from common.util import DefaultOrderedDict
+from common.console_util import print_table
 
 class SaveWrapper(AbstractTrainerWrapper):
     def __init__(self, *args, model_directory = './checkpoints', saving_period = 10000, **kwargs):
@@ -102,11 +104,12 @@ class MetricContext:
         return '{:.3f}'.format(number)
 
     def summary(self, global_t):
-        values = [('step', global_t)]
+        values = []
         values.extend((key, value) for key, value in self.lastvalues.items())
         values.extend((key, np.mean(x[-self.window_size:])) for key, x in self.accumulatives.items())
         values.extend((key, x) for key, x in self.cummulatives.items())
-        return ', '.join('{}: {}'.format(key, self._format_number(val)) for key, val in values)
+        values.sort(key = lambda x: x[0])
+        print_table([('step', global_t)] + values)
 
     def flush(self, other):
         for key, val in self.lastvalues.items():
@@ -152,7 +155,7 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         def late_process(**kwargs):
             data = old_process(**kwargs)
             if self._log_t >= self.logging_period:
-                print(self.metric_collector.summary(self._global_t))
+                self.metric_collector.summary(self._global_t)
                 self.metric_collector.collect(self.metric_writer, self._global_t)
                 self._log_t = 0
             return data
