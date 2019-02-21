@@ -1,6 +1,7 @@
 # from graph.core import GridWorldScene
 import ai2thor.controller
 import numpy as np
+import cv2
 
 class ThorGridWorld:
     def __init__(self, maze, observations):
@@ -23,8 +24,8 @@ class ThorGridWorld:
         return np.uint8
 
 class GridWorldReconstructor:
-    def __init__(self, scene_name = 'FloorPlan28', grid_size = 0.5, env_kwargs = dict()):
-        self.observation_size = (221, 221)
+    def __init__(self, scene_name = 'FloorPlan28', grid_size = 0.5, env_kwargs = dict(), screen_size = (300,300,)):
+        self.screen_size = screen_size
         self.grid_size = grid_size
         self.env_kwargs = env_kwargs
         self.scene_name = scene_name
@@ -105,11 +106,11 @@ class GridWorldReconstructor:
         maxy = max(self._frames.keys(), default = 0, key = lambda x: x[1])[1]
 
         size = (maxx - minx + 1, maxy - miny + 1)
-        observations = np.zeros(size + (4, 300, 300, 3), dtype = np.uint8)
+        observations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
         grid = np.zeros(size, dtype = np.bool)
         for key, value in self._frames.items():
             for i in range(4):
-                observations[key[0] - minx, key[1] - miny, i] = value[i]
+                observations[key[0] - minx, key[1] - miny, i] = cv2.resize(value[i], self.screen_size)
             grid[key[0] - minx, key[1] - miny] = 1
 
         return ThorGridWorld(grid, observations)
@@ -119,6 +120,3 @@ class GridWorldReconstructor:
         self._controller.step(dict(action = 'RotateLeft'))
         self._collect_spot((0, 0))
         return self._compile()
-
-if __name__ == '__main__':
-    GridWorldReconstructor().reconstruct()

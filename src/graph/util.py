@@ -55,16 +55,39 @@ def load_graph(file):
 
 def compute_rotation_steps(graph, goal, state):
     optimal_action = graph.optimal_actions[state[:2] + goal]
-    rot_steps = min(map(lambda x: abs(state[2] - x), np.where(optimal_action)))
-    if rot_steps == 3:
-        rot_steps = 1
-    return rot_steps
+    rot_steps = np.array(list(map(lambda x: abs(state[2] - x), np.where(optimal_action))))
+    rot_steps[rot_steps == 3] = 1
+    return min(rot_steps)
 
 def sample_initial_position(graph, goal, optimal_distance = None):
     potentials = []
     distances = []
     for position in enumerate_positions(graph.maze):
-        d = graph.shortest_distances[position + graph.goal]
+        d = graph.graph[position + goal]
+        if d > 0:
+            potentials.append(position)
+            distances.append(d)
+
+
+    if optimal_distance is None:
+        x = np.random.choice(np.arange(len(potentials)))
+    else:
+        distances = np.array(distances)
+        differences = np.abs(distances - optimal_distance)
+        differences /= np.std(differences)
+
+        # Using normal kernel
+        p = np.exp(-differences**2/2)/np.sqrt(2*np.pi)
+        p /= np.sum(p)
+
+        x = np.random.choice(np.arange(len(potentials)), p = p)
+    return potentials[x]
+
+def sample_initial_state(graph, goal, optimal_distance = None):
+    potentials = []
+    distances = []
+    for position in enumerate_positions(graph.maze):
+        d = graph.graph[position + goal]
         if d > 0:
             for i in range(4):
                 state = position + (i,)
@@ -73,11 +96,11 @@ def sample_initial_position(graph, goal, optimal_distance = None):
 
 
     if optimal_distance is None:
-        return np.random.choice(potentials)
+        x = np.random.choice(np.arange(len(potentials)))
     else:
         distances = np.array(distances)
-        return np.random.choice(potentials, p = np.abs(distances - optimal_distance))
-
+        x = np.random.choice(np.arange(len(potentials)), p = np.abs(distances - optimal_distance))
+    return potentials[x]
 
 
 def compute_shortest_path_data(maze):
@@ -86,6 +109,9 @@ def compute_shortest_path_data(maze):
     distances.fill(-1)
     actions.fill(False)
     def fill_shortest_path(goal, position, distance, from_direction):
+        if not is_valid_state(maze, position):
+            return 
+
         if distances[position + goal] != -1 and distances[position + goal] < distance:
             return
 

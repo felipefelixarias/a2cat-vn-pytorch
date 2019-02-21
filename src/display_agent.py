@@ -13,8 +13,8 @@ def create_baselines(action_space_size, seed = None):
 
 class Display:
     def __init__(self, env_kwargs, agent, seed = None):
-        self._env = gym.make(**env_kwargs)
-        self._env = gym.wrappers.TimeLimit(self._env, max_episode_steps=50)
+        self._env = gym.make(**env_kwargs) if isinstance(env_kwargs, dict) else env_kwargs
+        # self._env = gym.wrappers.TimeLimit(self._env, max_episode_steps=50)
         self._action_space_size = self._env.action_space.n
         self._results = dict()
         self._number_of_episodes = 1000
@@ -129,4 +129,12 @@ if __name__ == '__main__':
     #run_evaluation(run_dqn)
     #run_evaluation(run_supervised_deterministic)
     # run_evaluation(run_a3c)
-    run_agent(SupervisedAgent())
+    # run_agent(SupervisedAgent())
+
+    from graph.env import SimpleGraphEnv
+    from graph.util import load_graph
+    with open('./scenes/dungeon-20-1.pkl', 'rb') as f:
+        graph = load_graph(f)
+
+
+    self.env = SimpleGraphEnv(graph, graph.goal)

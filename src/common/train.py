@@ -27,14 +27,6 @@ class AbstractTrainer:
     def __repr__(self):
         return '<%sTrainer>' % self.name
 
-    def run(self, process, **kwargs):
-        if hasattr(self, '_run'):
-            self.env = self.wrap_env(gym.make(**self._env_kwargs))
-            self.model = self._initialize(**self._model_kwargs)
-            self._run(process = process, **kwargs)
-        else:
-            raise Exception('Run is not implemented')
-
     def compile(self, compiled_agent = None, **kwargs):
         if compiled_agent is None:
             compiled_agent = CompiledTrainer(self)
@@ -43,7 +35,11 @@ class AbstractTrainer:
             if not hasattr(self, '_run'):
                 raise Exception('Run is not implemented')
 
-            self.env = self.wrap_env(gym.make(**self._env_kwargs))
+            if isinstance(self._env_kwargs, dict):
+                env = gym.make(**self._env_kwargs)
+            else:
+                env = self._env_kwargs
+            self.env = self.wrap_env(env)
             self.model = self._initialize(**self._model_kwargs) 
             self._run(compiled_agent.process)
             

@@ -12,7 +12,7 @@ def create_baselines(action_space_size, seed = None):
 
 class Evaluation:
     def __init__(self, env_kwargs, seed = None):
-        self._env = gym.make(**env_kwargs)
+        self._env = gym.make(**env_kwargs) if isinstance(env_kwargs, dict) else env_kwargs
         self._action_space_size = self._env.action_space.n
         self._results = dict()
         self._number_of_episodes = 1000
