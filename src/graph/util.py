@@ -36,6 +36,50 @@ def find_state(maze):
 def is_valid_state(maze, state):
     return state[0] >= 0 and state[1] >= 0 and state[0] < maze.shape[0] and state[1] < maze.shape[1] and maze[state[0], state[1]]
 
+
+def dump_graph(graph, file):
+    shortest_path_distances, actions = compute_shortest_path_data(graph.maze)
+    graph.graph = shortest_path_distances
+    graph.optimal_actions = actions
+    import pickle
+    pickle.dump(graph, file)
+
+def load_graph(file):
+    import pickle
+    
+    graph = pickle.load(file)
+    if graph.graph is None:
+        graph.graph, graph.optimal_actions = compute_shortest_path_data(graph.maze)
+    return graph
+
+
+def compute_rotation_steps(graph, goal, state):
+    optimal_action = graph.optimal_actions[state[:2] + goal]
+    rot_steps = min(map(lambda x: abs(state[2] - x), np.where(optimal_action)))
+    if rot_steps == 3:
+        rot_steps = 1
+    return rot_steps
+
+def sample_initial_position(graph, goal, optimal_distance = None):
+    potentials = []
+    distances = []
+    for position in enumerate_positions(graph.maze):
+        d = graph.shortest_distances[position + graph.goal]
+        if d > 0:
+            for i in range(4):
+                state = position + (i,)
+                potentials.append(state)
+                distances.append(d + compute_rotation_steps(graph, goal, state))
+
+
+    if optimal_distance is None:
+        return np.random.choice(potentials)
+    else:
+        distances = np.array(distances)
+        return np.random.choice(potentials, p = np.abs(distances - optimal_distance))
+
+
+
 def compute_shortest_path_data(maze):
     distances = np.ndarray(maze.shape + maze.shape, dtype = np.int32)
     actions = np.ndarray(maze.shape + maze.shape + (4,), dtype = np.bool)

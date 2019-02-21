@@ -14,6 +14,14 @@ class ThorGridWorld:
     def maze(self):
         return self._maze
 
+    @property
+    def observation_shape(self):
+        return (300, 300, 3)
+
+    @property
+    def dtype(self):
+        return np.uint8
+
 class GridWorldReconstructor:
     def __init__(self, scene_name = 'FloorPlan28', grid_size = 0.5, env_kwargs = dict()):
         self.observation_size = (221, 221)
