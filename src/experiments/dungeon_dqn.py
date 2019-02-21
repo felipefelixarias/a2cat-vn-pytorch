@@ -18,13 +18,6 @@ from deepq.models import atari
 from graph.env import SimpleGraphEnv
 from graph.util import load_graph
 from gym.wrappers import TimeLimit
-size = (20, 20)
-
-with open('./scenes/dungeon-%s-1.pkl' % size[0], 'rb') as f:
-    graph = load_graph(f)
-
-env = TimeLimit(SimpleGraphEnv(graph, graph.goal), max_episode_steps = 100)
-env.unwrapped.set_complexity(None)
 
 @register_trainer('deepq-dungeon', max_time_steps = 100000, episode_log_interval = 10)
 class Trainer(dqn.DeepQTrainer):
@@ -49,10 +42,18 @@ class Trainer(dqn.DeepQTrainer):
     def wrap_env(self, env):
         return env
     
-trainer = make_trainer(
-    id = 'deepq-dungeon',
-    env_kwargs = env,
-    model_kwargs = dict()
-)
+if __name__ == '__main__':
+    size = (20, 20)
 
-trainer.run()
+    with open('./scenes/dungeon-%s-1.pkl' % size[0], 'rb') as f:
+        graph = load_graph(f)
+
+    env = TimeLimit(SimpleGraphEnv(graph, graph.goal), max_episode_steps = 100)
+    env.unwrapped.set_complexity(None)
+    trainer = make_trainer(
+        id = 'deepq-dungeon',
+        env_kwargs = env,
+        model_kwargs = dict()
+    )
+
+    trainer.run()

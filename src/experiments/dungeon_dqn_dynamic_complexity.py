@@ -19,14 +19,8 @@ from graph.env import SimpleGraphEnv
 from graph.util import load_graph
 from gym.wrappers import TimeLimit
 import numpy as np
-size = (20, 20)
 
-with open('./scenes/dungeon-%s-1.pkl' % size[0], 'rb') as f:
-    graph = load_graph(f)
-
-env = TimeLimit(SimpleGraphEnv(graph, graph.goal), max_episode_steps = 100)
-env.unwrapped.set_complexity(None)
-
+register_agent('deepq-dungeon-dynamic')(dqn.DeepQAgent)
 @register_trainer('deepq-dungeon-dynamic', max_time_steps = 100000, episode_log_interval = 10)
 class Trainer(dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
@@ -62,6 +56,13 @@ class Trainer(dqn.DeepQTrainer):
         return a, episode_end, c
 
 if __name__ == '__main__':
+    size = (20, 20)
+
+    with open('./scenes/dungeon-%s-1.pkl' % size[0], 'rb') as f:
+        graph = load_graph(f)
+
+    env = TimeLimit(SimpleGraphEnv(graph, graph.goal), max_episode_steps = 100)
+    env.unwrapped.set_complexity(None)
     trainer = make_trainer(
         id = 'deepq-dungeon-dynamic',
         env_kwargs = env,
