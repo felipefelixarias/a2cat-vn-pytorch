@@ -12,7 +12,7 @@ import keras.backend as K
 from keras.models import Model, Sequential
 from keras.initializers import Orthogonal
 
-from common import register_trainer, make_trainer, MetricContext
+from common import register_trainer, make_trainer, MetricContext, AbstractAgent
 from common.train import SingleTrainer
 from common.vec_env import SubprocVecEnv
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
@@ -40,6 +40,9 @@ def expand_recurrent_model(model):
     return RecurrentModel(model, pure_inputs, pure_outputs, states_in, states_out, mask)
 
 
+def create_initial_state(n_envs, state_in):
+    return [np.zeros((n_envs,) + tuple(x.shape[1:])) for x in state_in]
+
 class A2CModelBase:
     def __init__(self):
         self.entropy_coefficient = 0.01
@@ -55,9 +58,6 @@ class A2CModelBase:
     def create_model(self):
         pass
 
-    def _create_initial_state(self, state_in):
-        return [np.zeros((self.n_envs,) + tuple(x.shape[1:])) for x in state_in]
-
     @property
     def learning_rate(self):
         return 7e-4
@@ -70,7 +70,7 @@ class A2CModelBase:
         model = self.create_model(**model_kwargs)
         rnn_model = expand_recurrent_model(model)
 
-        self._initial_state = self._create_initial_state(rnn_model.states_in)
+        self._initial_state = create_initial_state(self.n_envs, rnn_model.states_in)
         policy, values = rnn_model.outputs
         values = tf.squeeze(values, axis = 2)
         
@@ -295,3 +295,26 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
         metric_context.add_last_value_scalar('fps', fps)
         self._global_t += self.n_steps * self.n_envs
         return (self.n_steps * self.n_envs, experience_stats, metric_context)
+
+
+class A2CAgent(AbstractAgent):
+    def __init__(self, *args, **kwargs):
+        self.__init__(*args, **kwargs)
+
+        model = self._load(self.name)
+        self.state = None
+        self.rnn_model = expand_recurrent_model(model)
+        # TODO: implement loading and act
+
+
+    def reset_state(self):
+        self.state = create_initial_state(1, self.rnn_model.states_in)
+
+    def _build_graph(self):
+        policy, values = rnn_model.outputs
+        values = tf.squeeze(values, axis = 2)
+        
+        policy_distribution = tf.distributions.Categorical(probs = policy)
+
+    def act(state):
+        pass
