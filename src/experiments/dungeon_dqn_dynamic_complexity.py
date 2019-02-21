@@ -31,7 +31,7 @@ class Trainer(dqn.DeepQTrainer):
         self.preprocess_steps = 1000
         self.replay_size = 50000
         self.minibatch_size = 32
-        self.gamma = 1.0
+        self.gamma = .95
         self.max_episode_steps = None
         self.rewards = [0.0]
 

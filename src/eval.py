@@ -11,11 +11,11 @@ def create_baselines(action_space_size, seed = None):
         [LambdaAgent('action-%s' % i, lambda _: i) for i in range(action_space_size)]
 
 class Evaluation:
-    def __init__(self, env_kwargs, seed = None):
+    def __init__(self, env_kwargs, seed = None, number_of_episodes = 1000):
         self._env = gym.make(**env_kwargs) if isinstance(env_kwargs, dict) else env_kwargs
         self._action_space_size = self._env.action_space.n
         self._results = dict()
-        self._number_of_episodes = 1000
+        self._number_of_episodes = number_of_episodes
         self._histogram_bins = 10
         self._seed = seed or random.random()
 

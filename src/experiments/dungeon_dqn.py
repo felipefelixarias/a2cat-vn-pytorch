@@ -19,6 +19,7 @@ from graph.env import SimpleGraphEnv
 from graph.util import load_graph
 from gym.wrappers import TimeLimit
 
+register_agent('deepq-dungeon')(dqn.DeepQAgent)
 @register_trainer('deepq-dungeon', max_time_steps = 100000, episode_log_interval = 10)
 class Trainer(dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
@@ -29,7 +30,7 @@ class Trainer(dqn.DeepQTrainer):
         self.preprocess_steps = 1000
         self.replay_size = 50000
         self.minibatch_size = 32
-        self.gamma = 1.0
+        self.gamma = .95
         self.max_episode_steps = None
 
 
