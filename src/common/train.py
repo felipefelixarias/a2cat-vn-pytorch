@@ -70,7 +70,7 @@ class AbstractTrainerWrapper(AbstractTrainer):
 
 class CompiledTrainer(AbstractTrainerWrapper):
     def __init__(self, target, *args, **kwargs):
-        super().__init__(self, *args, **kwargs)
+        super().__init__(target, *args, **kwargs)
         self.process = target.process
 
     def __repr__(self):
