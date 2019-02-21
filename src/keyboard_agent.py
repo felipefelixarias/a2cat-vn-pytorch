@@ -14,7 +14,13 @@ flags = get_options('keyboard')
 
 class Explorer:
     def __init__(self):
-        self.env = gym.make('Mushroom-v0') #ColorObservationWrapper(gym.make('Maze-v0'))
+        from graph.env import SimpleGraphEnv
+        from graph.util import load_graph
+        with open('./scenes/dungeon-20-1.pkl', 'rb') as f:
+            graph = load_graph(f)
+
+
+        self.env = SimpleGraphEnv(graph, graph.goal)  #gym.make('Mushroom-v0') #ColorObservationWrapper(gym.make('Maze-v0'))
         self.is_goal = isinstance(self.env.observation_space, gym.spaces.Dict)
 
         self.keyboard_map = {key: i for (i, key) in enumerate(['up', 'down', 'left', 'right']) }

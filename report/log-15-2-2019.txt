@@ -12,3 +12,8 @@ Supervised learning for maze env. implementation
 20-2-2019
     Finished A2C implementation
     
+21-2-2019
+    TODO: in bachelor thesis, talk about different measures needed for different RL environments
+    Exploited dynamic scene complexity policy
+    Created dynamic environment (dungeon)
+    Testing DQN in those environments (dynamic scene complexity vs. static complexity)
