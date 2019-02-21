@@ -1,5 +1,5 @@
 from environment.environment import Environment
-from common.abstraction import LambdaAgent, RandomAgent
+from common import make_agent
 from supervised.experiment import SupervisedAgent, ShortestPathAgent
 import numpy as np
 import pygame
@@ -59,9 +59,9 @@ class Display:
         self.surface.blit(text, text_rect)
 
     def show_image(self, state):
-        image = pygame.image.frombuffer(state, (84,84), 'RGB')
+        image = pygame.image.frombuffer(state, (300,300), 'RGB')
         self.surface.blit(image, (8, 8))
-        self.draw_center_text("input", 50, 100)
+        self.draw_center_text("input", 150, 316)
 
     def show_goal(self, state):
         image = pygame.image.frombuffer(state, (84,84), 'RGB')
@@ -71,9 +71,10 @@ class Display:
 
     def process(self):
         self.step()
-        state = self._env.unwrapped.render()
-        self.show_image(state['observation'])
-        self.show_goal(state['desired_goal'])
+        state = self._env.unwrapped.render(mode = 'rgbarray')
+        self.show_image(state)
+        #self.show_image(state['observation'])
+        #self.show_goal(state['desired_goal'])
 
     def step(self):
         action = self.agent.act(self._state)
@@ -87,11 +88,10 @@ class Display:
             self._state = self._env.reset()
   
 
-def run_agent(agent):
-    env_kwargs = dict(id = 'GoalMaze-v0', fixed_goal = True)
+def run_agent(agent, env = dict(id = 'GoalMaze-v0', fixed_goal = True)):
     seed = 1
 
-    display = Display(env_kwargs, agent, seed = seed)
+    display = Display(env, agent, seed = seed)
 
     clock = pygame.time.Clock()
   
@@ -102,6 +102,12 @@ def run_agent(agent):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
+            if event.type == pygame.KEYDOWN:
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_SPACE]:
+                    display._state = display._env.reset()
+
         
         display.update()
         clock.tick(FPS)
@@ -135,6 +141,9 @@ if __name__ == '__main__':
     from graph.util import load_graph
     with open('./scenes/dungeon-20-1.pkl', 'rb') as f:
         graph = load_graph(f)
+    import experiments.dungeon_dqn
+    import experiments.dungeon_dqn_dynamic_complexity
 
 
-    self.env = SimpleGraphEnv(graph, graph.goal)
+    env = SimpleGraphEnv(graph, graph.goal)
+    run_agent(make_agent('deepq-dungeon'), env)

@@ -125,3 +125,7 @@ class SimpleGraphEnv(gym.Env):
             import matplotlib.pyplot as plt
             plt.imshow(self.observe(self.state))
             plt.show()
+        elif mode == 'rgbarray':
+            array = (self.observe(self.state) * 255).astype(np.uint8)
+            import cv2
+            return cv2.resize(array, (300, 300), interpolation = cv2.INTER_NEAREST)
