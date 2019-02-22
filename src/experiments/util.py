@@ -12,7 +12,6 @@ def display_q(trainer, fig = None):
     for y in range(shape[0]):
         for x in range(shape[1]):
             observation = env.unwrapped.observe((y, x))
-            observation = observation.reshape([-1])
             Q[y, x,:] = trainer._q(observation[None])[0]
                 
     V = np.max(Q, 2)

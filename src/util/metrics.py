@@ -42,12 +42,14 @@ class MatplotlibHandler(MetricHandlerBase):
     def plot(self):
         for name, metric in self._metrics.items():
             if name in PLOT_METRICS:
-                self._get_figure(name)
+                fig = self._get_figure(name)
                 plt.plot(metric[0], metric[1], 'b')
 
                 if name in self._validation_metrics:
                     metric = self._validation_metrics[name]
                     plt.plot(metric[0], metric[1], 'r')
+
+                fig.canvas.flush_events()
 
 class MetricWriter:
     class _MetricRecordFactory:
