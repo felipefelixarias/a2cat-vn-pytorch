@@ -121,9 +121,11 @@ class MetricContext:
         for key, val in self.accumulatives.items():
             other.accumulatives[key].extend(val)
 
-    def collect(self, writer, global_t):
-        metrics_row = writer \
-            .record(global_t)
+    def collect(self, writer, global_t, mode = 'train'):
+        if mode == 'train':
+            metrics_row = writer.record(global_t)
+        elif mode == 'validation':
+            metrics_row = writer.record_validation(global_t)
 
         for (key, val) in self.accumulatives.items():
             metrics_row = metrics_row.scalar(key, np.mean(val))
@@ -160,7 +162,7 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
             data = old_process(**kwargs)
             if self._log_t >= self.logging_period:
                 self.metric_collector.summary(self._global_t)
-                self.metric_collector.collect(self.metric_writer, self._global_t)
+                self.metric_collector.collect(self.metric_writer, self._global_t, 'train')
                 self._log_t = 0
             return data
 
@@ -214,6 +216,7 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
 
         print('Validation finished')
         self.validation_metric_context.summary(self._global_t)
+        self.validation_metric_context.collect(self.metric_writer, self._global_t, 'validation')
         self._last_validation = self._episodes
 
     def process(self, mode = 'train', **kwargs):
