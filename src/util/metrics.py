@@ -1,10 +1,47 @@
 import tensorflow as tf
 import os
+from abc import abstractclassmethod
+from collections import defaultdict
 
+import matplotlib.pyplot as plt
 
 class MetricHandlerBase:
     def __init__(self, name, *args, **kwargs):
         self.name = name
+
+    @abstractclassmethod
+    def collect(self, collection, time):
+        pass
+
+PLOT_METRICS = ['reward']
+class MatplotlibHandler(MetricHandlerBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__('matplotlib', *args, **kwargs)
+        self._metrics = defaultdict(lambda: ([], []))
+        self._figures = dict()
+
+    def collect(self, collection, time):
+        for (tag, val) in collection:
+            t, v = self._metrics[tag]
+            t.append(time)
+            v.append(val)
+        self.plot()
+
+    def _get_figure(self, name):
+        if name in self._figures:
+            fig = self._figures[name]
+            plt.figure(num = fig.number, clear = True)
+        else:
+            fig = plt.figure()
+            fig.canvas.set_window_title(name)
+            self._figures[name] = fig
+        return fig
+
+    def plot(self):
+        for name, metric in self._metrics.items():
+            if name in PLOT_METRICS:
+                self._get_figure(name)
+                plt.plot(metric[0], metric[1])
 
 class MetricWriter:
     class _MetricRecordFactory:
@@ -25,6 +62,7 @@ class MetricWriter:
     def __init__(self, use_tensorboard = True, logdir = './logs'):
         self._use_tensorboard = use_tensorboard
         self._logdir = logdir
+        self.handlers = [MatplotlibHandler()]
 
         if logdir is not None and len(logdir) > 0:
             if not os.path.exists(logdir):
@@ -43,3 +81,6 @@ class MetricWriter:
                                                         simple_value=value) for (tag, value) in collection])
             self._tensorboard_writer.add_summary(summary, time)
             self._tensorboard_writer.flush()
+
+        for handler in self.handlers:
+            handler.collect(collection, time)
