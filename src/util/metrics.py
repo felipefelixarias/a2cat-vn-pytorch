@@ -1,6 +1,11 @@
 import tensorflow as tf
 import os
 
+
+class MetricHandlerBase:
+    def __init__(self, name, *args, **kwargs):
+        self.name = name
+
 class MetricWriter:
     class _MetricRecordFactory:
         def __init__(self, time, flush):

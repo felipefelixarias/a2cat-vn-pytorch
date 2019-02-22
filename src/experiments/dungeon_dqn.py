@@ -20,6 +20,7 @@ from graph.env import SimpleGraphEnv
 from graph.util import load_graph
 from gym.wrappers import TimeLimit
 from experiments.util import display_q
+import matplotlib.pyplot as plt
 
 class FlatWrapper(gym.ObservationWrapper):
     def observation(self, observation):
@@ -29,10 +30,10 @@ class FlatWrapper(gym.ObservationWrapper):
 register_agent('deepq-dungeon')(dqn.DeepQAgent)
 @register_trainer('deepq-dungeon', max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10)
 class Trainer(dqn.DeepQTrainer):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, q_figure = None, **kwargs):
         super().__init__(*args, **kwargs)
         self.epsilon_start = 1.0
-        self.epsilon_end = 0.02
+        self.epsilon_end = 0.05
         self.annealing_steps = 100000
         self.preprocess_steps = 1000
         self.replay_size = 50000
@@ -40,11 +41,15 @@ class Trainer(dqn.DeepQTrainer):
         self.learning_rate = 0.001
         self.gamma = .90
         self.max_episode_steps = None
+        self.q_figure = q_figure
 
     def process(self, **kwargs):
         ret = super().process(**kwargs)
-        if self._global_t % 100000 == 0 or self._global_t == 1:
-            display_q(self)
+        if self._global_t % 10000 == 0 or self._global_t == 1:
+            q_figure.clf()
+            display_q(self, q_figure)
+            plt.draw()
+            plt.pause(0.001)
 
         return ret
 
@@ -68,6 +73,10 @@ class Trainer(dqn.DeepQTrainer):
     
 if __name__ == '__main__':
     size = (20, 20)
+    plt.ion()
+
+    q_figure = plt.figure()
+    plt.show()
 
     with open('./scenes/dungeon-20-1.pkl', 'rb') as f:  #dungeon-%s-1.pkl' % size[0]
         graph = load_graph(f)
