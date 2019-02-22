@@ -128,8 +128,8 @@ class DeepQTrainer(SingleTrainer):
 
         return max(start_eps - (start_eps - end_eps) * ((self._global_t - self.preprocess_steps) / self.annealing_steps), end_eps)
 
-    def step(self, state):
-        if random.random() < self.epsilon:
+    def step(self, state, mode = 'validation'):
+        if random.random() < self.epsilon and mode == 'train':
             return random.randrange(self.model_kwargs.get('action_space_size'))
 
         return self.act(state)
@@ -146,17 +146,18 @@ class DeepQTrainer(SingleTrainer):
 
         return loss
 
-    def process(self):
+    def process(self, mode = 'train'):
         episode_end = None
 
         if self._state is None:
             self._state = self.env.reset()
 
         old_state = self._state
-        action = self.act(self._state)
-
+        action = self.step(self._state, mode)
         self._state, reward, done, env_props = self.env.step(action)
-        self._replay.add(old_state, action, reward, self._state, done)
+
+        if mode == 'train':
+            self._replay.add(old_state, action, reward, self._state, done)
 
         self._episode_length += 1
         self._episode_reward += reward
@@ -168,14 +169,15 @@ class DeepQTrainer(SingleTrainer):
             self._state = self.env.reset()
 
         stats = dict()
-        if self._global_t >= self.preprocess_steps:
+        if self._global_t >= self.preprocess_steps and mode == 'train':
             loss = self._optimize()
             stats = dict(loss = loss, epsilon = self.epsilon)
 
         if 'win' in env_props:
             stats['win'] = env_props['win']
         
-        self._global_t += 1
+        if mode == 'train':
+            self._global_t += 1
         return (1, episode_end, stats)
 
 class DeepQAgent(AbstractAgent):

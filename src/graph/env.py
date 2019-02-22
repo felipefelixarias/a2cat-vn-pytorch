@@ -43,7 +43,7 @@ class OrientedGraphEnv(gym.Env):
         return self.observe(self.state)
 
     def observe(self, state):
-        return self.graph.render(self.state[:2], self.state[2])
+        return self.graph.render(state[:2], state[2])
 
     def step(self, action):
         nstate = step(self.state, action)
@@ -104,21 +104,21 @@ class SimpleGraphEnv(gym.Env):
         return self.observe(self.state)
 
     def observe(self, state):
-        return self.graph.render(self.state)
+        return np.array(self.graph.render(state))
 
     def step(self, action):
         nstate = tuple(map(add, self.state, direction_to_change(action)))
         if not is_valid_state(self.graph.maze, nstate):
             # We can either end the episode with failure
             # Or continue with negative reward
-            return self.observe(self.state), 0.0, False, dict(state = self.state)
+            return self.observe(self.state), -0.25, False, dict(state = self.state)
 
         else:
             self.state = nstate
             if self.state[:2] == self.goal:
                 return self.observe(self.state), 1.0, True, dict(state = self.state, win = True)
             else:
-                return self.observe(self.state), 0.0, False, dict(state = self.state)
+                return self.observe(self.state), -0.04, False, dict(state = self.state)
 
     def render(self, mode = 'human'):
         if mode == 'human':
