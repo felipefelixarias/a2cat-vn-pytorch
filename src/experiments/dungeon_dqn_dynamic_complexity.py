@@ -26,11 +26,11 @@ class Trainer(dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.epsilon_start = 1.0
-        self.epsilon_end = 0.02
+        self.epsilon_end = 0.05
         self.annealing_steps = 10000
         self.preprocess_steps = 1000
         self.replay_size = 50000
-        self.minibatch_size = 32
+        self.minibatch_size = 64
         self.gamma = .95
         self.max_episode_steps = None
         self.rewards = [0.0]

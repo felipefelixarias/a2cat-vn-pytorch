@@ -3,7 +3,7 @@ from matplotlib.patches import Rectangle
 import seaborn as sns
 import numpy as np
 
-def display_q(trainer):
+def display_q(trainer, fig = None):
     env = trainer.env
 
     maze = env.unwrapped.graph.maze
@@ -17,22 +17,10 @@ def display_q(trainer):
                 
     V = np.max(Q, 2)
     policy = np.argmax(Q, axis = 2)
-    show_policy_and_value(V, policy, maze)
+    show_policy_and_value(V, policy, maze, fig)
     return
 
-    print(V)
-
-    min_v = np.min(V)
-    max_v = np.max(V)
-    V = (V - min_v) / (max_v - min_v)
-
-    # Remove maze
-    V[env.unwrapped.graph.maze == 0] = 1
-
-    img = plt.imshow(V, interpolation='none', cmap='gray')
-    plt.show()
-
-def show_policy_and_value(v, policy, maze):
+def show_policy_and_value(v, policy, maze, fig):
     policy_symbols = {0: '↓',
                         1: '→',
                         2: '↑',
@@ -40,6 +28,7 @@ def show_policy_and_value(v, policy, maze):
     mask = np.invert(maze.astype(np.bool))
 
     # to center the heatmap around zero
+    plt.figure(num = fig.number)
     maxval = max(np.abs(np.min(v)), np.abs(np.max(v)))
     ax = sns.heatmap(v, annot=True, mask=mask, fmt='.3f', square=1, linewidth=1., cmap='coolwarm', vmin=-maxval,
                          vmax=maxval)
@@ -51,6 +40,4 @@ def show_policy_and_value(v, policy, maze):
         for t, pol in zip(ax.texts, policy[:][(~mask).flat]):
             t.set_text(policy_symbols[pol])
             t.set_size('xx-large')
-
-    plt.show()
 
