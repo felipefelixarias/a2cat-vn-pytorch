@@ -16,7 +16,7 @@ class Explorer:
     def __init__(self):
         from graph.env import SimpleGraphEnv
         from graph.util import load_graph
-        with open('./scenes/dungeon-20-1.pkl', 'rb') as f:
+        with open('./scenes/qmaze.pkl', 'rb') as f:
             graph = load_graph(f)
 
 

@@ -21,7 +21,7 @@ from gym.wrappers import TimeLimit
 import numpy as np
 
 register_agent('deepq-dungeon-dynamic')(dqn.DeepQAgent)
-@register_trainer('deepq-dungeon-dynamic', max_time_steps = 100000, episode_log_interval = 10)
+@register_trainer('deepq-dungeon-dynamic', max_time_steps = 100000, validation_period = 100, episode_log_interval = 10)
 class Trainer(dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -66,7 +66,7 @@ if __name__ == '__main__':
     trainer = make_trainer(
         id = 'deepq-dungeon-dynamic',
         env_kwargs = env,
-        model_kwargs = dict()
+        model_kwargs = dict(action_space_size = 4)
     )
 
     trainer.run()

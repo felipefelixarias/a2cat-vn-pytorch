@@ -137,17 +137,21 @@ class MetricContext:
 
 
 class EpisodeLoggerWrapper(AbstractTrainerWrapper):
-    def __init__(self, logging_period = 10, *args, **kwargs):
+    def __init__(self, logging_period = 10, validation_episodes = 100, validation_period = None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._log_t = 0
         self.logging_period = logging_period
+        self.validation_period = validation_period
+        self.validation_episodes = validation_episodes
         self.metric_writer = MetricWriter()
         self.metric_collector = MetricContext()
+        self.validation_metric_context = MetricContext()
 
         self._global_t = 0
         self._episodes = 0
         self._data = []
         self._losses = []
+        self._last_validation = 0
 
     def compile(self, compiled_agent = None, **kwargs):
         compiled_agent = super().compile(compiled_agent = compiled_agent, **kwargs)
@@ -163,39 +167,68 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         compiled_agent.process = late_process
         return compiled_agent    
 
-    def process(self, **kwargs):
-        tdiff, episode_end, stats = self.trainer.process(**kwargs)
-        self._global_t += tdiff
-        if episode_end is not None:
-            if len(episode_end) == 3:
-                eps, episode_lengths, rewards = episode_end
-                self._episodes += eps
-                self._log_t += eps
-                for l, rw in zip(episode_lengths, rewards):                    
-                    self.metric_collector.add_scalar('episode_length', l)
-                    self.metric_collector.add_scalar('reward', rw)
+    def _process_episode_end(self, episode_end, mode):
+        if episode_end is None:
+            return 0
 
-                self.metric_collector.add_last_value_scalar('episodes', self._episodes)
+        eps = 0
+        collector = self.metric_collector if mode == 'train' else self.validation_metric_context
+        if len(episode_end) == 3:
+            eps, episode_lengths, rewards = episode_end
+            for l, rw in zip(episode_lengths, rewards):                    
+                collector.add_scalar('episode_length', l)
+                collector.add_scalar('reward', rw)
+        else:
+            eps = 1
+            episode_length, reward = episode_end
+            collector.add_scalar('episode_length', episode_length)
+            collector.add_scalar('reward', reward)
+        if mode == 'train':
+            self._episodes += eps
+            self._log_t += eps
+            self.metric_collector.add_last_value_scalar('episodes', self._episodes)
+        return eps
 
-            else:
-                self._episodes += 1
-                self._log_t += 1
-                
-                episode_length, reward = episode_end
-                self.metric_collector.add_last_value_scalar('episodes', self._episodes)
-                self.metric_collector.add_scalar('episode_length', episode_length)
-                self.metric_collector.add_scalar('reward', reward)
+    def _process_stats(self, stats, mode):
+        if stats is None:
+            return
 
-        if stats is not None and isinstance(stats, dict):
+        collector = self.metric_collector if mode == 'train' else self.validation_metric_context
+        if isinstance(stats, dict):
             if 'loss' in stats:
-                self.metric_collector.add_scalar('loss', stats.get('loss'))
+                collector.add_scalar('loss', stats.get('loss'))
 
             if 'win' in stats:
-                self.metric_collector.add_scalar('win_rate', float(stats.get('win')))
-                self.metric_collector.add_cummulative('win_count', int(stats.get('win')))
+                collector.add_scalar('win_rate', float(stats.get('win')))
+                collector.add_cummulative('win_count', int(stats.get('win')))
 
-        elif stats is not None:
-            stats.flush(self.metric_collector)             
+        else:
+            stats.flush(collector)
+        
+    def run_validation(self, **kwargs):
+        tval = 0
+        while tval < self.validation_episodes:
+            _, epend, stats = self.trainer.process(mode = 'validation', **kwargs)
+            tval += self._process_episode_end(epend, 'validation')
+            self._process_stats(stats, 'validation')
+
+        print('Validation finished')
+        self.validation_metric_context.summary(self._global_t)
+        self._last_validation = self._episodes
+
+    def process(self, mode = 'train', **kwargs):
+        tdiff, episode_end, stats = self.trainer.process(mode = mode, **kwargs)
+        self._global_t += tdiff if mode == 'train' else None
+        epend = self._process_episode_end(episode_end, mode)
+        self._process_stats(stats, mode)
+
+        # Run validation step if time is right
+        if self.validation_period is not None and \
+            (self._episodes - self._last_validation) > self.validation_period and \
+                epend > 0:
+
+            # Run validation
+            self.run_validation(**kwargs)   
 
         return (tdiff, episode_end, stats)
 
@@ -225,15 +258,15 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
 
         print(report)
 
-def wrap(trainer, max_number_of_episodes = None, max_time_steps = None, episode_log_interval = None, save = True, saving_period = 10000):
+def wrap(trainer, max_number_of_episodes = None, validation_period = None, validation_episodes = 100, max_time_steps = None, episode_log_interval = None, save = True, saving_period = 10000):
+    if episode_log_interval is not None:
+        trainer = EpisodeLoggerWrapper(episode_log_interval, trainer = trainer, validation_period=validation_period, validation_episodes=validation_episodes)
+    
     if max_time_steps is not None:
         trainer = TimeLimitWrapper(max_time_steps, trainer = trainer)
 
     if max_number_of_episodes is not None:
         trainer = EpisodeNumberLimitWrapper(max_number_of_episodes, trainer = trainer)
-
-    if episode_log_interval is not None:
-        trainer = EpisodeLoggerWrapper(episode_log_interval, trainer = trainer)
 
     if save:
         trainer = SaveWrapper(trainer, saving_period = saving_period)
