@@ -128,7 +128,7 @@ class MetricContext:
             metrics_row = writer.record_validation(global_t)
 
         for (key, val) in self.accumulatives.items():
-            metrics_row = metrics_row.scalar(key, np.mean(val))
+            metrics_row = metrics_row.scalar(key, np.mean(val[-self.window_size:]))
 
         for (key, value) in self.lastvalues.items():
             metrics_row = metrics_row.scalar(key, value)

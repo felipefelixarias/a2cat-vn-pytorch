@@ -107,6 +107,10 @@ class SimpleGraphEnv(gym.Env):
         return np.array(self.graph.render(state))
 
     def step(self, action):
+        if action is None:
+            # Return the latest observation
+            return self.observe(self.state), 0.0, False, dict()
+
         nstate = tuple(map(add, self.state, direction_to_change(action)))
         if not is_valid_state(self.graph.maze, nstate):
             # We can either end the episode with failure
