@@ -6,13 +6,16 @@ import numpy as np
 def display_q(trainer, fig = None):
     env = trainer.env
 
+    old_state = env.unwrapped.state
     maze = env.unwrapped.graph.maze
     shape = maze.shape
     Q = np.zeros(shape + (4,), dtype = np.float32)
     for y in range(shape[0]):
         for x in range(shape[1]):
-            observation = env.unwrapped.observe((y, x))
+            env.unwrapped.state = (y, x)
+            observation, _, _, _ = env.step(None)
             Q[y, x,:] = trainer._q(observation[None])[0]
+    env.unwrapped.state = old_state
                 
     V = np.max(Q, 2)
     policy = np.argmax(Q, axis = 2)
