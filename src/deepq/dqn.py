@@ -129,10 +129,16 @@ class DeepQTrainer(SingleTrainer):
         return max(start_eps - (start_eps - end_eps) * ((self._global_t - self.preprocess_steps) / self.annealing_steps), end_eps)
 
     def step(self, state, mode = 'validation'):
-        if random.random() < self.epsilon and mode == 'train':
+        if random.random() < self.epsilon:
             return random.randrange(self.model_kwargs.get('action_space_size'))
 
         return self.act(state)
+
+    def on_optimization_done(self, stats):
+        '''
+        Callback called after the optimization step
+        '''
+        pass
 
     def act(self, state):
         return self._act(state[None])[0]
@@ -172,6 +178,7 @@ class DeepQTrainer(SingleTrainer):
         if self._global_t >= self.preprocess_steps and mode == 'train':
             loss = self._optimize()
             stats = dict(loss = loss, epsilon = self.epsilon)
+            self.on_optimization_done(stats)
 
         if 'win' in env_props:
             stats['win'] = env_props['win']
