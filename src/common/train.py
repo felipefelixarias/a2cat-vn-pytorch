@@ -1,6 +1,7 @@
 import abc
 import gym
 import threading
+import os
 
 class AbstractTrainer:
     def __init__(self, env_kwargs, model_kwargs, **kwargs):
@@ -9,9 +10,17 @@ class AbstractTrainer:
         self._env_kwargs = env_kwargs
         self.model = None
         self._model_kwargs = model_kwargs
+        self.name = 'trainer'
 
         self.is_initialized = False
         pass
+
+    def save(self, path):
+        model = self.model           
+        model.save_weights(path + '/%s-weights.h5' % self.name)
+        with open(path + '/%s-model.json' % self.name, 'w+') as f:
+            f.write(model.to_json())
+            f.flush()
 
     def wrap_env(self, env):
         return env
@@ -23,6 +32,9 @@ class AbstractTrainer:
     @abc.abstractclassmethod
     def process(self, **kwargs):
         pass
+
+    def _run(self, process):
+        raise Exception('Run is not implemented')
 
     def __repr__(self):
         return '<%sTrainer>' % self.name
@@ -41,7 +53,7 @@ class AbstractTrainer:
                 env = self._env_kwargs
             self.env = self.wrap_env(env)
             self.model = self._initialize(**self._model_kwargs) 
-            self._run(compiled_agent.process)
+            return self._run(compiled_agent.process)
             
         compiled_agent.run = run_fn
         return compiled_agent
@@ -56,16 +68,23 @@ class AbstractTrainerWrapper(AbstractTrainer):
     def process(self, **kwargs):
         return self.trainer.process(**kwargs)
 
-    def run(self, **kwargs):
-        self.trainer.run(**kwargs)
-
     def stop(self, **kwargs):
         self.trainer.stop(**kwargs)
+
+    def save(self, path):
+        self.trainer.save(path)
 
     def compile(self, compiled_agent = None, **kwargs):
         if compiled_agent is None:
             compiled_agent = CompiledTrainer(self)
-        return self.trainer.compile(compiled_agent = compiled_agent, **kwargs)
+        compiled = self.trainer.compile(compiled_agent = compiled_agent, **kwargs)
+        if hasattr(self, 'run'):
+            old_run = compiled.run
+            def run(*args, **kwargs):
+                return self.run(old_run, *args, **kwargs)
+
+            compiled.run = run
+        return compiled
         
 
 class CompiledTrainer(AbstractTrainerWrapper):
@@ -89,6 +108,8 @@ class SingleTrainer(AbstractTrainer):
         while not self._is_stopped:
             tdiff, _, _ = process()
             global_t += tdiff
+
+        return None
 
     def stop(self):
         self._is_stopped = True
@@ -137,3 +158,4 @@ class MultithreadTrainer(AbstractTrainer):
             thread.setDaemon(True)
             self._train_threads.append(thread)          
             thread.start()
+        return None
