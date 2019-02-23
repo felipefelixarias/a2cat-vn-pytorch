@@ -28,8 +28,8 @@ class FlatWrapper(gym.ObservationWrapper):
         return np.reshape(observation, [-1])
 
 
-register_agent('deepq-dungeon-conv-neg-reward')(dqn.DeepQAgent)
-@register_trainer('deepq-dungeon-conv-neg-reward', max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10)
+register_agent('deepq-dungeon-conv-neg-rewar2')(dqn.DeepQAgent)
+@register_trainer('deepq-dungeon-conv-neg-rewar2', max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10)
 class Trainer(dqn.DeepQTrainer):
     def __init__(self, *args, q_figure = None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -83,7 +83,7 @@ if __name__ == '__main__':
     env = TimeLimit(SimpleGraphEnv(graph, graph.goal, rewards=[0.0, -1.0, -1.0]), max_episode_steps = 50)
     #env.unwrapped.set_complexity(0.1)
     trainer = make_trainer(
-        id = 'deepq-dungeon-conv-neg-reward',
+        id = 'deepq-dungeon-conv-neg-rewar2',
         env_kwargs = env,
         model_kwargs = dict(action_space_size = 4)
     )

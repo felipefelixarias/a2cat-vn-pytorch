@@ -32,9 +32,9 @@ class SaveWrapper(AbstractTrainerWrapper):
 
         self.save(path)
 
-    def run(self, run, *args, **kwargs):
+    def run(self, *args, **kwargs):
         try:
-            ret = run(*args, **kwargs)
+            ret = super().run(*args, **kwargs)
         except KeyboardInterrupt:
             self._save()
             raise
@@ -152,19 +152,15 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         self._losses = []
         self._last_validation = 0
 
-    def compile(self, compiled_agent = None, **kwargs):
-        compiled_agent = super().compile(compiled_agent = compiled_agent, **kwargs)
-        old_process = compiled_agent.process
-        def late_process(**kwargs):
-            data = old_process(**kwargs)
+    def run(self, process, **kwargs):
+        def _late_process(*args, **kwargs):
+            data = process(*args, **kwargs)
             if self._log_t >= self.logging_period:
                 self.metric_collector.summary(self._global_t)
                 self.metric_collector.collect(self.metric_writer, self._global_t, 'train')
                 self._log_t = 0
             return data
-
-        compiled_agent.process = late_process
-        return compiled_agent    
+        return super().run(_late_process, **kwargs)
 
     def _process_episode_end(self, episode_end, mode):
         if episode_end is None:
