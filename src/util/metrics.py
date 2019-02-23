@@ -51,6 +51,13 @@ class MatplotlibHandler(MetricHandlerBase):
 
                 fig.canvas.flush_events()
 
+    def save(self, path):
+        for name, fig in self._figures.items():
+            plt.figure(num = fig.number, clear = False)
+            plt.savefig(os.path.join(path, '%s.pdf' % name), format = 'pdf')
+            plt.savefig(os.path.join(path, '%s.eps' % name), format = 'eps')
+
+
 class MetricWriter:
     class _MetricRecordFactory:
         def __init__(self, time, flush, mode):
@@ -96,3 +103,8 @@ class MetricWriter:
 
         for handler in self.handlers:
             handler.collect(collection, time, mode = mode)
+
+    def save(self, path):
+        for handler in self.handlers:
+            if hasattr(handler, 'save'):
+                handler.save(path)

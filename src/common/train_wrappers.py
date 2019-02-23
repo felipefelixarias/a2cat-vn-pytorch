@@ -7,9 +7,9 @@ from common.util import DefaultOrderedDict
 from common.console_util import print_table
 
 class SaveWrapper(AbstractTrainerWrapper):
-    def __init__(self, *args, model_directory = './checkpoints', saving_period = 10000, **kwargs):
+    def __init__(self, *args, model_root_directory = './checkpoints', saving_period = 10000, **kwargs):
         super().__init__(*args, **kwargs)
-        self.model_directory = model_directory
+        self.model_root_directory = model_root_directory
         self._last_save = 0
         self.saving_period = saving_period
 
@@ -26,24 +26,21 @@ class SaveWrapper(AbstractTrainerWrapper):
 
     def _save(self):
         print('Saving')
-        
-        model = self.unwrapped.model
-        if not os.path.exists(self.model_directory):
-            os.makedirs(self.model_directory)
-            
-        model.save_weights(self.model_directory + '/%s-weights.h5' % self.unwrapped.name)
-        with open(self.model_directory + '/%s-model.json' % self.unwrapped.name, 'w+') as f:
-            f.write(model.to_json())
-            f.flush()
+        path = os.path.join(self.model_root_directory, self.unwrapped.name)
+        if not os.path.exists(path):
+            os.makedirs(path)
 
-    def run(self, **kwargs):
+        self.save(path)
+
+    def run(self, run, *args, **kwargs):
         try:
-            super().run(**kwargs)
+            ret = run(*args, **kwargs)
         except KeyboardInterrupt:
             self._save()
             raise
 
         self._save()
+        return ret
 
     def __repr__(self):
         return '<Save %s>' % repr(self.trainer)
@@ -237,6 +234,10 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
 
     def __repr__(self):
         return '<EpisodeLogger %s>' % repr(self.trainer)
+
+    def save(self, path):
+        super().save(path)
+        self.metric_writer.save(path)
 
     def log(self, stats):
         episode_length, reward = tuple(map(lambda *x: np.mean(x), *self._data))
