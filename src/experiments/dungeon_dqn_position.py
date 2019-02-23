@@ -55,6 +55,9 @@ class Trainer(dqn.DeepQTrainer):
 
         return ret
 
+    def run(self, *args, **kwargs):
+        return super().run(*args, **kwargs)
+
     def create_inputs(self, name, **kwargs):
         return [Input(shape = (2,), name = name + '_input')] # size + (3,)
 
