@@ -28,10 +28,10 @@ class FlatWrapper(gym.ObservationWrapper):
         return np.reshape(observation, [-1])
 
 
-register_agent('deepq-dungeon-conv-neg-rewar2')(dqn.DeepQAgent)
-@register_trainer('deepq-dungeon-conv-neg-rewar2', max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10)
+register_agent('dungeon-dqn-conv-neg-reward')(dqn.DeepQAgent)
+@register_trainer('dungeon-dqn-conv-neg-reward', max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10)
 class Trainer(dqn.DeepQTrainer):
-    def __init__(self, *args, q_figure = None, **kwargs):
+    def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.epsilon_start = 1.0
         self.epsilon_end = 0.05
@@ -42,14 +42,14 @@ class Trainer(dqn.DeepQTrainer):
         self.learning_rate = 0.001
         self.gamma = 1.0
         self.max_episode_steps = None
-        self.q_figure = q_figure
+        self.q_figure = None
 
     def process(self, **kwargs):
         ret = super().process(**kwargs)
         if self._global_t % 10000 == 0 or self._global_t == 1:
-            q_figure.clf()
-            display_q(self, q_figure)
-            q_figure.canvas.flush_events()
+            self._q_figure.clf()
+            display_q(self, self._q_figure)
+            self._q_figure.canvas.flush_events()
 
         return ret
 
@@ -69,23 +69,32 @@ class Trainer(dqn.DeepQTrainer):
 
     def wrap_env(self, env):
         return env
-    
-if __name__ == '__main__':
+
+    def run(self, *args, **kwargs):
+        plt.ion()
+
+        self._q_figure = plt.figure()
+        plt.show()
+
+        return super().run(*args, **kwargs)
+
+def default_args():
     size = (20, 20)
-    plt.ion()
-
-    q_figure = plt.figure()
-    plt.show()
-
     with open('./scenes/dungeon-20-1.pkl', 'rb') as f:  #dungeon-%s-1.pkl' % size[0]
         graph = load_graph(f)
 
     env = TimeLimit(SimpleGraphEnv(graph, graph.goal, rewards=[0.0, -1.0, -1.0]), max_episode_steps = 50)
     #env.unwrapped.set_complexity(0.1)
-    trainer = make_trainer(
-        id = 'deepq-dungeon-conv-neg-rewar2',
+    return dict(
         env_kwargs = env,
         model_kwargs = dict(action_space_size = 4)
     )
 
+    
+if __name__ == '__main__':
+    trainer = make_trainer(
+        id = 'dungeon-dqn-conv-neg-reward',
+        **default_args()
+    )
+    
     trainer.run()
