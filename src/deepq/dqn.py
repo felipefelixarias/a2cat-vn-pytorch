@@ -31,6 +31,7 @@ class DeepQTrainer(SingleTrainer):
         self.learning_rate = 0.001
         self.model_kwargs = model_kwargs
         self.max_episode_steps = None  
+        self.double_dqn = True
 
         self._global_t = 0
         self._state = None
@@ -64,17 +65,19 @@ class DeepQTrainer(SingleTrainer):
             inputs_next = self.create_inputs("next", **self.model_kwargs)
             terminates = tf.placeholder(tf.bool, (None,), name="terminate")
 
-            # Target network            
-            target_model = self.create_model(inputs_next, **self.model_kwargs)
-            target_vars = target_model.trainable_weights
-
-            q_next = tf.stop_gradient(target_model.output)            
             q_next_online_net = tf.stop_gradient(model(inputs_next))
-
-            # Loss
             pcontinues = (1.0 - tf.to_float(terminates)) * self.gamma
-            errors, _info = double_qlearning(q, actions, rewards, pcontinues, q_next, q_next_online_net)
 
+            
+            if self.double_dqn:  
+                # Target network      
+                target_model = self.create_model(inputs_next, **self.model_kwargs)
+                target_vars = target_model.trainable_weights
+
+                q_next = tf.stop_gradient(target_model.output)                        
+                errors, _info = double_qlearning(q, actions, rewards, pcontinues, q_next, q_next_online_net)
+            else:
+                errors, _info = qlearning(q, actions, rewards, pcontinues, q_next_online_net)
 
             td_error = _info.td_error
 
@@ -85,8 +88,11 @@ class DeepQTrainer(SingleTrainer):
             with tf.control_dependencies([optimize_expr]):
                 optimize_expr = tf.group(*[tf.assign(*a) for a in model.updates])
 
-            # update_target_fn will be called periodically to copy Q network to target Q network
-            update_target_expr = tf.group(*[var_target.assign(var) for var, var_target in zip(model_vars, target_vars)])
+            if self.double_dqn:
+                # update_target_fn will be called periodically to copy Q network to target Q network
+                update_target_expr = tf.group(*[var_target.assign(var) for var, var_target in zip(model_vars, target_vars)])
+            else:
+                update_target_expr = tf.no_op()
 
         # Create callable functions
         train_fn = K.function(inputs + [
