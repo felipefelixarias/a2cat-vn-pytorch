@@ -20,5 +20,7 @@ Supervised learning for maze env. implementation
 
 23-2-2019
     Dungeon with full input (conv) negative vs. positive reward + discounting
+        - Works well with negative reward for each step and gamma = 1
+        - Works very bad for the case of positive 1-0 reward and discounting
     Dungeon with state only input
     Dungeon with position only input
