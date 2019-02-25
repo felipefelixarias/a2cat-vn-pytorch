@@ -22,7 +22,10 @@ class AbstractTrainer:
             f.write(model.to_json())
             f.flush()
 
-    def wrap_env(self, env):
+    def create_env(self, env):
+        if isinstance(env, dict):
+            env = gym.make(**env)
+
         return env
 
     @abc.abstractclassmethod
@@ -37,11 +40,7 @@ class AbstractTrainer:
         if process is None:
             raise Exception('Must be compiled before run')
 
-        if isinstance(self._env_kwargs, dict):
-            env = gym.make(**self._env_kwargs)
-        else:
-            env = self._env_kwargs
-        self.env = self.wrap_env(env)
+        self.env = self.create_env(self._env_kwargs)
         self.model = self._initialize(**self._model_kwargs) 
         return None
 

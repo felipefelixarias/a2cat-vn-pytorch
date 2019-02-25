@@ -71,6 +71,7 @@ class A2CModelBase:
         rnn_model = expand_recurrent_model(model)
 
         self._initial_state = create_initial_state(self.n_envs, rnn_model.states_in)
+        self._validation_initial_state = create_initial_state(1, rnn_model.states_in)
         policy, values = rnn_model.outputs
         values = tf.squeeze(values, axis = 2)
         
@@ -137,8 +138,8 @@ class A2CModelBase:
         def step(observation, mask, states = []):
             # This function takes single batch of observations
             # Returns also single batch of returns
-            observation = observation.reshape([self.n_envs, -1] + list(observation.shape[1:]))
-            mask = mask.reshape([self.n_envs, -1])
+            observation = observation.reshape([-1, 1] + list(observation.shape[1:]))
+            mask = mask.reshape([-1, 1])
             feed_dict = {
                 model.inputs[0]: observation,
                 **{state: value for state, value in zip(rnn_model.states_in, states)}
@@ -209,8 +210,27 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
     def create_model(self, **model_kwargs):
         pass
 
-    def wrap_env(self, env):
-        return DummyVecEnv([lambda: gym.make(**self._env_kwargs) for _ in range(self.n_envs)])
+    def create_env(self, env):
+        def create_single_factory(env, use_singleton = True):
+            if isinstance(env, dict):
+                return lambda: gym.make(**env)
+            elif callable(env):
+                return env
+            elif use_singleton:
+                return lambda: env
+            else:
+                raise Exception('Environment not supported')
+
+        if isinstance(env, list):
+            if len(env) != self.n_envs + 1:
+                raise Exception('Unsupported number of environments. Must be number of environments + 1')
+            envs = [create_single_factory(e, True) for e in env]
+        else:
+            envs = [create_single_factory(env, False) for _ in range(self.n_envs + 1)]
+
+        # Create validation environment
+        self.validation_env = envs[0]()
+        return DummyVecEnv(envs[1:])
 
     def _initialize(self, **model_kwargs):
         self.nenv = nenv = self.env.num_envs if hasattr(self.env, 'num_envs') else 1
@@ -280,9 +300,7 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
     def _get_end_stats(self):
         return None
 
-    def process(self):
-        metric_context = MetricContext()
-
+    def _process_train(self, metric_context):
         batch, experience_stats = self._sample_experience_batch()
         loss, policy_loss, value_loss, policy_entropy = self._train(*batch)
 
@@ -296,6 +314,32 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
         self._global_t += self.n_steps * self.n_envs
         return (self.n_steps * self.n_envs, experience_stats, metric_context)
 
+    def _process_validation(self, metric_context):
+        done = False
+        states = self._validation_initial_state
+        ep_reward = 0.0
+        ep_length = 0
+        obs = self.validation_env.reset()
+        while not done:
+            observations = np.expand_dims(obs, 0)
+            action, values, states, _ = self._step(observations, np.zeros((1,)), states)
+            action = action[0]
+            obs, reward, done, _ = self.validation_env.step(action)
+            
+            ep_reward += reward
+            ep_length += 1
+
+        return (ep_length, (ep_length, ep_reward), dict())
+
+    def process(self, mode = 'train'):
+        metric_context = MetricContext()
+
+        if mode == 'train':
+            return self._process_train(metric_context)
+        elif mode == 'validation':
+            return self._process_validation(metric_context)
+        else:
+            raise Exception('Mode not supported')
 
 class A2CAgent(AbstractAgent):
     def __init__(self, *args, **kwargs):
