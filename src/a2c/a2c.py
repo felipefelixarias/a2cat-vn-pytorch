@@ -48,8 +48,8 @@ class A2CModelBase:
         self.entropy_coefficient = 0.01
         self.value_coefficient = 0.5
         self.max_gradient_norm = 0.5
-        self.alpha = 0.99
-        self.epsilon = 1e-5
+        self.rms_alpha = 0.99
+        self.rms_epsilon = 1e-5
 
         self.n_envs = None
         self._initial_state = None
@@ -61,6 +61,9 @@ class A2CModelBase:
     @property
     def learning_rate(self):
         return 7e-4
+
+    def on_graph_built(self, **kwargs):
+        pass
 
     def _build_graph(self, sess, **model_kwargs):
         # Keras will use this session
@@ -102,7 +105,7 @@ class A2CModelBase:
             - entropy * self.entropy_coefficient
 
         # Optimize step
-        optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=self.alpha, epsilon=self.epsilon)
+        optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=self.rms_alpha, epsilon=self.rms_epsilon)
         params = model.trainable_weights
         grads = tf.gradients(loss, params)
         if self.max_gradient_norm is not None:
@@ -173,6 +176,10 @@ class A2CModelBase:
         self._step = step
         self._train = train
         self._value = value
+
+        feed_dict = locals()
+        feed_dict.pop('self')
+        self.on_graph_built(**feed_dict)
         return model
 
 
