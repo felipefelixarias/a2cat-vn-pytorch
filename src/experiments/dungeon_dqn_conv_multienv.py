@@ -16,7 +16,7 @@ from common import register_trainer, make_trainer, register_agent, make_agent
 from deepq.models import mlp
 import numpy as np
 
-from graph.env import SimpleGraphEnv
+from graph.env import SimpleGraphEnv, MultipleGraphEnv
 from graph.util import load_graph
 from gym.wrappers import TimeLimit
 from experiments.util import display_q
@@ -28,8 +28,8 @@ class FlatWrapper(gym.ObservationWrapper):
         return np.reshape(observation, [-1])
 
 
-register_agent('dungeon-dqn-conv')(dqn.DeepQAgent)
-@register_trainer('dungeon-dqn-conv', max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10)
+register_agent('dungeon-dqn-conv-multienv')(dqn.DeepQAgent)
+@register_trainer('dungeon-dqn-conv-multienv', max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10)
 class Trainer(dqn.DeepQTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,11 +40,9 @@ class Trainer(dqn.DeepQTrainer):
         self.replay_size = 50000
         self.minibatch_size = 64
         self.learning_rate = 0.001
-        self.gamma = 0.9
+        self.gamma = 1.0
         self.max_episode_steps = None
         self.q_figure = None
-
-        self.double_dqn = False
 
     def process(self, **kwargs):
         ret = super().process(**kwargs)
@@ -82,10 +80,8 @@ class Trainer(dqn.DeepQTrainer):
 
 def default_args():
     size = (20, 20)
-    with open('./scenes/dungeon-20-1.pkl', 'rb') as f:  #dungeon-%s-1.pkl' % size[0]
-        graph = load_graph(f)
-
-    env = TimeLimit(SimpleGraphEnv(graph, graph.goal, rewards=[1.0, 0.0, 0.0]), max_episode_steps = 50)
+    env = MultipleGraphEnv(['./scenes/dungeon-%s-%s.pkl' % (size[0], i) for i in range(1, 32)], rewards=[0.0, -1.0, -1.0])
+    env = TimeLimit(env, max_episode_steps = 50)
     #env.unwrapped.set_complexity(0.1)
     return dict(
         env_kwargs = env,
@@ -95,7 +91,7 @@ def default_args():
     
 if __name__ == '__main__':
     trainer = make_trainer(
-        id = 'dungeon-dqn-conv',
+        id = 'dungeon-dqn-conv-multienv',
         **default_args()
     )
     
