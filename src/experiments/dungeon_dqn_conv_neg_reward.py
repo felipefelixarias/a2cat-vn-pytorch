@@ -60,9 +60,9 @@ class Trainer(dqn.DeepQTrainer):
         model = inputs[0]
         model = Conv2D(32, (8, 8), strides=(4, 4), activation = 'relu')(model)
         model = Flatten()(model)
-        action = Dense(256, activation = 'relu')(model)
+        action = Dense(64, activation = 'relu')(model)
         action = Dense(action_space_size, activation = None)(action)
-        state = Dense(256, activation = 'relu')(model)
+        state = Dense(64, activation = 'relu')(model)
         state = Dense(1, activation = None)(state)
         model = Lambda(lambda val_adv: val_adv[0] + (val_adv[1] - K.mean(val_adv[1],axis=1,keepdims=True)))([state, action])
         return Model(inputs = inputs, outputs = [model])

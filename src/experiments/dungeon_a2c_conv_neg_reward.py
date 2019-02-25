@@ -41,9 +41,9 @@ class Trainer(A2CTrainer):
         model = inputs[0]
         model = TimeDistributed(Conv2D(32, (8, 8), strides=(4, 4), activation = 'relu'))(model)
         model = TimeDistributed(Flatten())(model)
-        policy = TimeDistributed(Dense(256, activation = 'relu'))(model)
+        policy = TimeDistributed(Dense(64, activation = 'relu'))(model)
         policy = TimeDistributed(Dense(action_space_size, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01), activation = 'sigmoid'))(policy)
-        value = TimeDistributed(Dense(256, activation = 'relu'))(model)
+        value = TimeDistributed(Dense(64, activation = 'relu'))(model)
         value = TimeDistributed(Dense(1, activation = None, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01)))(value)
 
         model = Model(inputs = inputs, outputs = [policy, value])

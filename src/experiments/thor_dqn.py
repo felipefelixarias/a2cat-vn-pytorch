@@ -16,7 +16,7 @@ from common import register_trainer, make_trainer, register_agent, make_agent
 from deepq.models import mlp
 import numpy as np
 
-from graph.env import SimpleGraphEnv
+from graph.env import SimpleGraphEnv, OrientedGraphEnv
 from graph.util import load_graph
 from gym.wrappers import TimeLimit
 from experiments.util import display_q
@@ -40,27 +40,18 @@ class Trainer(dqn.DeepQTrainer):
         self.replay_size = 50000
         self.minibatch_size = 64
         self.learning_rate = 0.001
-        self.gamma = 1.0
+        self.gamma = 0.9
         self.max_episode_steps = None
         self.q_figure = None
 
-    def process(self, **kwargs):
-        ret = super().process(**kwargs)
-        if self._global_t % 10000 == 0 or self._global_t == 1:
-            self._q_figure.clf()
-            display_q(self, self._q_figure)
-            self._q_figure.canvas.flush_events()
-
-        return ret
-
     def create_inputs(self, name, **kwargs):
-        return [Input(shape = (20,20,3), name = name + '_input')] # size + (3,)
+        return [Input(shape = (84,84,3), name = name + '_input')] # size + (3,)
 
     def create_model(self, inputs, action_space_size, **kwargs):
         model = inputs[0]
         model = Conv2D(16, 8, strides=4, activation = 'relu')(model)
-        model = Flatten()(model)
         model = Conv2D(32, 4, strides = 2, activation = 'relu')(model)
+        model = Flatten()(model)
         action = Dense(256, activation = 'relu')(model)
         action = Dense(action_space_size, activation = None)(action)
         state = Dense(256, activation = 'relu')(model)
@@ -73,18 +64,13 @@ class Trainer(dqn.DeepQTrainer):
 
     def run(self, *args, **kwargs):
         plt.ion()
-
-        self._q_figure = plt.figure()
-        plt.show()
-
         return super().run(*args, **kwargs)
 
 def default_args():
-    size = (20, 20)
     with open('./scenes/kitchen-84.pkl', 'rb') as f:
         graph = load_graph(f)
 
-    env = TimeLimit(SimpleGraphEnv(graph, graph.goal, rewards=[0.0, -1.0, -1.0]), max_episode_steps = 100)
+    env = TimeLimit(OrientedGraphEnv(graph, (6, 6)), max_episode_steps = 100)
     #env.unwrapped.set_complexity(0.1)
     return dict(
         env_kwargs = env,
