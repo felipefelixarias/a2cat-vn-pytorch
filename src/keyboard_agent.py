@@ -16,7 +16,7 @@ class Explorer:
     def __init__(self):
         from graph.env import SimpleGraphEnv, OrientedGraphEnv
         from graph.util import load_graph
-        with open('./scenes/kitchen-84.pkl', 'rb') as f:
+        with open('./scenes/kitchen-224.pkl', 'rb') as f:
             graph = load_graph(f)
 
 
