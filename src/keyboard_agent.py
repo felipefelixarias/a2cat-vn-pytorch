@@ -14,13 +14,13 @@ flags = get_options('keyboard')
 
 class Explorer:
     def __init__(self):
-        from graph.env import SimpleGraphEnv
+        from graph.env import SimpleGraphEnv, OrientedGraphEnv
         from graph.util import load_graph
-        with open('./scenes/qmaze.pkl', 'rb') as f:
+        with open('./scenes/kitchen-84.pkl', 'rb') as f:
             graph = load_graph(f)
 
 
-        self.env = SimpleGraphEnv(graph, graph.goal)  #gym.make('Mushroom-v0') #ColorObservationWrapper(gym.make('Maze-v0'))
+        self.env = OrientedGraphEnv(graph, (6,6))  #gym.make('Mushroom-v0') #ColorObservationWrapper(gym.make('Maze-v0'))
         self.is_goal = isinstance(self.env.observation_space, gym.spaces.Dict)
 
         self.keyboard_map = {key: i for (i, key) in enumerate(['up', 'down', 'left', 'right']) }
@@ -39,6 +39,7 @@ class Explorer:
             else:
                 plt.imshow(state)
             fig.canvas.draw()
+            print(self.env.unwrapped.state)
         redraw(self.env.reset())
 
         def press(event):

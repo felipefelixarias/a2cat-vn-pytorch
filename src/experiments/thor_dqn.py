@@ -66,7 +66,7 @@ def default_args():
     with open('./scenes/kitchen-84.pkl', 'rb') as f:
         graph = load_graph(f)
 
-    env = TimeLimit(OrientedGraphEnv(graph, (6, 6)), max_episode_steps = 100)
+    env = TimeLimit(OrientedGraphEnv(graph, (0, 4)), max_episode_steps = 100)
     #env.unwrapped.set_complexity(0.1)
     return dict(
         env_kwargs = env,
