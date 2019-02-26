@@ -38,7 +38,7 @@ class Trainer(dqn.DeepQTrainer):
         self.annealing_steps = 100000
         self.preprocess_steps = 1000
         self.replay_size = 50000
-        self.minibatch_size = 64
+        self.minibatch_size = 32
         self.learning_rate = 0.001
         self.gamma = 1.0
         self.max_episode_steps = None
@@ -71,11 +71,7 @@ class Trainer(dqn.DeepQTrainer):
         return env
 
     def run(self, *args, **kwargs):
-        plt.ion()
-
         self._q_figure = plt.figure()
-        plt.show()
-
         return super().run(*args, **kwargs)
 
 def default_args():

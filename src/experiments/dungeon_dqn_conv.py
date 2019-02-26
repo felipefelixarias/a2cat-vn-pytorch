@@ -85,7 +85,7 @@ def default_args():
     with open('./scenes/dungeon-20-1.pkl', 'rb') as f:  #dungeon-%s-1.pkl' % size[0]
         graph = load_graph(f)
 
-    env = TimeLimit(SimpleGraphEnv(graph, graph.goal, rewards=[1.0, 0.0, 0.0]), max_episode_steps = 50)
+    env = TimeLimit(SimpleGraphEnv(graph, rewards=[1.0, 0.0, 0.0]), max_episode_steps = 50)
     #env.unwrapped.set_complexity(0.1)
     return dict(
         env_kwargs = env,

@@ -145,5 +145,5 @@ if __name__ == '__main__':
     import experiments.dungeon_dqn_dynamic_complexity
 
 
-    env = SimpleGraphEnv(graph, graph.goal)
+    env = SimpleGraphEnv(graph)
     run_agent(make_agent('deepq-dungeon'), env)

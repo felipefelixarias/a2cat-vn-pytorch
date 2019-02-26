@@ -61,7 +61,7 @@ if __name__ == '__main__':
     with open('./scenes/dungeon-%s-1.pkl' % size[0], 'rb') as f:
         graph = load_graph(f)
 
-    env = TimeLimit(SimpleGraphEnv(graph, graph.goal), max_episode_steps = 100)
+    env = TimeLimit(SimpleGraphEnv(graph), max_episode_steps = 100)
     env.unwrapped.set_complexity(None)
     trainer = make_trainer(
         id = 'deepq-dungeon-dynamic',

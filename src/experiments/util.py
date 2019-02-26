@@ -37,19 +37,28 @@ def display_q(trainer, fig = None):
 
 def display_policy_value(a2ctrainer, fig = None):
     env = a2ctrainer.validation_env
+    if hasattr(env.unwrapped, 'graph_number'):
+        old_selected_graph = env.unwrapped.graph_number
+        maze = env.unwrapped.graphs[0].maze
+        env.unwrapped.graph_number = 0
+        is_multi = True
+    else:
+        maze = env.unwrapped.graph.maze
+        is_multi = False
     old_state = env.unwrapped.state
-    maze = env.unwrapped.graph.maze
     shape = maze.shape
     policy = np.zeros(shape, dtype = np.int32)
     value = np.zeros(shape, dtype = np.float32)
     for y in range(shape[0]):
         for x in range(shape[1]):
-            env.unwrapped.state = (y, x)  
-            env.reset()          
+            env.reset()
+            env.unwrapped.state = (y, x)
             obs, _, _, _ = env.step(None)
             policy[y, x], value[y, x] = a2ctrainer._eval_pv(obs)
 
     env.reset()
+    if is_multi:
+        env.unwrapped.graph_number = old_selected_graph
     env.unwrapped.state = old_state
     show_policy_and_value(value, policy, maze, fig)
     return
