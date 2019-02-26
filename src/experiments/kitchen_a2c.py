@@ -21,14 +21,14 @@ class FlatWrapper(gym.ObservationWrapper):
 
 
 register_agent('kitchen-a2c')(A2CAgent)
-@register_trainer('kitchen-a2c', max_time_steps = 10000000, validation_period = 1000,  episode_log_interval = 100, saving_period = 100000)
+@register_trainer('kitchen-a2c', max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10, saving_period = 10000)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.n_envs = 4
+        self.n_envs = 8
         self.n_steps = 5
-        self.total_timesteps = 10000000
-        self.gamma = 0.95
+        self.total_timesteps = 1000000
+        self.gamma = 0.90
 
         self._last_figure_draw = 0
 
