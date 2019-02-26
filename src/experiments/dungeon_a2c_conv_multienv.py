@@ -27,7 +27,7 @@ register_agent('dungeon-a2c-conv-multienv')(A2CAgent)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.n_envs = 31
+        self.n_envs = 32
         self.n_steps = 5
         self.total_timesteps = 100000000
         self.gamma = 1.0
@@ -100,13 +100,9 @@ class Trainer(A2CTrainer):
         return res
 
 def default_args():
-    with open('./scenes/dungeon-20-1.pkl', 'rb') as f:
-        graph = load_graph(f)
-    valid_envs = SimpleGraphEnv('./scenes/dungeon-20-1.pkl', rewards = [0.0, -1.0, -1.0])
-
-    env = MultipleGraphEnv(['./scenes/dungeon-%s-%s.pkl' % (20, i) for i in range(2, 32)], rewards=[0.0, -1.0, -1.0])
-    env = TimeLimit(env, max_episode_steps = 50)
+    valid_env = lambda: TimeLimit(SimpleGraphEnv('./scenes/dungeon-20-1.pkl', rewards = [0.0, -1.0, -1.0]), max_episode_steps = 50)
+    env = lambda: TimeLimit(MultipleGraphEnv(['./scenes/dungeon-%s-%s.pkl' % (20, i) for i in range(2, 32)], rewards=[0.0, -1.0, -1.0]), max_episode_steps = 50)
     return dict(
-        env_kwargs = env,
+        env_kwargs = [valid_env] + [env for _ in range(32)],
         model_kwargs = dict(action_space_size = 4)
     )
