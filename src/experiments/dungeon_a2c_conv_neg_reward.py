@@ -82,19 +82,21 @@ class Trainer(A2CTrainer):
         plt.savefig(os.path.join(path, 'policy_value.eps'), format = 'eps')
 
     def run(self, *args, **kwargs):
-        plt.ion()
-
         self._figure = plt.figure()
-        plt.show()
-
+        self._figure_window = None
         return super().run(*args, **kwargs)
 
-    def process(self, mode = 'train', **kwargs):
-        res = super().process(mode = mode, **kwargs)
+    def process(self, mode = 'train', context = dict(), **kwargs):
+        res = super().process(mode = mode, context = context, **kwargs)
         if mode == 'train' and (self._global_t - self._last_figure_draw > 100000 or self._last_figure_draw ==0):
             self._figure.clf()
             display_policy_value(self, self._figure)
             self._figure.canvas.flush_events()
+            if 'visdom' in context:
+                viz = context.get('visdom')
+                self._figure_window = viz.matplot(plt, win = self._figure_window, opts = dict(
+                    title = 'policy, value'
+                ))
             self._last_figure_draw = self._global_t
 
         return res

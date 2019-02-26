@@ -95,7 +95,7 @@ class SingleTrainer(AbstractTrainer):
         global_t = 0
         self._is_stopped = False
         while not self._is_stopped:
-            tdiff, _, _ = process()
+            tdiff, _, _ = process(context = dict())
             global_t += tdiff
 
         return None
