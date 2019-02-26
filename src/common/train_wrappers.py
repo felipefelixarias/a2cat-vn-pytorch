@@ -14,7 +14,7 @@ class SaveWrapper(AbstractTrainerWrapper):
         self.saving_period = saving_period
 
     def process(self, **kwargs):
-        res = self.trainer.process()
+        res = self.trainer.process(**kwargs)
         (tdiff, _, _) = res
         self._last_save += tdiff
 
@@ -141,20 +141,30 @@ class EpisodeLoggerWrapper(AbstractTrainerWrapper):
         self._log_t = 0
         self.logging_period = logging_period
         self.validation_period = validation_period
-        self.validation_episodes = validation_episodes
-        self.metric_writer = MetricWriter()
-        self.metric_collector = MetricContext()
-        self.validation_metric_context = MetricContext()
+        self.validation_episodes = validation_episodes        
+        self.metric_collector = None
+        self.validation_metric_context = None
+        self.metric_writer = None
 
         self._global_t = 0
         self._episodes = 0
         self._data = []
         self._losses = []
         self._last_validation = 0
+        self._extended_context = dict()
+
 
     def run(self, process, **kwargs):
-        def _late_process(*args, **kwargs):
-            data = process(*args, **kwargs)
+        if self.metric_writer is None:
+            self.metric_collector = MetricContext()
+            self.validation_metric_context = MetricContext()
+            self.metric_writer = MetricWriter(session_name = self.unwrapped.name)
+            if hasattr(self.metric_writer, 'visdom'):
+                self._extended_context['visdom'] = self.metric_writer.visdom
+
+        def _late_process(*args, context = None, **kwargs):
+            context.update(self._extended_context)
+            data = process(*args, context = context, **kwargs)
             if self._log_t >= self.logging_period:
                 self.metric_collector.summary(self._global_t)
                 self.metric_collector.collect(self.metric_writer, self._global_t, 'train')

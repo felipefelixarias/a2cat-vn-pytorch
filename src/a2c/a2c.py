@@ -338,7 +338,7 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
 
         return (ep_length, (ep_length, ep_reward), dict())
 
-    def process(self, mode = 'train'):
+    def process(self, mode = 'train', **kwargs):
         metric_context = MetricContext()
 
         if mode == 'train':
