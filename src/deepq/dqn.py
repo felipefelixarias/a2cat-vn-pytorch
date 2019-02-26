@@ -158,7 +158,7 @@ class DeepQTrainer(SingleTrainer):
 
         return loss
 
-    def process(self, mode = 'train'):
+    def process(self, mode = 'train', **kwargs):
         episode_end = None
 
         if self._state is None:
