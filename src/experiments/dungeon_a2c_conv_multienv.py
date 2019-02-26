@@ -10,7 +10,7 @@ from common import register_trainer, make_trainer, register_agent, make_agent
 from a2c.a2c import A2CTrainer, A2CAgent
 import numpy as np
 
-from graph.env import SimpleGraphEnv
+from graph.env import SimpleGraphEnv, MultipleGraphEnv
 from graph.util import load_graph
 from gym.wrappers import TimeLimit
 from experiments.util import display_q, display_policy_value
@@ -22,16 +22,15 @@ class FlatWrapper(gym.ObservationWrapper):
         return np.reshape(observation, [-1])
 
 
-register_agent('dungeon-a2c-conv')(A2CAgent)
-@register_trainer('dungeon-a2c-conv', max_time_steps = 10000000, validation_period = 1000,  episode_log_interval = 100, saving_period = 100000)
+register_agent('dungeon-a2c-conv-multienv')(A2CAgent)
+@register_trainer('dungeon-a2c-conv-multienv', max_time_steps = 100000000, validation_period = 1000,  episode_log_interval = 100, saving_period = 500000)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-        self.n_envs = 32
+        self.n_envs = 31
         self.n_steps = 5
         self.total_timesteps = 100000000
-        self.gamma = 0.9
+        self.gamma = 1.0
 
         self._last_figure_draw = 0
 
@@ -101,12 +100,12 @@ class Trainer(A2CTrainer):
         return res
 
 def default_args():
-    size = (20, 20)
-    with open('./scenes/dungeon-20-1.pkl', 'rb') as f:  #dungeon-%s-1.pkl' % size[0]
+    with open('./scenes/dungeon-20-1.pkl', 'rb') as f:
         graph = load_graph(f)
+    valid_envs = SimpleGraphEnv('./scenes/dungeon-20-1.pkl', rewards = [0.0, -1.0, -1.0])
 
-    env = lambda: TimeLimit(SimpleGraphEnv(graph, rewards=[1.0, 0.0, 0.0]), max_episode_steps = 50)
-    #env.unwrapped.set_complexity(0.1)
+    env = MultipleGraphEnv(['./scenes/dungeon-%s-%s.pkl' % (20, i) for i in range(2, 32)], rewards=[0.0, -1.0, -1.0])
+    env = TimeLimit(env, max_episode_steps = 50)
     return dict(
         env_kwargs = env,
         model_kwargs = dict(action_space_size = 4)

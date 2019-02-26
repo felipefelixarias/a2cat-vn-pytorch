@@ -68,14 +68,14 @@ class OrientedGraphEnv(gym.Env):
 
 
 class SimpleGraphEnv(gym.Env):
-    def __init__(self, graph, goal, rewards = [1.0, 0.0, 0.0]):
-        self.goal = goal
-        
+    def __init__(self, graph, rewards = [1.0, 0.0, 0.0]):
         if isinstance(graph, str):
             with open(graph, 'rb') as f:
                 self.graph = load_graph(f)
         else:
             self.graph = graph
+
+        self.goal = self.graph.goal            
 
         if graph.dtype == np.float32:
             self.observation_space = gym.spaces.Box(0.0, 1.0, graph.observation_shape, graph.dtype)
