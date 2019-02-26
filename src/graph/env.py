@@ -77,10 +77,10 @@ class SimpleGraphEnv(gym.Env):
 
         self.goal = self.graph.goal            
 
-        if graph.dtype == np.float32:
-            self.observation_space = gym.spaces.Box(0.0, 1.0, graph.observation_shape, graph.dtype)
-        elif graph.dtype == np.uint8:
-            self.observation_space = gym.spaces.Box(0, 255, graph.observation_shape, graph.dtype)
+        if self.graph.dtype == np.float32:
+            self.observation_space = gym.spaces.Box(0.0, 1.0, self.graph.observation_shape, self.graph.dtype)
+        elif self.graph.dtype == np.uint8:
+            self.observation_space = gym.spaces.Box(0, 255, self.graph.observation_shape, self.graph.dtype)
         else:
             raise Exception('Unsupported observation type')
 
