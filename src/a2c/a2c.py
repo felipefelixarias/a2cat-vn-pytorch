@@ -242,7 +242,8 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
     def _initialize(self, **model_kwargs):
         self.nenv = nenv = self.env.num_envs if hasattr(self.env, 'num_envs') else 1
 
-        sess = K.get_session()
+        sess = tf.Session(config = tf.ConfigProto(allow_soft_placement = True))
+        K.set_session(sess)
         model = self._build_graph(sess, **model_kwargs)
 
         self._last_terminals = np.zeros(shape = (nenv,), dtype = np.bool)
