@@ -6,7 +6,7 @@ from operator import add
 import random
 
 class OrientedGraphEnv(gym.Env):
-    def __init__(self, graph, goal):
+    def __init__(self, graph, goal, rewards = [1.0, 0.0, 0.0]):
         self.goal = goal
         
         if isinstance(graph, str):
@@ -26,6 +26,7 @@ class OrientedGraphEnv(gym.Env):
         self.state = None
         self.largest_distance = np.max(self.graph.graph)
         self.complexity = None
+        self.rewards = rewards
 
     @property
     def unwrapped(self):
@@ -50,14 +51,14 @@ class OrientedGraphEnv(gym.Env):
         if not is_valid_state(self.graph.maze, nstate):
             # We can either end the episode with failure
             # Or continue with negative reward
-            return self.observe(self.state), 0.0, False, dict(state = self.state)
+            return self.observe(self.state), self.rewards[2], False, dict(state = self.state)
 
         else:
             self.state = nstate
             if self.state[:2] == self.goal:
-                return self.observe(self.state), 1.0, True, dict(state = self.state, win = True)
+                return self.observe(self.state), self.rewards[0], True, dict(state = self.state, win = True)
             else:
-                return self.observe(self.state), 0.0, False, dict(state = self.state)
+                return self.observe(self.state), self.rewards[1], False, dict(state = self.state)
 
     def render(self, mode = 'human'):
         if mode == 'human':

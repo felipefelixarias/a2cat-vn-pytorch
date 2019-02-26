@@ -22,17 +22,16 @@ class FlatWrapper(gym.ObservationWrapper):
         return np.reshape(observation, [-1])
 
 
-register_agent('dungeon-a2c-conv-neg-reward')(A2CAgent)
-@register_trainer('dungeon-a2c-conv-neg-reward', max_time_steps = 10000000, validation_period = 1000,  episode_log_interval = 100, saving_period = 100000)
+register_agent('dungeon-a2c-conv')(A2CAgent)
+@register_trainer('dungeon-a2c-conv', max_time_steps = 10000000, validation_period = 1000,  episode_log_interval = 100, saving_period = 100000)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.epsilon_start = 1.0
-        self.epsilon_end = 0.05
+
         self.n_envs = 32
         self.n_steps = 5
-        self.total_timesteps = 10000000
-        self.gamma = 1.0
+        self.total_timesteps = 100000000
+        self.gamma = 0.9
 
         self._last_figure_draw = 0
 
@@ -106,7 +105,7 @@ def default_args():
     with open('./scenes/dungeon-20-1.pkl', 'rb') as f:  #dungeon-%s-1.pkl' % size[0]
         graph = load_graph(f)
 
-    env = lambda: TimeLimit(SimpleGraphEnv(graph, graph.goal, rewards=[0.0, -1.0, -1.0]), max_episode_steps = 50)
+    env = lambda: TimeLimit(SimpleGraphEnv(graph, graph.goal, rewards=[1.0, 0.0, 0.0]), max_episode_steps = 50)
     #env.unwrapped.set_complexity(0.1)
     return dict(
         env_kwargs = env,
