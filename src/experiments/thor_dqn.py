@@ -62,10 +62,6 @@ class Trainer(dqn.DeepQTrainer):
     def wrap_env(self, env):
         return env
 
-    def run(self, *args, **kwargs):
-        plt.ion()
-        return super().run(*args, **kwargs)
-
 def default_args():
     with open('./scenes/kitchen-84.pkl', 'rb') as f:
         graph = load_graph(f)
