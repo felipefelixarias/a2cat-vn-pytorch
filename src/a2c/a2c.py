@@ -110,7 +110,8 @@ class A2CModelBase:
         grads = tf.gradients(loss, params)
         if self.max_gradient_norm is not None:
             # Clip the gradients (normalize)
-            grads, grad_norm = tf.clip_by_global_norm(grads, self.max_gradient_norm)
+            #grads, grad_norm = tf.clip_by_global_norm(grads, self.max_gradient_norm)
+            pass
         grads = list(zip(grads, params))
         optimize_op = optimizer.apply_gradients(grads)
 
