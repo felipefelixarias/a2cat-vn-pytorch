@@ -205,7 +205,7 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
         super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
         self.name = name
         self.n_steps = 5
-        self.n_envs = 16
+        self.n_envs = 8
         self.total_timesteps = 1000000
         self.gamma = 0.99
 
