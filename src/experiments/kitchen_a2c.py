@@ -25,7 +25,7 @@ register_agent('kitchen-a2c')(A2CAgent)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.n_envs = 32
+        self.n_envs = 16
         self.n_steps = 5
         self.total_timesteps = 10000000
         self.gamma = 0.95
