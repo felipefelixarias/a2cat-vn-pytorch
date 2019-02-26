@@ -17,7 +17,7 @@ class ThorGridWorld:
 
     @property
     def observation_shape(self):
-        return (300, 300, 3)
+        return self._observations.shape[-3:]
 
     @property
     def dtype(self):
