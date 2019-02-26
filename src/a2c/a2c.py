@@ -122,6 +122,7 @@ class A2CModelBase:
         def train(b_obs, b_returns, b_masks, b_actions, b_values, states = []):
             b_adventages = b_returns - b_values
             feed_dict = {
+                K.learning_phase(): 1,
                 rnn_model.inputs[0]:b_obs, 
                 actions:b_actions, 
                 adventages:b_adventages, 
@@ -138,12 +139,13 @@ class A2CModelBase:
             return loss_v, policy_loss_v, value_loss_v, policy_entropy_v
 
         # Create step fn
-        def step(observation, mask, states = []):
+        def step(observation, mask, states = [], mode = 'train'):
             # This function takes single batch of observations
             # Returns also single batch of returns
             observation = observation.reshape([-1, 1] + list(observation.shape[1:]))
             mask = mask.reshape([-1, 1])
             feed_dict = {
+                K.learning_phase(): 1 if mode == 'train' else 0,
                 model.inputs[0]: observation,
                 **{state: value for state, value in zip(rnn_model.states_in, states)}
             }
@@ -158,12 +160,13 @@ class A2CModelBase:
             return [action_v, value_v, state_out_v, None]
 
         # Create value fn
-        def value(observation, mask, states = []):
+        def value(observation, mask, states = [], mode = 'train'):
             # This function takes single batch of observations
             # Returns also single batch of returns
             observation = observation.reshape([self.n_envs, -1] + list(observation.shape[1:]))
             mask = mask.reshape([self.n_envs, -1])
             feed_dict = {
+                K.learning_phase(): 1 if mode == 'train' else 0,
                 model.inputs[0]: observation,
                 **{state: value for state, value in zip(rnn_model.states_in, states)}
             }
