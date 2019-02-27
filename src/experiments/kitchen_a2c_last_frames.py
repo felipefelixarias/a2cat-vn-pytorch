@@ -26,9 +26,10 @@ register_agent('kitchen-a2c-last-frames')(A2CAgent)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.n_envs = 8
+        self.n_envs = 1
         self.n_steps = 5
         self.n_timeframes = 4
+        self.minibatch_size = 1
         self.total_timesteps = 1000000
         self.gamma = 1.0
 
