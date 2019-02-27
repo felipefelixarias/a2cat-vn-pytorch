@@ -8,7 +8,8 @@ from keras import initializers
 from keras.applications.resnet50 import ResNet50
 import keras.backend as K
 from common import register_trainer, make_trainer, register_agent, make_agent
-from a2c.a2c import A2CTrainer, A2CAgent
+from a2c.a2c_gradient_accumulation import A2CTrainer
+from a2c.a2c import A2CAgent
 import numpy as np
 
 from graph.env import OrientedGraphEnv
