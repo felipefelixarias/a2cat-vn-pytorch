@@ -39,7 +39,7 @@ class Trainer(A2CTrainer):
 
         resnet_outputs = []
         for i in range(self.n_timeframes):
-            single_input = TimeDistributed(Lambda(lambda x: x[..., i * 3:(i+i) * 3], output_shape = (224,224,3,)))(inputs[0])
+            single_input = TimeDistributed(Lambda(lambda x: x[..., i * 3:(i+1) * 3], output_shape = (224,224,3,)))(inputs[0])
             single_output = resnet(single_input)
             resnet_outputs.append(single_output)
 
