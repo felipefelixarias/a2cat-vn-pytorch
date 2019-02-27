@@ -248,7 +248,9 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
 
         sess = tf.Session(config = tf.ConfigProto(
             allow_soft_placement = True,
-            allow_growth = True))
+            gpu_options = tf.GPUOptions(
+                allow_growth = True
+            )))
         K.set_session(sess)
         model = self._build_graph(sess, **model_kwargs)
 
