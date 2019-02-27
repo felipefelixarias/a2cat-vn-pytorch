@@ -141,17 +141,19 @@ class A2CModelBase:
 
             sess.run(zero_ops)
             for i in range(ceil(float(self.n_envs) / self.minibatch_size)):
+                start = i * self.minibatch_size
+                end = max((i + 1) * self.minibatch_size, b_actions.shape[0])
                 feed_dict = {
                     K.learning_phase(): 1,
-                    rnn_model.inputs[0]:b_obs, 
-                    actions:b_actions, 
-                    adventages:b_adventages, 
-                    returns:b_returns, 
+                    rnn_model.inputs[0]:b_obs[start:end], 
+                    actions:b_actions[start:end], 
+                    adventages:b_adventages[start:end], 
+                    returns:b_returns[start:end], 
                     learning_rate:self.learning_rate,
-                    **{state: value for state, value in zip(rnn_model.states_in, states)}
+                    **{state: value[start:end] for state, value in zip(rnn_model.states_in, states)}
                 }
                 if rnn_model.mask is not None:
-                    feed_dict[rnn_model.mask] = b_masks
+                    feed_dict[rnn_model.mask] = b_masks[start:end]
 
 
                 sess.run(accum_ops,
