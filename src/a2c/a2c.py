@@ -107,7 +107,7 @@ class A2CModelBase:
         # Optimize step
         optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=self.rms_alpha, epsilon=self.rms_epsilon)
         params = model.trainable_weights
-        grads = tf.gradients(loss, params)
+        grads = tf.gradients(loss, params, aggregation_method = tf.AggregationMethod.EXPERIMENTAL_ACCUMULATE_N)
         if self.max_gradient_norm is not None:
             # Clip the gradients (normalize)
             grads, grad_norm = tf.clip_by_global_norm(grads, self.max_gradient_norm)
@@ -246,7 +246,9 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
     def _initialize(self, **model_kwargs):
         self.nenv = nenv = self.env.num_envs if hasattr(self.env, 'num_envs') else 1
 
-        sess = tf.Session(config = tf.ConfigProto(allow_soft_placement = True))
+        sess = tf.Session(config = tf.ConfigProto(
+            allow_soft_placement = True,
+            allow_growth = True))
         K.set_session(sess)
         model = self._build_graph(sess, **model_kwargs)
 
