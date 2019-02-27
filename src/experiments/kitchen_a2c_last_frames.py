@@ -53,6 +53,8 @@ class Trainer(A2CTrainer):
         value = TimeDistributed(Dense(256, activation = 'relu'))(model)
         value = TimeDistributed(Dense(1, activation = None, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01)))(value)
         model = Model(inputs = inputs, outputs = [policy, value])
+
+        model.summary()
         return model
 
 def default_args():
