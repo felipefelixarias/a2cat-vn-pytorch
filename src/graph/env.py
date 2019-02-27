@@ -15,10 +15,9 @@ class OrientedGraphEnv(gym.Env):
         else:
             self.graph = graph
 
-        if graph.dtype == np.float32:
-            self.observation_space = gym.spaces.Box(0.0, 1.0, graph.observation_shape, graph.dtype)
-        elif graph.dtype == np.uint8:
-            self.observation_space = gym.spaces.Box(0, 255, graph.observation_shape, graph.dtype)
+        self.observation_space = gym.spaces.Box(0.0, 1.0, self.graph.observation_shape, np.float32)
+        if self.graph.dtype == np.float32 or self.graph.dtype == np.uint8:
+            pass
         else:
             raise Exception('Unsupported observation type')
 
@@ -44,7 +43,11 @@ class OrientedGraphEnv(gym.Env):
         return self.observe(self.state)
 
     def observe(self, state):
-        return self.graph.render(state[:2], state[2])
+        observation = self.graph.render(state[:2], state[2])
+        if self.graph.dtype == np.uint8:
+            return observation.astype(np.float32) / 255.0
+        
+        return observation
 
     def step(self, action):
         nstate = step(self.state, action)
@@ -77,10 +80,9 @@ class SimpleGraphEnv(gym.Env):
 
         self.goal = self.graph.goal            
 
-        if self.graph.dtype == np.float32:
-            self.observation_space = gym.spaces.Box(0.0, 1.0, self.graph.observation_shape, self.graph.dtype)
-        elif self.graph.dtype == np.uint8:
-            self.observation_space = gym.spaces.Box(0, 255, self.graph.observation_shape, self.graph.dtype)
+        self.observation_space = gym.spaces.Box(0.0, 1.0, self.graph.observation_shape, np.float32)
+        if self.graph.dtype == np.float32 or self.graph.dtype == np.uint8:
+            pass
         else:
             raise Exception('Unsupported observation type')
 
@@ -106,7 +108,11 @@ class SimpleGraphEnv(gym.Env):
         return self.observe(self.state)
 
     def observe(self, state):
-        return np.array(self.graph.render(state))
+        observation = self.graph.render(state)
+        if self.graph.dtype == np.uint8:
+            return observation.astype(np.float32) / 255.0
+        
+        return observation
 
     def step(self, action):
         if action is None:
@@ -151,10 +157,9 @@ class MultipleGraphEnv(gym.Env):
         else:
             self.graphs = graphs
 
-        if self.graphs[0].dtype == np.float32:
-            self.observation_space = gym.spaces.Box(0.0, 1.0, self.graphs[0].observation_shape, self.graphs[0].dtype)
-        elif self.graphs[0].dtype == np.uint8:
-            self.observation_space = gym.spaces.Box(0, 255, self.graphs[0].observation_shape, self.graphs[0].dtype)
+        self.observation_space = gym.spaces.Box(0.0, 1.0, self.graphs[0].observation_shape, np.float32)
+        if self.graphs[0].dtype == np.float32 or self.graphs[0].dtype == np.uint8:
+            pass
         else:
             raise Exception('Unsupported observation type')
 
@@ -182,7 +187,11 @@ class MultipleGraphEnv(gym.Env):
         return self.observe(self.state)
 
     def observe(self, state):
-        return np.array(self.graphs[self.graph_number].render(state))
+        observation = self.graphs[self.graph_number].render(state)
+        if self.graphs[0].dtype == np.uint8:
+            return observation.astype(np.float32) / 255.0
+        
+        return observation
 
     def step(self, action):
         if action is None:
