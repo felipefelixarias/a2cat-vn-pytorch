@@ -142,7 +142,7 @@ class A2CModelBase:
             sess.run(zero_ops)
             for i in range(ceil(float(self.n_envs) / self.minibatch_size)):
                 start = i * self.minibatch_size
-                end = max((i + 1) * self.minibatch_size, b_actions.shape[0])
+                end = min((i + 1) * self.minibatch_size, b_actions.shape[0])
                 feed_dict = {
                     K.learning_phase(): 1,
                     rnn_model.inputs[0]:b_obs[start:end], 
@@ -172,17 +172,30 @@ class A2CModelBase:
             # Returns also single batch of returns
             observation = observation.reshape([-1, 1] + list(observation.shape[1:]))
             mask = mask.reshape([-1, 1])
-            feed_dict = {
-                K.learning_phase(): 1 if mode == 'train' else 0,
-                model.inputs[0]: observation,
-                **{state: value for state, value in zip(rnn_model.states_in, states)}
-            }
+            state_out_v = [list() for _ in rnn_model.states_out]
+            action_v = []
+            value_v = []
+            for i in range(ceil(float(self.n_envs) / self.minibatch_size)):
+                start = i * self.minibatch_size
+                end = min((i + 1) * self.minibatch_size, observation.shape[0])
+                feed_dict = {
+                    K.learning_phase(): 1 if mode == 'train' else 0,
+                    model.inputs[0]: observation[start:end],
+                    **{state: value[start:end] for state, value in zip(rnn_model.states_in, states)}
+                }
 
-            if rnn_model.mask is not None:
-                feed_dict[rnn_model.mask] = mask
+                if rnn_model.mask is not None:
+                    feed_dict[rnn_model.mask] = mask[start:end]
 
-            action_v, value_v, state_out_v = sess.run([action, values, rnn_model.states_out], feed_dict=feed_dict)
+                action_vs, value_vs, state_out_vs = sess.run([action, values, rnn_model.states_out], feed_dict=feed_dict)
+                action_v.append(action_vs)
+                value_v.append(value_vs)
+                for i, s in enumerate(state_out_vs):
+                    state_out_v[i].append(s)
 
+            action_v = np.concatenate(action_v, 0)
+            value_v = np.concatenate(value_v, 0)
+            state_out_v = [np.concatenate(x, 0) for x in state_out_v]
             action_v = action_v.squeeze(1)
             value_v = value_v.squeeze(1)
             return [action_v, value_v, state_out_v, None]
@@ -193,16 +206,23 @@ class A2CModelBase:
             # Returns also single batch of returns
             observation = observation.reshape([self.n_envs, -1] + list(observation.shape[1:]))
             mask = mask.reshape([self.n_envs, -1])
-            feed_dict = {
-                K.learning_phase(): 1 if mode == 'train' else 0,
-                model.inputs[0]: observation,
-                **{state: value for state, value in zip(rnn_model.states_in, states)}
-            }
-            if rnn_model.mask is not None:
-                feed_dict[rnn_model.mask] = mask
-            values_v = sess.run(values, feed_dict=feed_dict).reshape([-1])
+            value_v = []
+            for i in range(ceil(float(self.n_envs) / self.minibatch_size)):
+                start = i * self.minibatch_size
+                end = min((i + 1) * self.minibatch_size, observation.shape[0])
+                feed_dict = {
+                    K.learning_phase(): 1 if mode == 'train' else 0,
+                    model.inputs[0]: observation[start:end],
+                    **{state: value[start:end] for state, value in zip(rnn_model.states_in, states)}
+                }
+                if rnn_model.mask is not None:
+                    feed_dict[rnn_model.mask] = mask
 
-            return values_v
+                value_vs = sess.run(values, feed_dict=feed_dict)
+                value_v.append(value_vs)
+
+            value_v = np.concatenate(value_v, 0).squeeze(1)
+            return value_v
 
         self._step = step
         self._train = train
