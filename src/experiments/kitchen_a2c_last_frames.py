@@ -45,6 +45,7 @@ class Trainer(A2CTrainer):
             resnet_outputs.append(single_output)
 
         model = Concatenate()(resnet_outputs)
+        model = TimeDistributed(Conv2D(64, 1, activation = 'relu'))(model)
         model = TimeDistributed(Flatten())(model)
         model = TimeDistributed(Dense(256, activation = 'relu'))(model)
         policy = TimeDistributed(Dense(256, activation = 'relu'))(model)
