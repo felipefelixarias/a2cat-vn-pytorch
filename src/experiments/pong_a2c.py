@@ -19,7 +19,7 @@ class FlatWrapper(gym.ObservationWrapper):
 
 
 register_agent('pong-a2c')(A2CAgent)
-@register_trainer('pong-a2c', max_time_steps = 10e6, validation_period = 1000,  episode_log_interval = 100, saving_period = 100000)
+@register_trainer('pong-a2c', max_time_steps = 10e6, validation_period = 100,  episode_log_interval = 10, saving_period = 500000)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
