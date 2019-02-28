@@ -6,6 +6,7 @@ from functools import reduce
 from keras.layers import Input, Dense, Concatenate, Lambda, PReLU, Flatten, Conv2D, TimeDistributed
 from keras.models import Model
 from keras import initializers
+from math import sqrt
 import keras.backend as K
 from common import register_trainer, make_trainer, register_agent, make_agent
 from a2c.a2c import A2CTrainer, A2CAgent
@@ -31,9 +32,9 @@ class Trainer(A2CTrainer):
     def create_model(self, action_space_size, **kwargs):
         inputs = [Input(batch_shape = (None, None, 84,84,1))]
         model = inputs[0]
-        model = TimeDistributed(Conv2D(32, (8, 8), strides=(4, 4), activation = 'relu'))(model)
-        model = TimeDistributed(Conv2D(64, (4, 4), strides=(2, 2), activation = 'relu'))(model)
-        model = TimeDistributed(Conv2D(32, 3, strides=1, activation = 'relu'))(model)
+        model = TimeDistributed(Conv2D(32, (8, 8), strides=(4, 4), bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=sqrt(2)), activation = 'relu'))(model)
+        model = TimeDistributed(Conv2D(64, (4, 4), strides=(2, 2), bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=sqrt(2)), activation = 'relu'))(model)
+        model = TimeDistributed(Conv2D(32, 3, strides=1, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=sqrt(2)), activation = 'relu'))(model)
         model = TimeDistributed(Flatten())(model)
         model = TimeDistributed(Dense(512, kernel_initializer = initializers.Orthogonal(), bias_initializer = 'zeros', activation = 'relu'))(model)
         policy = TimeDistributed(Dense(action_space_size, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01), activation = 'sigmoid'))(model)
