@@ -29,7 +29,7 @@ class Trainer(A2CTrainer):
         self.gamma = .99
 
     def create_model(self, action_space_size, **kwargs):
-        inputs = [Input(batch_shape = (None, None, 84,84,3))]
+        inputs = [Input(batch_shape = (None, None, 84,84,1))]
         model = inputs[0]
         model = TimeDistributed(Conv2D(32, (8, 8), strides=(4, 4), activation = 'relu'))(model)
         model = TimeDistributed(Conv2D(64, (4, 4), strides=(2, 2), activation = 'relu'))(model)
