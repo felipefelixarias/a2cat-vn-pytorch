@@ -309,7 +309,7 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
 
             # Collect true rewards
             
-            true_rewards = [x['reward'] for x in stats]
+            true_rewards = [x['reward'] for x in stats] if 'reward' in stats[0] else rewards
             self._update_report(true_rewards, terminals)
 
             batch.append((np.copy(observations), actions, values, rewards, terminals))
