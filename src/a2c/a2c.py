@@ -20,6 +20,15 @@ from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 
 RecurrentModel = namedtuple('RecurrentModel', ['model', 'inputs','outputs', 'states_in', 'states_out', 'mask'])
 
+class MonitorWrapper(gym.Wrapper):
+    def step(self, action):
+        obs, reward, done, stats = super().step(action)
+        if stats is None:
+            stats = dict()
+
+        stats['reward'] = reward
+        return obs, reward, done, stats
+
 def expand_recurrent_model(model):
     states_in = []
     pure_inputs = [x for x in model.inputs]
@@ -203,7 +212,6 @@ def batch_experience(batch, last_values, previous_batch_terminals, gamma):
     b_masks = np.concatenate([np.expand_dims(previous_batch_terminals, 1), b_terminals[:,:-1]], axis = 1)
     return Experience(b_observations, b_returns[:, :-1], b_masks, b_actions, b_values)
 
-
 class A2CTrainer(SingleTrainer, A2CModelBase):
     def __init__(self, name, env_kwargs, model_kwargs):
         super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
@@ -297,8 +305,12 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
             actions, values, states, _ = self._step(observations, terminals, states)  
 
             # Take actions in env and look the results
-            next_observations, rewards, terminals, _ = self.env.step(actions)
-            self._update_report(rewards, terminals)
+            next_observations, rewards, terminals, stats = self.env.step(actions)
+
+            # Collect true rewards
+            
+            true_rewards = [x['reward'] for x in stats] if 'reward' in stats[0] else rewards
+            self._update_report(true_rewards, terminals)
 
             batch.append((np.copy(observations), actions, values, rewards, terminals))
             observations = next_observations

@@ -8,7 +8,7 @@ from keras.models import Model
 from keras import initializers
 import keras.backend as K
 from common import register_trainer, make_trainer, register_agent, make_agent
-from a2c.a2c import A2CTrainer, A2CAgent
+from a2c.a2c import A2CTrainer, A2CAgent, MonitorWrapper
 import numpy as np
 from gym.wrappers import TimeLimit
 from baselines.common.atari_wrappers import make_atari, wrap_deepmind
@@ -45,6 +45,6 @@ class Trainer(A2CTrainer):
 
 def default_args():
     return dict(
-        env_kwargs = lambda: wrap_deepmind(make_atari('PongNoFrameskip-v4'), scale=True),
+        env_kwargs = lambda: wrap_deepmind(MonitorWrapper(make_atari('PongNoFrameskip-v4')), scale=True),
         model_kwargs = dict(action_space_size = 4)
     )
