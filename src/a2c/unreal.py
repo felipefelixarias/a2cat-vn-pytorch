@@ -4,7 +4,6 @@ from functools import reduce
 import functools
 import time
 import gym
-from math import ceil
 
 import numpy as np
 import tensorflow as tf
@@ -17,62 +16,94 @@ from common import register_trainer, make_trainer, MetricContext, AbstractAgent
 from common.train import SingleTrainer
 from common.vec_env import SubprocVecEnv
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
-from a2c.auxiliary import create_auxiliary_task
+from collections import defaultdict
+
+from .util import expand_recurrent_model
+from .auxiliary import available_tasks, create_auxiliary_task, build_auxiliary_losses
+
+class ModelBuilder:
+    class ModelBuilderContext:
+        def __init__(self, name, placeholder_factory, inputs, outputs, output_names):
+            self.inputs = inputs
+            self.outputs = outputs
+            self.output_names = output_names
+            self.name = name
+            self.placeholder_factory = placeholder_factory
+
+        def get(self, name):
+            if name == 'observation':
+                return self.inputs[0]
+
+            if name in self.output_names:
+                return dict(zip(self.output_names, self.outputs))[name]
+
+            return self.placeholder_factory(name, self.name)
+        
+        @property
+        def value(self):
+            return self.get('value')
+
+        @property
+        def policy(self):
+            return self.get('policy')
+
+    def __init__(self, input_dict, output_dict, output_names, placeholder_factory):
+        self.input_dict = input_dict
+        self.output_dict = output_dict
+        self.output_names = output_names
+        self.placeholder_factory = placeholder_factory
+
+    def with_context(self, name):
+        return ModelBuilder.ModelBuilderContext(name, self.placeholder_factory, self.input_dict[name], self.output_dict[name], self.output_names)
 
 
-RecurrentModel = namedtuple('RecurrentModel', ['model', 'inputs','outputs', 'output_names', 'states_in', 'states_out', 'mask'])
-
-def expand_recurrent_model(model):
-    states_in = []
-    pure_inputs = [x for x in model.inputs]
+def placeholder_factory(name, context_name = None):
+    placeholder_name = name if context_name is None else context_name + '_' + name
+    if name == 'actions':
+        return tf.placeholder(tf.int32, [None, None], name = placeholder_name)
+        
+    if name == 'adventages':
+        return tf.placeholder(tf.float32, [None, None], name = placeholder_name)
     
-    mask = None
-    for x in model.inputs:
-        if 'rnn_state' in x.name:
-            states_in.append(x)
-            pure_inputs.remove(x)
-        if 'rnn_mask' in x.name:
-            mask = x
-            pure_inputs.remove(x)
+    if name == 'returns':
+        return tf.placeholder(tf.float32, [None, None], name = placeholder_name)
 
-    pure_outputs = model.outputs[:-len(states_in)] if len(states_in) > 0 else model.outputs
-    pure_output_names = model.output_names[:-len(states_in)] if len(states_in) > 0 else model.output_names
-    states_out = model.outputs[-len(states_in):] if len(states_in) > 0 else []
-
-    assert len(states_in) == 0 or mask is not None
-    return RecurrentModel(model, pure_inputs, pure_outputs, pure_output_names, states_in, states_out, mask)
+    raise Exception('Input with name ' + name + ' is not supported')
 
 
-def create_initial_state(n_envs, state_in):
-    return [np.zeros((n_envs,) + tuple(x.shape[1:])) for x in state_in]
+def build_losses_and_inputs(model, create_inputs, auxiliary_kwargs, auxiliary_weights = defaultdict(lambda: 1.0)):
+    rnn_model = expand_recurrent_model(model)
+    auxiliary_tasks = available_tasks(rnn_model.output_names)
+    tasks = []
+    inputs_dict = dict()
+    output_dict = dict()
+    for task_name in auxiliary_tasks:
+        inputs = create_inputs(task_name)
+        output_dict[task_name] = model(inputs)
+        inputs_dict[task_name] = inputs
+        task = create_auxiliary_task(task_name, **auxiliary_kwargs)
+        tasks.append(task)        
 
-class UnrealModelBuilder:
-    def __init__(self, feed_inputs):
-        self.feed_inputs = feed_inputs
-        pass
+    builder = ModelBuilder(inputs_dict, output_dict, model.output_names)
+    losses = build_auxiliary_losses(tasks, builder)
+    return losses
+        
+    
 
-    def get(self, name):
-        return self.feed_inputs[name]
 
-class UnrealModelBase:
+class A2CModelBase:
     def __init__(self):
         self.entropy_coefficient = 0.01
         self.value_coefficient = 0.5
         self.max_gradient_norm = 0.5
         self.rms_alpha = 0.99
         self.rms_epsilon = 1e-5
-        self.gamma = 1.0
 
         self.n_envs = None
-        self.minibatch_size = 1
         self._initial_state = None
 
     @abstractclassmethod
     def create_model(self):
-        pass
-
-    @abstractclassmethod
-    def create_inputs(self, name):
         pass
 
     @property
@@ -92,8 +123,7 @@ class UnrealModelBase:
 
         self._initial_state = create_initial_state(self.n_envs, rnn_model.states_in)
         self._validation_initial_state = create_initial_state(1, rnn_model.states_in)
-        output_with_names = dict(zip(rnn_model.output_names, rnn_model.outputs))
-        policy, values = output_with_names['policy'], output_with_names['value']
+        policy, values = rnn_model.outputs
         values = tf.squeeze(values, axis = 2)
         
         policy_distribution = tf.distributions.Categorical(probs = policy)
@@ -102,9 +132,9 @@ class UnrealModelBase:
         action = policy_distribution.sample()
 
         # Create loss placeholders
-        actions = tf.placeholder(tf.int32, [None, None], name = 'actions')
-        adventages = tf.placeholder(tf.float32, [None, None], name = 'adventages')
-        returns = tf.placeholder(tf.float32, [None, None], name = 'returns')
+        actions = tf.placeholder(tf.int32, [self.n_envs, None], name = 'actions')
+        adventages = tf.placeholder(tf.float32, [self.n_envs, None], name = 'adventages')
+        returns = tf.placeholder(tf.float32, [self.n_envs, None], name = 'returns')
         learning_rate = tf.placeholder(tf.float32, [], name = 'learning_rate')
 
         # Policy gradient loss
@@ -125,27 +155,13 @@ class UnrealModelBase:
         # Optimize step
         optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=self.rms_alpha, epsilon=self.rms_epsilon)
         params = model.trainable_weights
-        grads = tf.gradients(loss, params)
-        
-        accum_tvars = [tf.Variable(tf.zeros_like(tv.initialized_value()),trainable=False) for tv in params]                                        
-        metrics = ['loss', 'policy_gradient_loss', 'value_loss', 'entropy']
-        metrics_tvars = [tf.Variable(0, dtype = tf.float32, trainable = False, name = x + '_acc') for x in metrics]
-        zero_ops = [tv.assign(tf.zeros_like(tv)) for tv in accum_tvars] + [tv.assign(tf.zeros_like(tv)) for tv in metrics_tvars]
-        accum_ops = [accum_tvars[i].assign_add(batch_grad_var) for i, batch_grad_var in enumerate(grads)]
-
-        # Accumulate metrics
-        loc = locals()
-        minibatch_real_size = tf.to_float(tf.shape(returns)[0])
-        accum_ops = accum_ops + [
-            metrics_tvars[i].assign_add(tf.to_float(loc[x]) / minibatch_real_size) for i, x in enumerate(metrics)
-        ]
-
+        grads = tf.gradients(loss, params, aggregation_method = tf.AggregationMethod.EXPERIMENTAL_ACCUMULATE_N)
         if self.max_gradient_norm is not None:
             # Clip the gradients (normalize)
-            accum_tvars, grad_norm = tf.clip_by_global_norm(accum_tvars, self.max_gradient_norm)
+            grads, grad_norm = tf.clip_by_global_norm(grads, self.max_gradient_norm)
 
-        batch_grads = [(accum_tvars[i], param) for i, param in enumerate(params)]
-        optimize_op = optimizer.apply_gradients(batch_grads)
+        grads = list(zip(grads, params))
+        optimize_op = optimizer.apply_gradients(grads)
 
         # Initialize variables
         tf.global_variables_initializer().run(session = sess)
@@ -154,32 +170,21 @@ class UnrealModelBase:
         # Create train fn
         def train(b_obs, b_returns, b_masks, b_actions, b_values, states = []):
             b_adventages = b_returns - b_values
-
-            sess.run(zero_ops)
-            for i in range(ceil(float(self.n_envs) / self.minibatch_size)):
-                start = i * self.minibatch_size
-                end = min((i + 1) * self.minibatch_size, b_actions.shape[0])
-                feed_dict = {
-                    K.learning_phase(): 1,
-                    rnn_model.inputs[0]:b_obs[start:end], 
-                    actions:b_actions[start:end], 
-                    adventages:b_adventages[start:end], 
-                    returns:b_returns[start:end], 
-                    learning_rate:self.learning_rate,
-                    **{state: value[start:end] for state, value in zip(rnn_model.states_in, states)}
-                }
-                if rnn_model.mask is not None:
-                    feed_dict[rnn_model.mask] = b_masks[start:end]
-
-
-                sess.run(accum_ops,
-                    feed_dict=feed_dict
-                )
-
-            loss_v, policy_loss_v, value_loss_v, policy_entropy_v, _ = sess.run(metrics_tvars + [optimize_op], feed_dict={
-                learning_rate: self.learning_rate,
-                K.learning_phase(): 1
-            })
+            feed_dict = {
+                K.learning_phase(): 1,
+                rnn_model.inputs[0]:b_obs, 
+                actions:b_actions, 
+                adventages:b_adventages, 
+                returns:b_returns, 
+                learning_rate:self.learning_rate,
+                **{state: value for state, value in zip(rnn_model.states_in, states)}
+            }
+            if rnn_model.mask is not None:
+                feed_dict[rnn_model.mask] = b_masks
+            loss_v, policy_loss_v, value_loss_v, policy_entropy_v, _ = sess.run(
+                [loss, policy_gradient_loss, value_loss, entropy, optimize_op],
+                feed_dict=feed_dict
+            )
             return loss_v, policy_loss_v, value_loss_v, policy_entropy_v
 
         # Create step fn
@@ -188,32 +193,19 @@ class UnrealModelBase:
             # Returns also single batch of returns
             observation = observation.reshape([-1, 1] + list(observation.shape[1:]))
             mask = mask.reshape([-1, 1])
-            state_out_v = [list() for _ in rnn_model.states_out]
-            action_v = []
-            value_v = []
-            for i in range(ceil(float(self.n_envs) / self.minibatch_size)):
-                start = i * self.minibatch_size
-                end = min((i + 1) * self.minibatch_size, observation.shape[0])
-                feed_dict = {
-                    K.learning_phase(): 1 if mode == 'train' else 0,
-                    model.inputs[0]: observation[start:end],
-                    **{state: value[start:end] for state, value in zip(rnn_model.states_in, states)}
-                }
+            feed_dict = {
+                K.learning_phase(): 1 if mode == 'train' else 0,
+                model.inputs[0]: observation,
+                **{state: value for state, value in zip(rnn_model.states_in, states)}
+            }
 
-                if rnn_model.mask is not None:
-                    feed_dict[rnn_model.mask] = mask[start:end]
+            if rnn_model.mask is not None:
+                feed_dict[rnn_model.mask] = mask
 
-                action_vs, value_vs, state_out_vs = sess.run([action, values, rnn_model.states_out], feed_dict=feed_dict)
-                action_v.append(action_vs)
-                value_v.append(value_vs)
-                for i, s in enumerate(state_out_vs):
-                    state_out_v[i].append(s)
+            action_v, value_v, state_out_v = sess.run([action, values, rnn_model.states_out], feed_dict=feed_dict)
 
-            action_v = np.concatenate(action_v, 0)
-            value_v = np.concatenate(value_v, 0)
-            state_out_v = [np.concatenate(x, 0) for x in state_out_v]
             action_v = action_v.squeeze(1)
-            value_v = value_v.squeeze(1) 
+            value_v = value_v.squeeze(1)
             return [action_v, value_v, state_out_v, None]
 
         # Create value fn
@@ -222,23 +214,16 @@ class UnrealModelBase:
             # Returns also single batch of returns
             observation = observation.reshape([self.n_envs, -1] + list(observation.shape[1:]))
             mask = mask.reshape([self.n_envs, -1])
-            value_v = []
-            for i in range(ceil(float(self.n_envs) / self.minibatch_size)):
-                start = i * self.minibatch_size
-                end = min((i + 1) * self.minibatch_size, observation.shape[0])
-                feed_dict = {
-                    K.learning_phase(): 1 if mode == 'train' else 0,
-                    model.inputs[0]: observation[start:end],
-                    **{state: value[start:end] for state, value in zip(rnn_model.states_in, states)}
-                }
-                if rnn_model.mask is not None:
-                    feed_dict[rnn_model.mask] = mask
+            feed_dict = {
+                K.learning_phase(): 1 if mode == 'train' else 0,
+                model.inputs[0]: observation,
+                **{state: value for state, value in zip(rnn_model.states_in, states)}
+            }
+            if rnn_model.mask is not None:
+                feed_dict[rnn_model.mask] = mask
+            values_v = sess.run(values, feed_dict=feed_dict).reshape([-1])
 
-                value_vs = sess.run(values, feed_dict=feed_dict)
-                value_v.append(value_vs)
-
-            value_v = np.concatenate(value_v, 0).squeeze(1)
-            return value_v
+            return values_v
 
         self._step = step
         self._train = train
@@ -267,7 +252,7 @@ def batch_experience(batch, last_values, previous_batch_terminals, gamma):
     return Experience(b_observations, b_returns[:, :-1], b_masks, b_actions, b_values)
 
 
-class UnrealTrainer(SingleTrainer, UnrealModelBase):
+class A2CTrainer(SingleTrainer, A2CModelBase):
     def __init__(self, name, env_kwargs, model_kwargs):
         super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
         self.name = name
@@ -304,13 +289,14 @@ class UnrealTrainer(SingleTrainer, UnrealModelBase):
 
         # Create validation environment
         self.validation_env = envs[0]()
-        return DummyVecEnv(envs[1:])
+        return SubprocVecEnv(envs[1:])
 
     def _initialize(self, **model_kwargs):
         self.nenv = nenv = self.env.num_envs if hasattr(self.env, 'num_envs') else 1
 
         sess = tf.Session(config = tf.ConfigProto(
             allow_soft_placement = True,
+            log_device_placement = False,
             gpu_options = tf.GPUOptions(
                 allow_growth = True
             )))
@@ -419,3 +405,25 @@ class UnrealTrainer(SingleTrainer, UnrealModelBase):
             return self._process_validation(metric_context)
         else:
             raise Exception('Mode not supported')
+
+class A2CAgent(AbstractAgent):
+    def __init__(self, *args, **kwargs):
+        self.__init__(*args, **kwargs)
+
+        model = self._load(self.name)
+        self.state = None
+        self.rnn_model = expand_recurrent_model(model)
+        # TODO: implement loading and act
+
+
+    def reset_state(self):
+        self.state = create_initial_state(1, self.rnn_model.states_in)
+
+    def _build_graph(self):
+        policy, values = rnn_model.outputs
+        values = tf.squeeze(values, axis = 2)
+        
+        policy_distribution = tf.distributions.Categorical(probs = policy)
+
+    def act(state):
+        pass
