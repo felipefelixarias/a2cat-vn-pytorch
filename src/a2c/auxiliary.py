@@ -26,20 +26,23 @@ def register_auxiliary_task(name):
 def create_auxiliary_task(name, **kwargs):
     return task_registry[name]['task'](**kwargs)
 
+def available_tasks(head_names):
+    available = []
+    for key in task_registry.keys():
+        if any(x for x in head_names if x.starts_with(key + '_')):
+            available.append(key)
+    return available
 
-def build_auxiliary_losses(tasks, heads, names, feed_builder, **kwargs):
-    heads = dict(zip(heads, names))
+def build_auxiliary_losses(tasks, feed_builder, **kwargs):
     losses = dict()
     for aux_task in tasks:
         task_heads = []
+        builder = feed_builder.with_context(aux_task)
         for head_name in aux_task.head_names:
             hname = aux_task.name + '_' + head_name
-            if not hname in heads:
-                raise Exception('Missing head %s' % hname)
+            task_heads.append(builder.get(hname))
 
-            task_heads.append(heads[hname])
-
-        loss = aux_task.build_loss(task_heads, feed_builder)
+        loss = aux_task.build_loss(task_heads, builder)
         losses[aux_task.name] = loss
 
     return losses
