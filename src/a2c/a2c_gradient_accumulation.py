@@ -197,7 +197,7 @@ class A2CModelBase:
             value_v = np.concatenate(value_v, 0)
             state_out_v = [np.concatenate(x, 0) for x in state_out_v]
             action_v = action_v.squeeze(1)
-            value_v = value_v.squeeze(1)
+            value_v = value_v.squeeze(1) 
             return [action_v, value_v, state_out_v, None]
 
         # Create value fn
