@@ -241,7 +241,7 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
 
         # Create validation environment
         self.validation_env = envs[0]()
-        return DummyVecEnv(envs[1:])
+        return SubprocVecEnv(envs[1:])
 
     def _initialize(self, **model_kwargs):
         self.nenv = nenv = self.env.num_envs if hasattr(self.env, 'num_envs') else 1
