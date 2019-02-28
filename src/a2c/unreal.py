@@ -21,6 +21,25 @@ from collections import defaultdict
 from .util import expand_recurrent_model
 from .auxiliary import available_tasks, create_auxiliary_task, build_auxiliary_losses
 
+class SequenceReplay:
+    def __init__(self, n_envs, sample_length):
+        self.episodes = []
+        self.lengths = []
+        self.sample_length = sample_length
+        self.running_episodes = [[] for _ in range(n_envs)]
+
+    def add(self, observations, actions, rewards, terminals):
+        for i in range(observations.shape[0]):
+            self.running_episodes[i].append((observations[i], actions[i], rewards[i]))
+            if terminals[i]:
+                if len(self.running_episodes[i]) >= self.sample_length:
+                    self.episodes.append(self.running_episodes[i])
+                    self.lengths.append(len(self.running_episodes[i]))
+                    self.running_episodes[i] = []
+
+    def sample(self):
+        
+
 class ModelBuilder:
     class ModelBuilderContext:
         def __init__(self, name, placeholder_factory, inputs, outputs, output_names):
