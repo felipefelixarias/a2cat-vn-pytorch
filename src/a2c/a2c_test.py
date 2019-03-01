@@ -84,30 +84,29 @@ class A2CModelBase:
 
         self._initial_state = create_initial_state(self.n_envs, rnn_model.states_in)
         self._validation_initial_state = create_initial_state(1, rnn_model.states_in)
-        policy_logits, values = rnn_model.outputs
+        policy, values = rnn_model.outputs
         values = tf.squeeze(values, axis = 2)
         
-        policy_distribution = tf.distributions.Categorical(logits = policy_logits)
+        policy_distribution = tf.distributions.Categorical(probs = policy)
 
         # Action to take
         action = policy_distribution.sample()
 
         # Create loss placeholders
         actions = tf.placeholder(tf.int32, [self.n_envs, None], name = 'actions')
+        adventages = tf.placeholder(tf.float32, [self.n_envs, None], name = 'adventages')
         returns = tf.placeholder(tf.float32, [self.n_envs, None], name = 'returns')
         learning_rate = tf.placeholder(tf.float32, [], name = 'learning_rate')
 
-        adventages = returns - values
-
         # Policy gradient loss
-        selected_log_prob = -policy_distribution.log_prob(actions)
-        policy_gradient_loss = -tf.reduce_mean(tf.stop_gradient(adventages) * selected_log_prob)
+        selected_negative_log_prob = -policy_distribution.log_prob(actions)
+        policy_gradient_loss = tf.reduce_mean(adventages * selected_negative_log_prob)
 
         # Entropy is used to improve exploration by limiting the premature convergence to suboptimal policy.
         entropy = tf.reduce_mean(policy_distribution.entropy())
 
         # Value loss
-        value_loss = tf.losses.mean_squared_error(adventages)
+        value_loss = tf.losses.mean_squared_error(values, returns)
 
         # Total loss
         loss = policy_gradient_loss \
@@ -131,10 +130,12 @@ class A2CModelBase:
 
         # Create train fn
         def train(b_obs, b_returns, b_masks, b_actions, b_values, states = []):
+            b_adventages = b_returns - b_values
             feed_dict = {
                 K.learning_phase(): 1,
                 rnn_model.inputs[0]:b_obs, 
                 actions:b_actions, 
+                adventages:b_adventages, 
                 returns:b_returns, 
                 learning_rate:self.learning_rate,
                 **{state: value for state, value in zip(rnn_model.states_in, states)}
@@ -217,7 +218,7 @@ class A2CTrainer(SingleTrainer, A2CModelBase):
         self.name = name
         self.n_steps = 5
         self.n_envs = 16
-        self.total_timesteps = 10e6
+        self.total_timesteps = 1000000
         self.gamma = 0.99
 
         self._last_terminals = None
@@ -386,7 +387,7 @@ class A2CAgent(AbstractAgent):
         policy, values = rnn_model.outputs
         values = tf.squeeze(values, axis = 2)
         
-        policy_distribution = tf.distributions.Categorical(logits = policy)
+        policy_distribution = tf.distributions.Categorical(probs = policy)
 
     def act(state):
         pass
