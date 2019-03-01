@@ -36,12 +36,12 @@ class Trainer(A2CTrainer):
         model = TimeDistributed(Conv2D(64, (4, 4), strides=(2, 2), bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=sqrt(2)), activation = 'relu'))(model)
         model = TimeDistributed(Conv2D(32, 3, strides=1, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=sqrt(2)), activation = 'relu'))(model)
         model = TimeDistributed(Flatten())(model)
-        model = TimeDistributed(Dense(512, kernel_initializer = initializers.Orthogonal(), bias_initializer = 'zeros', activation = 'relu'))(model)
-        policy = TimeDistributed(Dense(action_space_size, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01), activation = 'sigmoid'))(model)
-        value = TimeDistributed(Dense(1, activation = None, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01)))(model)
+        model = TimeDistributed(Dense(512, kernel_initializer = initializers.Orthogonal(gain=sqrt(2)), bias_initializer = 'zeros', activation = 'relu'))(model)
+        policy_logits = TimeDistributed(Dense(action_space_size, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01), activation = None))(model)
+        value = TimeDistributed(Dense(1, activation = None, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=1.0)))(model)
 
-        model = Model(inputs = inputs, outputs = [policy, value])
-        model.output_names = ['policy', 'value']
+        model = Model(inputs = inputs, outputs = [policy_logits, value])
+        model.output_names = ['policy_logits', 'value']
         return model
 
 def default_args():
