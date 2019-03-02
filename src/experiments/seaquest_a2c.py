@@ -46,6 +46,6 @@ class Trainer(A2CTrainer):
 
 def default_args():
     return dict(
-        env_kwargs = lambda: wrap_deepmind(MonitorWrapper(make_atari('SeaquestNoFrameskip-v4')), scale=True),
+        env_kwargs = lambda: wrap_deepmind(MonitorWrapper(make_atari('SeaquestNoFrameskip-v4')), scale=True, frame_stack=True),
         model_kwargs = dict(action_space_size = 4)
     )

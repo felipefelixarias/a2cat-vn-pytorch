@@ -107,7 +107,7 @@ class A2CModelBase:
         entropy = tf.reduce_mean(policy_distribution.entropy())
 
         # Value loss
-        value_loss = tf.losses.mean_squared_error(adventages)
+        value_loss = tf.losses.mean_squared_error(values, returns)
 
         # Total loss
         loss = policy_gradient_loss \
