@@ -32,7 +32,7 @@ import torch.optim as optim
 
 from a2c_ppo_acktr import algo
 from a2c_ppo_acktr.arguments import get_args
-from a2c_pytorch.envs import make_vec_envs
+from a2c_ppo_acktr.envs import make_vec_envs
 from a2c.model import Policy
 from a2c_pytorch.storage import RolloutStorage
 from a2c_ppo_acktr.utils import get_vec_normalize, update_linear_schedule
@@ -142,10 +142,6 @@ class A2CTrainer(SingleTrainer, A2CModel):
 
         self.episode_rewards = deque(maxlen=10)
         self.start = time.time()
-
-        self._last_terminals = np.zeros(shape = (self.num_processes,), dtype = np.bool)
-        self._last_states = []
-        self._last_observations = self.env.reset()
   
 
     def _finalize(self):
@@ -160,39 +156,6 @@ class A2CTrainer(SingleTrainer, A2CModel):
     def process(self, context, mode = 'train', **kwargs):
         if mode == 'train':
             return self._process_train(context)
-
-    def _sample_experience_batch(self):
-        batch = []
-
-        terminals = self._last_terminals
-        observations = self._last_observations
-        states = self._last_states
-        for _ in range(self.n_steps):
-            # Given observations, take action and value (V(s))
-            # We already have self.obs because Runner superclass run self.obs[:] = env.reset() on init
-            actions, values, states, _ = self._step(observations, terminals, states)  
-
-            # Take actions in env and look the results
-            next_observations, rewards, terminals, stats = self.env.step(actions)
-
-            # Collect true rewards
-            
-            true_rewards = [x['reward'] for x in stats] if 'reward' in stats[0] else rewards
-            self._update_report(true_rewards, terminals)
-
-            batch.append((np.copy(observations), actions, values, rewards, terminals))
-            observations = next_observations
-
-        last_values = self._value(observations, terminals, states)
-
-        batched = batch_experience(batch, last_values, self._last_terminals, self.gamma)
-        batched = batched + (self._last_states,)
-
-        # Prepare next batch starting point
-        self._last_terminals = terminals
-        self._last_states = states
-        self._last_observation = observations
-        return batched, self._collect_report()
 
 
     def _process_train(self, context):

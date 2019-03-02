@@ -15,13 +15,31 @@ class FixedCategorical(torch.distributions.Categorical):
     def mode(self):
         return super().probs.argmax(dim= -1, keepdim = True)
 
-    def log_prob(self, actions):
+    def log_probs(self, actions):
         return super().log_prob(actions.squeeze(-1)).view(actions.size(0), -1).sum(-1).unsqueeze(-1)
 
 class Flatten(nn.Module):
     def forward(self, x):
         return x.view(x.size(0), -1)
 
+class TimeDistributed(nn.Module):
+    def __init__(self, inner):
+        super().__init__()
+        self.inner = inner
+
+    def forward(self, *args):
+        batch_shape = args[0].size()[:2]
+        args = [x.contiguous().view(-1, *x.size()[2:]) for x in args]
+        results = self.inner.forward(*args)
+        def reshape_res(x):
+            return x.view(*(batch_shape + x.size()[1:]))
+
+        if isinstance(results, list):
+            return [reshape_res(x) for x in results]
+        elif isinstance(results, tuple):
+            return tuple([reshape_res(x) for x in results])
+        else:
+            return reshape_res(results)
 
 class Policy(nn.Module):
     def __init__(self, obs_shape, action_space):
@@ -71,6 +89,7 @@ class Policy(nn.Module):
 
 class CNNBase(nn.Module):
     def __init__(self, num_inputs, num_outputs):
+        super().__init__()
         hidden_size = 512
         init_ = lambda m: init(m,
             nn.init.orthogonal_,
