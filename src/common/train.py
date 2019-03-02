@@ -32,6 +32,9 @@ class AbstractTrainer:
     def _initialize(self, **model_kwargs):
         pass
 
+    def _finalize(self):
+        pass
+
     @abc.abstractclassmethod
     def process(self, **kwargs):
         pass
@@ -92,13 +95,11 @@ class SingleTrainer(AbstractTrainer):
 
     def run(self, process, **kwargs):
         super().run(process, **kwargs)
-        global_t = 0
+        self._global_t = 0
         self._is_stopped = False
         while not self._is_stopped:
-            tdiff, _, _ = process(context = dict())
-            global_t += tdiff
+            tdiff, _, _ = process(mode = 'train', context = dict())
+            self._global_t += tdiff
 
+        self._finalize()
         return None
-
-    def stop(self):
-        self._is_stopped = True
