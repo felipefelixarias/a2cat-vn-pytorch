@@ -137,6 +137,7 @@ class LSTMConv(TimeDistributedConv):
 
 class TimeDistributedMultiLayerPerceptron(nn.Module):
     def __init__(self, input_size, output_size):
+        super().__init__()
         def init_layer(layer, activation = None, gain = None):
             if activation is not None and gain is None:
                 gain = nn.init.calculate_gain(activation.lower())
@@ -183,6 +184,6 @@ class LSTMMultiLayerPerceptron(TimeDistributedMultiLayerPerceptron):
 
     def forward(self, inputs, masks, states):
         features = inputs
-        features, states = forward_masked_rnn(features, masks, states)
+        features, states = forward_masked_rnn(features, masks, states, self.lstm.forward)
         return super().forward(features, masks, states)
     

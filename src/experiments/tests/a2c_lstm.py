@@ -4,23 +4,44 @@ if __name__ == '__main__':
     parentdir = os.path.dirname(os.path.dirname(currentdir))
     sys.path.insert(0,parentdir)
 
-import tensorflow as tf
-from keras.layers import Dense, Input, TimeDistributed
-from keras import layers
-from keras.models import Model, Sequential
-from keras import initializers
 from common import register_trainer, make_trainer
-from a2c.a2c import A2CTrainer
+from a2c import Trainer
+from a2c.model import LSTMMultiLayerPerceptron
+from common.env import make_vec_envs
 import gym
 import random
 import numpy as np
+
+import torch
+import torch.nn as nn
+from a2c.model import TimeDistributed
+from a2c.core import forward_masked_rnn
+
+class Model(nn.Module):
+    def __init__(self, action_space_size):
+        super().__init__()
+        
+        self.rnn = nn.LSTM(action_space_size, 
+            hidden_size = 16, 
+            num_layers = 1,
+            batch_first = True)
+
+        self.actor = TimeDistributed(nn.Linear(16, action_space_size))
+        self.critic = TimeDistributed(nn.Linear(16, 1))
+
+    def initial_states(self, batch_size):
+        return tuple([torch.zeros([1, batch_size, 16], dtype = torch.float32) for _ in range(2)])
+
+    def forward(self, inputs, masks, states):
+        features, states = forward_masked_rnn(inputs, masks, states, self.rnn.forward)
+        return self.actor(features), self.critic(features), states
 
 class TestLstm(gym.Env):
     def __init__(self):
         self.action_space = gym.spaces.Discrete(4)
         self.observation_space = gym.spaces.Box(0.0, 1.0, shape=(4,))
         self.random = random.Random()
-        self.length = 5
+        self.length = 2
 
     def seed(self, seed = None):
         self.random.seed(seed)
@@ -41,7 +62,7 @@ class TestLstm(gym.Env):
                 return self.observe(), 0.0, True, dict()
 
     def observe(self):
-        r = np.zeros((self.action_space.n,))
+        r = np.zeros((self.action_space.n,), dtype = np.float32)
         if self.time == 0:
             r[self.chosen] = 1.0
         return r
@@ -53,44 +74,16 @@ if __name__ == '__main__':
     )
 
 @register_trainer('test-a2c', episode_log_interval = 100, save = False)
-class SomeTrainer(A2CTrainer):
+class SomeTrainer(Trainer):
     def __init__(self, **kwargs):
-        super().__init__(env_kwargs = dict(id = 'lstm-v1'), model_kwargs = dict(), **kwargs)
-        self.n_steps = 10
+        super().__init__(env_kwargs = 'lstm-v1', model_kwargs = dict(), **kwargs)
+        self.num_steps = 10
+        self.allow_gpu = False
 
     def create_model(self, **model_kwargs):
         observation_space = self.env.observation_space
         action_space_size = self.env.action_space.n
-        n_envs = self.n_envs
-
-        mask = Input(batch_shape=(n_envs, None), name = 'rnn_mask')
-        state_placeholders = []
-        output_states = []
-
-        def LSTM(number_of_units, **kwargs):
-            layer = layers.LSTM(number_of_units,
-                return_sequences = True, 
-                return_state = True,
-                **kwargs)
-
-            def call(model):
-                n_plh = len(state_placeholders)
-                states = [Input((number_of_units,), name = 'rnn_state_%s' % (n_plh + i)) for i in range(2)]
-                model, hidden, cell = layer(model, states, mask = mask)
-                output_states.extend([hidden, cell])
-                state_placeholders.extend(states)
-                return model
-            return call
-
-        input_placeholder = Input(batch_shape=(n_envs, None) + observation_space.shape)
-        policy_latent = LSTM(32)(input_placeholder)
-        value_latent = LSTM(32)(input_placeholder)
-    
-        policy_probs = TimeDistributed(Dense(action_space_size, bias_initializer = 'zeros', activation='softmax', kernel_initializer = initializers.Orthogonal(gain=0.01)))(policy_latent)
-        value = TimeDistributed(Dense(1, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain = 1.0)))(value_latent)
-
-        model = Model(inputs = [input_placeholder, mask] + state_placeholders, outputs = [policy_probs, value] + output_states)
-        return model
+        return Model(action_space_size)
 
 if __name__ == '__main__':
     t = make_trainer('test-a2c')

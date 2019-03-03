@@ -87,15 +87,16 @@ def forward_masked_rnn(inputs, masks, states, forward_rnn):
     # add t=0 and t=T to the list
     has_zeros = [0] + has_zeros + [T]
     outputs = []
+
     for i in range(len(has_zeros) - 1):
         # We can now process steps that don't have any zeros in masks together!
         # This is much faster
         start_idx = has_zeros[i]
         end_idx = has_zeros[i + 1]
-
+        
         rnn_scores, states = forward_rnn(
             inputs[:, start_idx:end_idx],
-            tuple(mask_states(states, masks[:, start_idx]))
+            mask_states(states, masks[:, start_idx])
         )
 
         outputs.append(rnn_scores)

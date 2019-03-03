@@ -5,7 +5,7 @@ import gym
 from functools import reduce
 from math import sqrt
 from common import register_trainer, make_trainer, register_agent, make_agent
-from a2c_pytorch.a2c import A2CTrainer
+from a2c.a2c import A2CTrainer
 import numpy as np
 from gym.wrappers import TimeLimit
 from baselines.common.atari_wrappers import make_atari, wrap_deepmind

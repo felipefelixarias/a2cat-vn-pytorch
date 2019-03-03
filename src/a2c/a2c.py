@@ -37,22 +37,23 @@ class A2CModel:
             raise Exception('Not initialized')
         self._train = self._step = self._value = not_initialized
 
-    def build_model(self):
-        return TimeDistributedConv(self.env.observation_space.shape[0], self.env.action_space.n)
+    @abstractclassmethod
+    def create_model(self, **kwargs):
+        pass
 
     @property
     def learning_rate(self):
         return 7e-4
 
-    def _build_graph(self):
-        model = self.build_model()
+    def _build_graph(self, allow_gpu):
+        model = self.create_model()
         if hasattr(model, 'initial_states'):
             self._initial_states = getattr(model, 'initial_states')
         else:
             self._initial_states = lambda: []
 
         cuda_devices = torch.cuda.device_count()
-        if cuda_devices == 0:
+        if cuda_devices == 0 or not allow_gpu:
             print('Using CPU only')
             main_device = torch.device('cpu')
             get_state_dict = lambda: model.state_dict()
@@ -137,14 +138,15 @@ class A2CTrainer(SingleTrainer, A2CModel):
         self.num_processes = 16
         self.num_env_steps = int(10e6)
         self.gamma = 0.99
+        self.allow_gpu = True
 
         self.log_dir = None
         self.win = None
 
     def _initialize(self):
-        super()._build_graph()
+        super()._build_graph(self.allow_gpu)
         self._tstart = time.time()
-        self.rollouts = RolloutStorage(self.env.reset())  
+        self.rollouts = RolloutStorage(self.env.reset(), self._initial_states(self.num_processes))
 
     def _finalize(self):
         if self.log_dir is not None:
@@ -155,12 +157,16 @@ class A2CTrainer(SingleTrainer, A2CModel):
 
         seed = 1
         self.validation_env = make_vec_envs(env, seed, 1, self.gamma, self.log_dir.name, None, False)
-        self.validation_env = VecTransposeImage(self.validation_env)
+        if len(self.validation_env.observation_space.shape) == 3:
+            self.validation_env = VecTransposeImage(self.validation_env)
 
         envs = make_vec_envs(env, seed + 1, self.num_processes,
                         self.gamma, self.log_dir.name, None, False)
-        return VecTransposeImage(envs)
-        
+
+        if len(envs.observation_space.shape) == 3:
+            envs = VecTransposeImage(envs)
+
+        return envs       
 
     def process(self, context, mode = 'train', **kwargs):
         metric_context = MetricContext()
@@ -173,7 +179,7 @@ class A2CTrainer(SingleTrainer, A2CModel):
     def _sample_experience_batch(self):
         finished_episodes = ([], [])
         for _ in range(self.num_steps):
-            actions, values, action_log_prob, states = self._step(self.rollouts.observations, self.rollouts.terminals, self.rollouts.states)
+            actions, values, action_log_prob, states = self._step(self.rollouts.observations, self.rollouts.masks, self.rollouts.states)
 
             # Take actions in env and look the results
             observations, rewards, terminals, infos = self.env.step(actions)
@@ -186,7 +192,7 @@ class A2CTrainer(SingleTrainer, A2CModel):
             
             self.rollouts.insert(np.copy(observations), actions, rewards, terminals, values, states)
 
-        last_values, _ = self._value(self.rollouts.observations, self.rollouts.terminals, self.rollouts.states)
+        last_values, _ = self._value(self.rollouts.observations, self.rollouts.masks, self.rollouts.states)
         batched = self.rollouts.batch(last_values, self.gamma)
 
         # Prepare next batch starting point
