@@ -5,7 +5,7 @@ if __name__ == '__main__':
     sys.path.insert(0,parentdir)
 
 from common import register_trainer, make_trainer
-from a2c import Trainer
+from a2c import A2CTrainer as Trainer
 from a2c.model import LSTMMultiLayerPerceptron
 from common.env import make_vec_envs
 import gym

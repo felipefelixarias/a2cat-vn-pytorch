@@ -24,3 +24,11 @@ Supervised learning for maze env. implementation
         - Works very bad for the case of positive 1-0 reward and discounting
     Dungeon with state only input
     Dungeon with position only input
+
+
+    Kitchen env not working with A2C - tested on breakout env
+    Implementing A2C in PyTorch
+
+3-3-2019
+    A2C fully working in PyTorch - tested on breakout env
+    A2C supports LSTM - tested on LSTM testbed
