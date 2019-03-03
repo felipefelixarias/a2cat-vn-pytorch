@@ -52,6 +52,14 @@ def pytorch_call(device):
         return call
     return wrap
 
+def detach_all(data):
+    if isinstance(data, list):
+        return [detach_all(x) for x in data]
+    elif isinstance(data, tuple):
+        return tuple(detach_all(list(data)))
+    else:
+        return data.detach()
+
 def forward_masked_rnn(inputs, masks, states, forward_rnn):
     def mask_states(states, mask):
         if isinstance(states, tuple):

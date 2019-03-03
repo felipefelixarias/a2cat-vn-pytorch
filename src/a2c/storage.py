@@ -1,14 +1,13 @@
 from collections import namedtuple
+from .core import RolloutBatch
 import numpy as np
 
-RolloutBatch = namedtuple('RolloutBatch', ['observations', 'returns','actions', 'masks', 'states'])
-
 class RolloutStorage:
-    def __init__(self, initial_observations):
+    def __init__(self, initial_observations, initial_states = []):
         self.num_processes = initial_observations.shape[0]
 
         self._terminals = self._last_terminals = np.zeros(shape = (self.num_processes,), dtype = np.bool)
-        self._states = self._last_states = []
+        self._states = self._last_states = initial_states
         self._observations = self._last_observations = initial_observations
 
         self._batch = []
@@ -28,10 +27,11 @@ class RolloutStorage:
     def states(self):
         return self._states
 
-    def insert(self, observations, actions, rewards, terminals, values):
+    def insert(self, observations, actions, rewards, terminals, values, states):
         self._batch.append((self._observations, actions, values, rewards, terminals))
         self._observations = observations
         self._terminals = terminals
+        self._states = states
 
     def batch(self, last_values, gamma):
         # Batch in time dimension

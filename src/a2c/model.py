@@ -2,24 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-
-def init(module, weight_init, bias_init, gain=1):
-    weight_init(module.weight.data, gain=gain)
-    bias_init(module.bias.data)
-    return module
-
-class FixedCategorical(torch.distributions.Categorical):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def sample(self):
-        return super().sample().unsqueeze(-1)
-
-    def mode(self):
-        return super().probs.argmax(dim= -1, keepdim = True)
-
-    def log_probs(self, actions):
-        return super().log_prob(actions.squeeze(-1)).view(actions.size(0), -1).sum(-1).unsqueeze(-1)
+from .core import forward_masked_rnn
 
 class Flatten(nn.Module):
     def forward(self, x):
@@ -44,90 +27,162 @@ class TimeDistributed(nn.Module):
         else:
             return reshape_res(results)
 
-class Policy(nn.Module):
-    def __init__(self, obs_shape, action_space):
-        super(Policy, self).__init__()
-        num_outputs = action_space.n
-
-        self.base = CNNBase(obs_shape[0], num_outputs)        
-        self.dist = lambda policy_logits: FixedCategorical(logits = policy_logits)
-
-    @property
-    def is_recurrent(self):
-        return self.base.is_recurrent
-
-    @property
-    def recurrent_hidden_state_size(self):
-        """Size of rnn_hx."""
-        return self.base.recurrent_hidden_state_size
-
-    def forward(self, inputs, masks):
-        raise NotImplementedError
-
-    def act(self, inputs, masks, deterministic=False):
-        policy_logits, value = self.base(inputs, masks)
-        dist = self.dist(policy_logits)
-
-        if deterministic:
-            action = dist.mode()
-        else:
-            action = dist.sample()
-
-        action_log_probs = dist.log_probs(action)
-        return value, action, action_log_probs
-
-    def get_value(self, inputs, masks):
-        _, value = self.base(inputs, masks)
-        return value
-
-    def evaluate_actions(self, inputs, masks, action):
-        policy_logits, value = self.base(inputs, masks)
-        dist = self.dist(policy_logits)
-
-        action_log_probs = dist.log_probs(action)
-        dist_entropy = dist.entropy().mean()
-
-        return value, action_log_probs, dist_entropy
-    
-
-class CNNBase(nn.Module):
+class CNN(nn.Module):
     def __init__(self, num_inputs, num_outputs):
         super().__init__()
-        hidden_size = 512
-        init_ = lambda m: init(m,
-            nn.init.orthogonal_,
-            lambda x: nn.init.constant_(x, 0),
-            nn.init.calculate_gain('relu'))
+        def init_layer(layer, activation = None, gain = None):
+            if activation is not None and gain is None:
+                gain = nn.init.calculate_gain(activation.lower())
+            elif activation is None and gain is None:
+                gain = 1.0
 
-        self.main = nn.Sequential(
-            init_(nn.Conv2d(num_inputs, 32, 8, stride=4)),
-            nn.ReLU(),
-            init_(nn.Conv2d(32, 64, 4, stride=2)),
-            nn.ReLU(),
-            init_(nn.Conv2d(64, 32, 3, stride=1)),
-            nn.ReLU(),
-            Flatten(),
-            init_(nn.Linear(32 * 7 * 7, hidden_size)),
-            nn.ReLU()
-        )
+            nn.init.orthogonal_(layer.weight.data, gain = gain)
+            nn.init.zeros_(layer.bias.data)
+            output = [layer]
+            if activation is not None:
+                output.append(getattr(nn, activation)())
+            return output
 
-        init_ = lambda m: init(m,
-            nn.init.orthogonal_,
-            lambda x: nn.init.constant_(x, 0))
+        layers = []
+        layers.extend(init_layer(nn.Conv2d(num_inputs, 32, 8, stride = 4), activation='ReLU'))
+        layers.extend(init_layer(nn.Conv2d(32, 64, 4, stride = 2), activation='ReLU'))
+        layers.extend(init_layer(nn.Conv2d(64, 32, 3, stride = 1), activation='ReLU'))
+        layers.append(Flatten())
+        layers.extend(init_layer(nn.Linear(32 * 7 * 7, 512), activation='ReLU'))
+        
+        self.main = nn.Sequential(*layers)
+        self.critic = init_layer(nn.Linear(512, 1))[0]
+        self.policy_logits = init_layer(nn.Linear(512, num_outputs), gain = 0.01)[0]
 
-        self.critic_linear = init_(nn.Linear(hidden_size, 1))
-
-        init_ = lambda m: init(m,
-            nn.init.orthogonal_,
-            lambda x: nn.init.constant_(x, 0), 0.01)
-
-        self.policy_logits = init_(nn.Linear(hidden_size, num_outputs))
-        self.train()
+    def forward(self, inputs):
+        main_features = self.main.forward(inputs)
+        policy_logits = self.policy_logits.forward(main_features)
+        critic = self.critic.forward(main_features)
+        return policy_logits, critic
 
     @property
-    def output_size(self):
-        return 512
+    def output_names(self):
+        return ('policy_logits', 'value', 'states')
 
-    def forward(self, inputs, masks):
-        x = self.main(inputs)
-        return self.policy_logits(x), self.critic_linear(x)
+
+def TimeDistributedCNN(num_inputs, num_outputs):
+    inner = CNN(num_inputs, num_outputs)
+    model = TimeDistributed(inner)
+    model.output_names = property(lambda self: inner.output_names)
+    _forward = model.forward
+    model.forward = lambda inputs, masks, states: _forward(inputs) + (states, )
+    return model
+
+class TimeDistributedConv(nn.Module):
+    def __init__(self, num_inputs, num_outputs):
+        super().__init__()
+        self.main_output_size = 512
+
+        def init_layer(layer, activation = None, gain = None):
+            if activation is not None and gain is None:
+                gain = nn.init.calculate_gain(activation.lower())
+            elif activation is None and gain is None:
+                gain = 1.0
+
+            nn.init.orthogonal_(layer.weight.data, gain = gain)
+            nn.init.zeros_(layer.bias.data)
+            output = [TimeDistributed(layer)]
+            if activation is not None:
+                output.append(TimeDistributed(getattr(nn, activation)()))
+            return output
+
+        layers = []
+        layers.extend(init_layer(nn.Conv2d(num_inputs, 32, 8, stride = 4), activation='ReLU'))
+        layers.extend(init_layer(nn.Conv2d(32, 64, 4, stride = 2), activation='ReLU'))
+        layers.extend(init_layer(nn.Conv2d(64, 32, 3, stride = 1), activation='ReLU'))
+        layers.append(TimeDistributed(Flatten()))
+        layers.extend(init_layer(nn.Linear(32 * 7 * 7, self.main_output_size), activation='ReLU'))
+        self.main = nn.Sequential(*layers)
+        
+        self.critic = init_layer(nn.Linear(self.main_output_size, 1))[0]
+        self.policy_logits = init_layer(nn.Linear(512, num_outputs), gain = 0.01)[0]
+
+    def forward(self, inputs, masks, states):
+        main_features = self.main.forward(inputs)
+        policy_logits = self.policy_logits.forward(main_features)
+        critic = self.critic.forward(main_features)
+        return policy_logits, critic, states
+
+    @property
+    def output_names(self):
+        return ('policy_logits', 'value', 'states')
+
+
+class LSTMConv(TimeDistributedConv):
+    def __init__(self, num_inputs, num_outputs):
+        super().__init__(num_inputs, num_outputs)
+
+        self.lstm_layers = 1
+        self.lstm_hidden_size = 128
+        self.rnn = nn.LSTM(self.main_output_size, 
+            hidden_size = self.lstm_hidden_size, 
+            num_layers = self.lstm_layers,
+            batch_first = True)
+
+    def initial_states(self, batch_size):
+        return tuple([torch.zeros([self.lstm_layers, batch_size, self.lstm_hidden_size], dtype = torch.float32) for _ in range(2)])
+
+    def forward(self, inputs, masks, states):
+        main_features = self.main.forward(inputs)
+        main_features, states = forward_masked_rnn(main_features, masks, states, self.rnn.forward)
+
+        policy_logits = self.policy_logits.forward(main_features)
+        critic = self.critic.forward(main_features)
+        return [policy_logits, critic, states]
+
+class TimeDistributedMultiLayerPerceptron(nn.Module):
+    def __init__(self, input_size, output_size):
+        def init_layer(layer, activation = None, gain = None):
+            if activation is not None and gain is None:
+                gain = nn.init.calculate_gain(activation.lower())
+            elif activation is None and gain is None:
+                gain = 1.0
+
+            nn.init.orthogonal_(layer.weight.data, gain = gain)
+            nn.init.zeros_(layer.bias.data)
+            output = [TimeDistributed(layer)]
+            if activation is not None:
+                output.append(TimeDistributed(getattr(nn, activation)()))
+            return output
+
+        hidden_size = 512
+        self.actor = nn.Sequential(* \
+            init_layer(nn.Linear(input_size, hidden_size), activation='Tanh') + \
+            init_layer(nn.Linear(hidden_size, hidden_size), activation='Tanh') + \
+            init_layer(nn.Linear(hidden_size, output_size), activation=None, gain = 0.01)
+        )
+
+        self.critic = nn.Sequential(* \
+            init_layer(nn.Linear(input_size, hidden_size), activation='Tanh') + \
+            init_layer(nn.Linear(hidden_size, hidden_size), activation='Tanh') + \
+            init_layer(nn.Linear(hidden_size,1), activation=None, gain = 1.0)
+        )
+
+    def forward(self, inputs, masks, states):
+        x = inputs
+        return self.actor(x), self.critic(x), states
+
+
+class LSTMMultiLayerPerceptron(TimeDistributedMultiLayerPerceptron):
+    def __init__(self, input_size, output_size):
+        self.lstm_hidden_size = 64
+
+        super().__init__(self.lstm_hidden_size, output_size)
+        self.lstm = nn.LSTM(input_size, 
+            hidden_size = self.lstm_hidden_size, 
+            num_layers = 1,
+            batch_first = True)
+
+    def initial_states(self, batch_size):
+        return tuple([torch.zeros([1, batch_size, self.lstm_hidden_size], dtype = torch.float32) for _ in range(2)])
+
+    def forward(self, inputs, masks, states):
+        features = inputs
+        features, states = forward_masked_rnn(features, masks, states)
+        return super().forward(features, masks, states)
+    

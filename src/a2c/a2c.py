@@ -1,392 +1,207 @@
 from abc import abstractclassmethod
 from collections import namedtuple
-from functools import reduce
-import functools
-import time
+import numpy as np
+from common.train import AbstractTrainer, SingleTrainer
+from common.env import VecTransposeImage, make_vec_envs
+from common import MetricContext
+
 import gym
 
-import numpy as np
-import tensorflow as tf
-from keras.layers import Dense, Input, TimeDistributed
-import keras.backend as K
-from keras.models import Model, Sequential
-from keras.initializers import Orthogonal
+import tempfile
 
-from common import register_trainer, make_trainer, MetricContext, AbstractAgent
-from common.train import SingleTrainer
-from common.vec_env import SubprocVecEnv
-from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
 
+import copy
+import glob
+import os
+import time
 
-RecurrentModel = namedtuple('RecurrentModel', ['model', 'inputs','outputs', 'states_in', 'states_out', 'mask'])
-
-class MonitorWrapper(gym.Wrapper):
-    def step(self, action):
-        obs, reward, done, stats = super().step(action)
-        if stats is None:
-            stats = dict()
-
-        stats['reward'] = reward
-        return obs, reward, done, stats
-
-def expand_recurrent_model(model):
-    states_in = []
-    pure_inputs = [x for x in model.inputs]
-    
-    mask = None
-    for x in model.inputs:
-        if 'rnn_state' in x.name:
-            states_in.append(x)
-            pure_inputs.remove(x)
-        if 'rnn_mask' in x.name:
-            mask = x
-            pure_inputs.remove(x)
-
-    pure_outputs = model.outputs[:-len(states_in)] if len(states_in) > 0 else model.outputs
-    states_out = model.outputs[-len(states_in):] if len(states_in) > 0 else []
-
-    assert len(states_in) == 0 or mask is not None
-    return RecurrentModel(model, pure_inputs, pure_outputs, states_in, states_out, mask)
+from .model import TimeDistributedConv
+from .storage import RolloutStorage
+from .core import pytorch_call, to_tensor, to_numpy, KeepTensor, detach_all
 
 
-def create_initial_state(n_envs, state_in):
-    return [np.zeros((n_envs,) + tuple(x.shape[1:])) for x in state_in]
-
-class A2CModelBase:
-    def __init__(self):
+class A2CModel:
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.entropy_coefficient = 0.01
         self.value_coefficient = 0.5
         self.max_gradient_norm = 0.5
         self.rms_alpha = 0.99
         self.rms_epsilon = 1e-5
 
-        self.n_envs = None
-        self._initial_state = None
+        def not_initialized(*args, **kwargs):
+            raise Exception('Not initialized')
+        self._train = self._step = self._value = not_initialized
 
-    @abstractclassmethod
-    def create_model(self):
-        pass
+    def build_model(self):
+        return TimeDistributedConv(self.env.observation_space.shape[0], self.env.action_space.n)
 
     @property
     def learning_rate(self):
         return 7e-4
 
-    def on_graph_built(self, **kwargs):
-        pass
+    def _build_graph(self):
+        model = self.build_model()
+        if hasattr(model, 'initial_states'):
+            self._initial_states = getattr(model, 'initial_states')
+        else:
+            self._initial_states = lambda: []
 
-    def _build_graph(self, sess, **model_kwargs):
-        # Keras will use this session
-        K.set_session(sess)
+        cuda_devices = torch.cuda.device_count()
+        if cuda_devices == 0:
+            print('Using CPU only')
+            main_device = torch.device('cpu')
+            get_state_dict = lambda: model.state_dict()
+        elif cuda_devices > 1:
+            print('Using %s GPUs' % cuda_devices)
+            main_device = torch.device('cuda:0')
+            model = nn.DataParallel(model, output_device=main_device)
+            model = model.to(main_device)
+            get_state_dict = lambda: model.module.state_dict()
+        else:
+            print('Using single GPU')
+            main_device = torch.device('cuda:0')
+            model = model.to(main_device)
+            get_state_dict = lambda: model.state_dict()
 
-        # Create model and outputs
-        model = self.create_model(**model_kwargs)
-        rnn_model = expand_recurrent_model(model)
+        model.train()
+        optimizer = optim.RMSprop(model.parameters(), self.learning_rate, eps=self.rms_epsilon, alpha=self.rms_alpha)
 
-        self._initial_state = create_initial_state(self.n_envs, rnn_model.states_in)
-        self._validation_initial_state = create_initial_state(1, rnn_model.states_in)
-        policy_logits, values = rnn_model.outputs
-        values = tf.squeeze(values, axis = 2)
-        
-        policy_distribution = tf.distributions.Categorical(logits = policy_logits)
+        # Build train and act functions
+        @pytorch_call(main_device)
+        def train(observations, returns, actions, masks, states = []):
+            policy_logits, value, _ = model.forward(observations, masks, states)
 
-        # Action to take
-        action = policy_distribution.sample()
+            dist = torch.distributions.Categorical(logits = policy_logits)
+            action_log_probs = dist.log_prob(actions)
+            dist_entropy = dist.entropy().mean()
+            
+            # Compute losses
+            advantages = returns - value.squeeze(-1)
+            value_loss = advantages.pow(2).mean()
+            action_loss = -(advantages.detach() * action_log_probs).mean()
+            loss = value_loss * self.value_coefficient + \
+                action_loss - \
+                dist_entropy * self.entropy_coefficient   
 
-        # Create loss placeholders
-        actions = tf.placeholder(tf.int32, [self.n_envs, None], name = 'actions')
-        returns = tf.placeholder(tf.float32, [self.n_envs, None], name = 'returns')
-        learning_rate = tf.placeholder(tf.float32, [], name = 'learning_rate')
+            # Optimize
+            optimizer.zero_grad()
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), self.max_gradient_norm)
+            optimizer.step()
 
-        adventages = returns - values
+            return loss.item(), action_loss.item(), value_loss.item(), dist_entropy.item()
 
-        # Policy gradient loss
-        selected_log_prob = -policy_distribution.log_prob(actions)
-        policy_gradient_loss = -tf.reduce_mean(tf.stop_gradient(adventages) * selected_log_prob)
-
-        # Entropy is used to improve exploration by limiting the premature convergence to suboptimal policy.
-        entropy = tf.reduce_mean(policy_distribution.entropy())
-
-        # Value loss
-        value_loss = tf.losses.mean_squared_error(values, returns)
-
-        # Total loss
-        loss = policy_gradient_loss \
-            + value_loss * self.value_coefficient \
-            - entropy * self.entropy_coefficient
-
-        # Optimize step
-        optimizer = tf.train.RMSPropOptimizer(learning_rate=learning_rate, decay=self.rms_alpha, epsilon=self.rms_epsilon)
-        params = model.trainable_weights
-        grads = tf.gradients(loss, params, aggregation_method = tf.AggregationMethod.EXPERIMENTAL_ACCUMULATE_N)
-        if self.max_gradient_norm is not None:
-            # Clip the gradients (normalize)
-            grads, grad_norm = tf.clip_by_global_norm(grads, self.max_gradient_norm)
-
-        grads = list(zip(grads, params))
-        optimize_op = optimizer.apply_gradients(grads)
-
-        # Initialize variables
-        tf.global_variables_initializer().run(session = sess)
+        @pytorch_call(main_device)
+        def step(observations, masks, states):
+            with torch.no_grad():
+                batch_size = observations.size()[0]
+                observations = observations.view(batch_size, 1, *observations.size()[1:])
+                masks = masks.view(batch_size, 1)
 
 
-        # Create train fn
-        def train(b_obs, b_returns, b_masks, b_actions, b_values, states = []):
-            feed_dict = {
-                K.learning_phase(): 1,
-                rnn_model.inputs[0]:b_obs, 
-                actions:b_actions, 
-                returns:b_returns, 
-                learning_rate:self.learning_rate,
-                **{state: value for state, value in zip(rnn_model.states_in, states)}
-            }
-            if rnn_model.mask is not None:
-                feed_dict[rnn_model.mask] = b_masks
-            loss_v, policy_loss_v, value_loss_v, policy_entropy_v, _ = sess.run(
-                [loss, policy_gradient_loss, value_loss, entropy, optimize_op],
-                feed_dict=feed_dict
-            )
-            return loss_v, policy_loss_v, value_loss_v, policy_entropy_v
+                policy_logits, value, states = model.forward(observations, masks, states)
+                dist = torch.distributions.Categorical(logits = policy_logits)
+                action = dist.sample()
+                action_log_probs = dist.log_prob(action)
+                return action.squeeze(1).detach(), value.squeeze(1).squeeze(-1).detach(), action_log_probs.squeeze(1).detach(), KeepTensor(detach_all(states))
 
-        # Create step fn
-        def step(observation, mask, states = [], mode = 'train'):
-            # This function takes single batch of observations
-            # Returns also single batch of returns
-            observation = observation.reshape([-1, 1] + list(observation.shape[1:]))
-            mask = mask.reshape([-1, 1])
-            feed_dict = {
-                K.learning_phase(): 1 if mode == 'train' else 0,
-                model.inputs[0]: observation,
-                **{state: value for state, value in zip(rnn_model.states_in, states)}
-            }
+        @pytorch_call(main_device)
+        def value(observations, masks, states):
+            with torch.no_grad():
+                batch_size = observations.size()[0]
+                observations = observations.view(batch_size, 1, *observations.size()[1:])
+                masks = masks.view(batch_size, 1)
 
-            if rnn_model.mask is not None:
-                feed_dict[rnn_model.mask] = mask
+                _, value, states = model.forward(observations, masks, states)
+                return value.squeeze(1).squeeze(-1).detach(), KeepTensor(detach_all(states))
 
-            action_v, value_v, state_out_v = sess.run([action, values, rnn_model.states_out], feed_dict=feed_dict)
-
-            action_v = action_v.squeeze(1)
-            value_v = value_v.squeeze(1)
-            return [action_v, value_v, state_out_v, None]
-
-        # Create value fn
-        def value(observation, mask, states = [], mode = 'train'):
-            # This function takes single batch of observations
-            # Returns also single batch of returns
-            observation = observation.reshape([self.n_envs, -1] + list(observation.shape[1:]))
-            mask = mask.reshape([self.n_envs, -1])
-            feed_dict = {
-                K.learning_phase(): 1 if mode == 'train' else 0,
-                model.inputs[0]: observation,
-                **{state: value for state, value in zip(rnn_model.states_in, states)}
-            }
-            if rnn_model.mask is not None:
-                feed_dict[rnn_model.mask] = mask
-            values_v = sess.run(values, feed_dict=feed_dict).reshape([-1])
-
-            return values_v
+        def save(path):
+            torch.save(get_state_dict(), os.path.join(path, 'weights.pth'))
 
         self._step = step
-        self._train = train
         self._value = value
-
-        feed_dict = locals()
-        feed_dict.pop('self')
-        self.on_graph_built(**feed_dict)
+        self._train = train
+        self.save = save
         return model
 
-
-Experience = namedtuple('Experience', ['observations', 'returns', 'masks', 'actions', 'values'])
-def batch_experience(batch, last_values, previous_batch_terminals, gamma):
-    # Batch in time dimension
-    b_observations, b_actions, b_values, b_rewards, b_terminals = list(map(lambda *x: np.stack(x, axis = 1), *batch))
-
-    # Compute cummulative returns
-    last_returns = (1.0 - b_terminals[:, -1]) * last_values
-    b_returns = np.concatenate([np.zeros_like(b_rewards), np.expand_dims(last_returns, 1)], axis = 1)
-    for n in reversed(range(len(batch))):
-        b_returns[:, n] = b_rewards[:, n] + \
-            gamma * (1.0 - b_terminals[:, n]) * b_returns[:, n + 1]
-
-    # Compute RNN reset masks
-    b_masks = np.concatenate([np.expand_dims(previous_batch_terminals, 1), b_terminals[:,:-1]], axis = 1)
-    return Experience(b_observations, b_returns[:, :-1], b_masks, b_actions, b_values)
-
-class A2CTrainer(SingleTrainer, A2CModelBase):
-    def __init__(self, name, env_kwargs, model_kwargs):
+class A2CTrainer(SingleTrainer, A2CModel):
+    def __init__(self, name, env_kwargs, model_kwargs, devices = []):
         super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
         self.name = name
-        self.n_steps = 5
-        self.n_envs = 16
-        self.total_timesteps = 10e6
+        self.num_steps = 5
+        self.num_processes = 16
+        self.num_env_steps = int(10e6)
         self.gamma = 0.99
 
-        self._last_terminals = None
-        self._last_observations = None
-        self._last_states = None
+        self.log_dir = None
+        self.win = None
 
-    @abstractclassmethod
-    def create_model(self, **model_kwargs):
-        pass
+    def _initialize(self):
+        super()._build_graph()
+        self._tstart = time.time()
+        self.rollouts = RolloutStorage(self.env.reset())  
+
+    def _finalize(self):
+        if self.log_dir is not None:
+            self.log_dir.cleanup()
 
     def create_env(self, env):
-        def create_single_factory(env, use_singleton = True):
-            if isinstance(env, dict):
-                return lambda: gym.make(**env)
-            elif callable(env):
-                return env
-            elif use_singleton:
-                return lambda: env
-            else:
-                raise Exception('Environment not supported')
+        self.log_dir = tempfile.TemporaryDirectory()
 
-        if isinstance(env, list):
-            if len(env) != self.n_envs + 1:
-                raise Exception('Unsupported number of environments. Must be number of environments + 1')
-            envs = [create_single_factory(e, True) for e in env]
+        seed = 1
+        self.validation_env = make_vec_envs(env, seed, 1, self.gamma, self.log_dir.name, None, False)
+        self.validation_env = VecTransposeImage(self.validation_env)
+
+        envs = make_vec_envs(env, seed + 1, self.num_processes,
+                        self.gamma, self.log_dir.name, None, False)
+        return VecTransposeImage(envs)
+        
+
+    def process(self, context, mode = 'train', **kwargs):
+        metric_context = MetricContext()
+        if mode == 'train':
+            return self._process_train(context, metric_context)
         else:
-            envs = [create_single_factory(env, False) for _ in range(self.n_envs + 1)]
+            raise Exception('Mode not supported')
 
-        # Create validation environment
-        self.validation_env = envs[0]()
-        return SubprocVecEnv(envs[1:])
-
-    def _initialize(self, **model_kwargs):
-        self.nenv = nenv = self.env.num_envs if hasattr(self.env, 'num_envs') else 1
-
-        sess = tf.Session(config = tf.ConfigProto(
-            allow_soft_placement = True,
-            log_device_placement = False,
-            gpu_options = tf.GPUOptions(
-                allow_growth = True
-            )))
-        K.set_session(sess)
-        model = self._build_graph(sess, **model_kwargs)
-
-        self._last_terminals = np.zeros(shape = (nenv,), dtype = np.bool)
-        self._last_states = self._initial_state
-        self._last_observations = self.env.reset()
-
-        self._initialize_stats()
-        return model
-
-    def _initialize_stats(self):
-        self._reports = [(0, 0.0) for _ in range(self.n_envs)]
-        self._cum_reports = [(0, [], []) for _ in range(self.n_envs)]
-
-        self._global_t = 0
-        self._lastlog = 0
-        self._tstart = time.time()
-
-    def _update_report(self, rewards, terminals):
-        self._reports = [(x + (1 - a), y + b) for (x, y), a, b in zip(self._reports, terminals, rewards)]
-        for i, terminal in enumerate(terminals):
-            if terminal:
-                (ep, leng, rew) = self._cum_reports[i]
-                leng.append(self._reports[i][0])
-                rew.append(self._reports[i][1])
-                self._cum_reports[i] = (ep + 1, leng, rew)
-                self._reports[i] = (0, 0.0)
-
-    def _collect_report(self):
-        output = list(map(lambda *x: reduce(lambda a,b:a+b, x), *self._cum_reports))
-        self._cum_reports = [(0, [], []) for _ in range(self.n_envs)]
-        return output
 
     def _sample_experience_batch(self):
-        batch = []
-
-        terminals = self._last_terminals
-        observations = self._last_observations
-        states = self._last_states
-        for _ in range(self.n_steps):
-            # Given observations, take action and value (V(s))
-            # We already have self.obs because Runner superclass run self.obs[:] = env.reset() on init
-            actions, values, states, _ = self._step(observations, terminals, states)  
+        finished_episodes = ([], [])
+        for _ in range(self.num_steps):
+            actions, values, action_log_prob, states = self._step(self.rollouts.observations, self.rollouts.terminals, self.rollouts.states)
 
             # Take actions in env and look the results
-            next_observations, rewards, terminals, stats = self.env.step(actions)
+            observations, rewards, terminals, infos = self.env.step(actions)
 
             # Collect true rewards
+            for info in infos:
+                if 'episode' in info.keys():
+                    finished_episodes[0].append(info['episode']['l'])
+                    finished_episodes[1].append(info['episode']['r'])
             
-            true_rewards = [x['reward'] for x in stats] if 'reward' in stats[0] else rewards
-            self._update_report(true_rewards, terminals)
+            self.rollouts.insert(np.copy(observations), actions, rewards, terminals, values, states)
 
-            batch.append((np.copy(observations), actions, values, rewards, terminals))
-            observations = next_observations
-
-        last_values = self._value(observations, terminals, states)
-
-        batched = batch_experience(batch, last_values, self._last_terminals, self.gamma)
-        batched = batched + (self._last_states,)
+        last_values, _ = self._value(self.rollouts.observations, self.rollouts.terminals, self.rollouts.states)
+        batched = self.rollouts.batch(last_values, self.gamma)
 
         # Prepare next batch starting point
-        self._last_terminals = terminals
-        self._last_states = states
-        self._last_observation = observations
-        return batched, self._collect_report()
+        return batched, (len(finished_episodes[0]),) + finished_episodes
 
-    def _get_end_stats(self):
-        return None
 
-    def _process_train(self, metric_context):
-        batch, experience_stats = self._sample_experience_batch()
-        loss, policy_loss, value_loss, policy_entropy = self._train(*batch)
+    def _process_train(self, context, metric_context):
+        batch, report = self._sample_experience_batch()
+        loss, value_loss, action_loss, dist_entropy = self._train(*batch)
 
         fps = int(self._global_t/ (time.time() - self._tstart))
         metric_context.add_cummulative('updates', 1)
         metric_context.add_scalar('loss', loss)
         metric_context.add_scalar('value_loss', value_loss)
-        metric_context.add_scalar('policy_loss', policy_loss)
-        metric_context.add_scalar('entropy', policy_entropy)
+        metric_context.add_scalar('action_loss', action_loss)
+        metric_context.add_scalar('entropy', dist_entropy)
         metric_context.add_last_value_scalar('fps', fps)
-        self._global_t += self.n_steps * self.n_envs
-        return (self.n_steps * self.n_envs, experience_stats, metric_context)
-
-    def _process_validation(self, metric_context):
-        done = False
-        states = self._validation_initial_state
-        ep_reward = 0.0
-        ep_length = 0
-        obs = self.validation_env.reset()
-        while not done:
-            observations = np.expand_dims(obs, 0)
-            action, values, states, _ = self._step(observations, np.zeros((1,)), states)
-            action = action[0]
-            obs, reward, done, _ = self.validation_env.step(action)
-            
-            ep_reward += reward
-            ep_length += 1
-
-        return (ep_length, (ep_length, ep_reward), dict())
-
-    def process(self, mode = 'train', **kwargs):
-        metric_context = MetricContext()
-
-        if mode == 'train':
-            return self._process_train(metric_context)
-        elif mode == 'validation':
-            return self._process_validation(metric_context)
-        else:
-            raise Exception('Mode not supported')
-
-class A2CAgent(AbstractAgent):
-    def __init__(self, *args, **kwargs):
-        self.__init__(*args, **kwargs)
-
-        model = self._load(self.name)
-        self.state = None
-        self.rnn_model = expand_recurrent_model(model)
-        # TODO: implement loading and act
-
-
-    def reset_state(self):
-        self.state = create_initial_state(1, self.rnn_model.states_in)
-
-    def _build_graph(self):
-        policy, values = rnn_model.outputs
-        values = tf.squeeze(values, axis = 2)
-        
-        policy_distribution = tf.distributions.Categorical(logits = policy)
-
-    def act(state):
-        pass
+        return self.num_steps * self.num_processes, report, metric_context
