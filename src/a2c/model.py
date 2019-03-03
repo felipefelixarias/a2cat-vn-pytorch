@@ -126,5 +126,5 @@ class CNNBase(nn.Module):
         return 512
 
     def forward(self, inputs, masks):
-        x = self.main(inputs / 255.0)
+        x = self.main(inputs)
         return self.policy_logits(x), self.critic_linear(x)
