@@ -63,10 +63,10 @@ class A2CModel:
 
         model = self.build_model()
         if len(devices) > 1:
-            main_device = 'cpu'
-            model = nn.DataParallel(model, devices, output_device=main_device)
+            main_device = torch.device('cpu')
+            model = nn.DataParallel(model, [torch.device(x) for x in devices], output_device=main_device)
         else:
-            main_device = devices[0]
+            main_device = torch.device(devices[0])
             model = model.to(main_device)
 
         optimizer = optim.RMSprop(model.parameters(), self.learning_rate, eps=self.rms_epsilon, alpha=self.rms_alpha)
