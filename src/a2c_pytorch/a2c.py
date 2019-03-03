@@ -67,8 +67,8 @@ class A2CModel:
             print('Using CPU only')
         elif cuda_devices > 1:
             print('Using %s GPUs' % cuda_devices)
-            main_device = torch.device('cpu')
-            model = nn.DataParallel(model)
+            main_device = torch.device('cuda:0')
+            model = nn.DataParallel(model, output_device=main_device)
         else:
             print('Using single GPU')
             main_device = torch.device('cuda:0')
