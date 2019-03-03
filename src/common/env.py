@@ -127,7 +127,7 @@ class TransposeImage(TransposeObs):
         Transpose observation space for images
         """
         super(TransposeImage, self).__init__(env)
-        assert len(op) == 3, f"Error: Operation, {str(op)}, must be dim3"
+        assert len(op) == 3, "Error: Operation, %s, must be dim3" % str(op)
         self.op = op
         obs_shape = self.observation_space.shape
         self.observation_space = Box(
