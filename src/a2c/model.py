@@ -3,7 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from a2c_ppo_acktr.utils import init
+def init(module, weight_init, bias_init, gain=1):
+    weight_init(module.weight.data, gain=gain)
+    bias_init(module.bias.data)
+    return module
 
 class FixedCategorical(torch.distributions.Categorical):
     def __init__(self, *args, **kwargs):
