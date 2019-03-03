@@ -1,6 +1,7 @@
 from collections import namedtuple
-from .core import RolloutBatch
 import numpy as np
+
+RolloutBatch = namedtuple('RolloutBatch', ['observations', 'returns','actions', 'masks', 'states'])
 
 class RolloutStorage:
     def __init__(self, initial_observations):
