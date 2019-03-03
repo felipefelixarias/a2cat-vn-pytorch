@@ -57,10 +57,7 @@ class A2CModel:
     def learning_rate(self):
         return 7e-4
 
-    def _build_graph(self, devices = []):
-        if len(devices) == 0:
-            devices = ['cpu']
-
+    def _build_graph(self):
         model = self.build_model()
         cuda_devices = torch.cuda.device_count()
         if cuda_devices == 0:
@@ -69,6 +66,7 @@ class A2CModel:
             print('Using %s GPUs' % cuda_devices)
             main_device = torch.device('cuda:0')
             model = nn.DataParallel(model, output_device=main_device)
+            model = model.to(main_device)
         else:
             print('Using single GPU')
             main_device = torch.device('cuda:0')
