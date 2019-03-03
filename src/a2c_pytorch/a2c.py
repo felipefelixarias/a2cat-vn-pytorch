@@ -62,11 +62,16 @@ class A2CModel:
             devices = ['cpu']
 
         model = self.build_model()
-        if len(devices) > 1:
+        cuda_devices = torch.cuda.device_count()
+        if cuda_devices == 0:
+            print('Using CPU only')
+        elif cuda_devices > 1:
+            print('Using %s GPUs' % cuda_devices)
             main_device = torch.device('cpu')
-            model = nn.DataParallel(model, [torch.device(x) for x in devices], output_device=main_device)
+            model = nn.DataParallel(model, output_device=main_device)
         else:
-            main_device = torch.device(devices[0])
+            print('Using single GPU')
+            main_device = torch.device('cuda:0')
             model = model.to(main_device)
 
         optimizer = optim.RMSprop(model.parameters(), self.learning_rate, eps=self.rms_epsilon, alpha=self.rms_alpha)
@@ -125,7 +130,6 @@ class A2CTrainer(SingleTrainer, A2CModel):
     def __init__(self, name, env_kwargs, model_kwargs, devices = []):
         super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
         self.name = name
-        self.devices = devices if len(devices) > 0 else ['cpu']
         self.num_steps = 5
         self.num_processes = 16
         self.num_env_steps = int(10e6)
@@ -135,7 +139,7 @@ class A2CTrainer(SingleTrainer, A2CModel):
         self.win = None
 
     def _initialize(self):
-        super()._build_graph(self.devices)
+        super()._build_graph()
         self.episode_rewards = deque(maxlen=10)
 
         self._tstart = time.time()
