@@ -41,7 +41,7 @@ class TestLstm(gym.Env):
         self.action_space = gym.spaces.Discrete(4)
         self.observation_space = gym.spaces.Box(0.0, 1.0, shape=(4,))
         self.random = random.Random()
-        self.length = 2
+        self.length = 5
 
     def seed(self, seed = None):
         self.random.seed(seed)
