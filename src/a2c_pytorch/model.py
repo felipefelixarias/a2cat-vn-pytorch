@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
+from .core import forward_masked_rnn
 
 class Flatten(nn.Module):
     def forward(self, x):
@@ -71,3 +72,117 @@ def TimeDistributedCNN(num_inputs, num_outputs):
     _forward = model.forward
     model.forward = lambda inputs, masks, states: _forward(inputs)
     return model
+
+class TimeDistributedConv(nn.Module):
+    def __init__(self, num_inputs, num_outputs):
+        super().__init__()
+        self.main_output_size = 512
+
+        def init_layer(layer, activation = None, gain = None):
+            if activation is not None and gain is None:
+                gain = nn.init.calculate_gain(activation.lower())
+            elif activation is None and gain is None:
+                gain = 1.0
+
+            nn.init.orthogonal_(layer.weight.data, gain = gain)
+            nn.init.zeros_(layer.bias.data)
+            output = [TimeDistributed(layer)]
+            if activation is not None:
+                output.append(TimeDistributed(getattr(nn, activation)()))
+            return output
+
+        layers = []
+        layers.extend(init_layer(nn.Conv2d(num_inputs, 32, 8, stride = 4), activation='ReLU'))
+        layers.extend(init_layer(nn.Conv2d(32, 64, 4, stride = 2), activation='ReLU'))
+        layers.extend(init_layer(nn.Conv2d(64, 32, 3, stride = 1), activation='ReLU'))
+        layers.append(TimeDistributed(Flatten()))
+        layers.extend(init_layer(nn.Linear(32 * 7 * 7, self.main_output_size), activation='ReLU'))
+        self.main = nn.Sequential(*layers)
+        
+        self.critic = init_layer(nn.Linear(self.main_output_size, 1))[0]
+        self.policy_logits = init_layer(nn.Linear(512, self.main_output_size), gain = 0.01)[0]
+
+    def forward(self, inputs):
+        main_features = self.main.forward(inputs)
+        policy_logits = self.policy_logits.forward(main_features)
+        critic = self.critic.forward(main_features)
+        return [policy_logits, critic]
+
+    @property
+    def output_names(self):
+        return ['policy_logits', 'value']
+
+
+class LSTMConv(TimeDistributedConv):
+    def __init__(self, num_inputs, num_outputs):
+        super().__init__(num_inputs, num_outputs)
+
+        self.lstm_layers = 1
+        self.lstm_hidden_size = 128
+        self.rnn = nn.LSTM(self.main_output_size, 
+            hidden_size = self.lstm_hidden_size, 
+            num_layers = self.lstm_layers,
+            batch_first = True)
+
+    def initial_states(self, batch_size):
+        return tuple([torch.zeros([self.lstm_layers, batch_size, self.lstm_hidden_size], dtype = torch.float32) for _ in range(2)])
+
+    def forward(self, inputs, masks, states):
+        main_features = self.main.forward(inputs)
+        main_features, states = forward_masked_rnn(main_features, masks, states, self.rnn.forward)
+
+        policy_logits = self.policy_logits.forward(main_features)
+        critic = self.critic.forward(main_features)
+        return [policy_logits, critic, states]
+
+class TimeDistributedMultiLayerPerceptron(nn.Module):
+    def __init__(self, input_size, output_size):
+        def init_layer(layer, activation = None, gain = None):
+            if activation is not None and gain is None:
+                gain = nn.init.calculate_gain(activation.lower())
+            elif activation is None and gain is None:
+                gain = 1.0
+
+            nn.init.orthogonal_(layer.weight.data, gain = gain)
+            nn.init.zeros_(layer.bias.data)
+            output = [TimeDistributed(layer)]
+            if activation is not None:
+                output.append(TimeDistributed(getattr(nn, activation)()))
+            return output
+
+        hidden_size = 512
+        self.actor = nn.Sequential(* \
+            init_layer(nn.Linear(input_size, hidden_size), activation='Tanh') + \
+            init_layer(nn.Linear(hidden_size, hidden_size), activation='Tanh') + \
+            init_layer(nn.Linear(hidden_size, output_size), activation=None, gain = 0.01)
+        )
+
+        self.critic = nn.Sequential(* \
+            init_layer(nn.Linear(input_size, hidden_size), activation='Tanh') + \
+            init_layer(nn.Linear(hidden_size, hidden_size), activation='Tanh') + \
+            init_layer(nn.Linear(hidden_size,1), activation=None, gain = 1.0)
+        )
+
+    def forward(self, inputs, masks, states):
+        x = inputs
+        return self.actor(x), self.critic(x), states
+
+
+class LSTMMultiLayerPerceptron(TimeDistributedMultiLayerPerceptron):
+    def __init__(self, input_size, output_size):
+        self.lstm_hidden_size = 64
+
+        super().__init__(self.lstm_hidden_size, output_size)
+        self.lstm = nn.LSTM(input_size, 
+            hidden_size = self.lstm_hidden_size, 
+            num_layers = 1,
+            batch_first = True)
+
+    def initial_states(self, batch_size):
+        return tuple([torch.zeros([1, batch_size, self.lstm_hidden_size], dtype = torch.float32) for _ in range(2)])
+
+    def forward(self, inputs, masks, states):
+        features = inputs
+        features, states = forward_masked_rnn(features, masks, states)
+        return super().forward(features, masks, states)
+    
