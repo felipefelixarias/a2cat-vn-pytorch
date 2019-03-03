@@ -190,8 +190,6 @@ class A2CTrainer(SingleTrainer, A2CModel):
 
 
     def _process_train(self, context, metric_context):
-        viz = context.get('visdom')
-
         batch, report = self._sample_experience_batch()
         loss, value_loss, action_loss, dist_entropy = self._train(*batch)
 
@@ -202,25 +200,4 @@ class A2CTrainer(SingleTrainer, A2CModel):
         metric_context.add_scalar('action_loss', action_loss)
         metric_context.add_scalar('entropy', dist_entropy)
         metric_context.add_last_value_scalar('fps', fps)
-
-        if self._global_t % (10 * self.num_processes * self.num_steps) == 0 and len(self.episode_rewards) > 1:
-            end = time.time()
-            print("Updates {}, num timesteps {}, FPS {} \n Last {} training episodes: mean/median reward {:.1f}/{:.1f}, min/max reward {:.1f}/{:.1f}\n".
-                format(self._global_t // (self.num_processes * self.num_steps), self._global_t,
-                       int(self._global_t / (end - self._tstart)),
-                       len(self.episode_rewards),
-                       np.mean(self.episode_rewards),
-                       np.median(self.episode_rewards),
-                       np.min(self.episode_rewards),
-                       np.max(self.episode_rewards), dist_entropy,
-                       value_loss, action_loss))
-
-        if self._global_t % (100  * self.num_processes * self.num_steps) == 0:
-            try:
-                # Sometimes monitor doesn't properly flush the outputs
-                self.win = visdom_plot(viz, self.win, self.log_dir.name, 'Breakout-v2', 'a2c', self.num_env_steps)
-            except IOError:
-                pass
-
-
         return self.num_steps * self.num_processes, report, metric_context

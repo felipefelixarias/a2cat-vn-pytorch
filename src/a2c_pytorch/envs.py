@@ -4,13 +4,16 @@ import gym
 import numpy as np
 import torch
 from gym.spaces.box import Box
+from copy import copy
 
 from baselines import bench
-from baselines.common.atari_wrappers import make_atari, wrap_deepmind
+from baselines.common.atari_wrappers import make_atari, wrap_deepmind, ScaledFloatFrame
 from baselines.common.vec_env import VecEnvWrapper
 from baselines.common.vec_env.subproc_vec_env import SubprocVecEnv
 from baselines.common.vec_env.dummy_vec_env import DummyVecEnv
 from baselines.common.vec_env.vec_normalize import VecNormalize as VecNormalize_
+from baselines.common.vec_env.vec_frame_stack import VecFrameStack
+from baselines.common.vec_env import VecEnvWrapper
 
 
 try:
@@ -62,11 +65,6 @@ def make_env(env_id, seed, rank, log_dir, add_timestep, allow_early_resets):
                 "please use a custom wrapper for a custom pixel input env.\n"
                 "See wrap_deepmind for an example.")
         
-        # If the input has shape (W,H,3), wrap for PyTorch convolutions
-        obs_shape = env.observation_space.shape
-        if len(obs_shape) == 3 and obs_shape[2] in [1, 3]:
-            env = TransposeImage(env, op=[2, 0, 1])
-
         return env
 
     return _thunk
@@ -87,13 +85,14 @@ def make_vec_envs(env_name, seed, num_processes, gamma, log_dir, add_timestep,
         else:
             envs = VecNormalize(envs, gamma=gamma)
 
-    envs = VecPyTorch(envs, device)
 
     if num_frame_stack is not None:
-        envs = VecPyTorchFrameStack(envs, num_frame_stack, device)
+        envs = VecFrameStack(envs, num_frame_stack)
     elif len(envs.observation_space.shape) == 3:
-        envs = VecPyTorchFrameStack(envs, 4, device)
+        envs = VecFrameStack(envs, 4)
 
+    # If the input has shape (W,H,3), wrap for PyTorch convolutions
+    envs = VecTransposeImage(envs)
     return envs
 
 
@@ -146,6 +145,27 @@ class TransposeImage(TransposeObs):
 
     def observation(self, ob):
         return ob.transpose(self.op[0], self.op[1], self.op[2])
+
+class VecTransposeImage(VecEnvWrapper):
+    def __init__(self, venv, transpose = [2, 0, 1]):
+        if venv.observation_space.__class__.__name__ != 'Box':
+            raise Exception('Env type %s is not supported' % venv.__class__.__name__)
+
+        self._transpose = (0,) + tuple([1 + x for x in transpose])
+        obs_space = copy(venv.observation_space)
+        obs_space.shape = tuple([obs_space.shape[i] for i in transpose])
+
+        super().__init__(venv, observation_space=obs_space)
+
+    def reset(self):
+        obs = self.venv.reset()
+        obs = np.transpose(obs, self._transpose)
+        return obs
+
+    def step_wait(self):
+        obs, reward, done, info = self.venv.step_wait()
+        obs = np.transpose(obs, self._transpose)
+        return obs, reward, done, info
 
 
 class VecPyTorch(VecEnvWrapper):

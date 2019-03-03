@@ -1,50 +1,60 @@
-import torch
 from collections import namedtuple
+from .core import RolloutBatch
+import numpy as np
 
-ExperienceSample = namedtuple('Experience', ['observations', 'returns', 'actions', 'masks'])
+class RolloutStorage:
+    def __init__(self, initial_observations):
+        self.num_processes = initial_observations.shape[0]
 
-class RolloutStorage(object):
-    def __init__(self, num_steps, num_processes, obs_shape, action_space, recurrent_hidden_state_size):
-        self.obs = torch.zeros(num_processes, num_steps + 1, *obs_shape)
-        self.rewards = torch.zeros(num_processes, num_steps)
-        self.value_preds = torch.zeros(num_processes, num_steps + 1)
-        self.returns = torch.zeros(num_processes, num_steps + 1)
-        self.action_log_probs = torch.zeros(num_processes, num_steps)
-        self.actions = torch.zeros(num_processes, num_steps).long()
-        self.masks = torch.ones(num_processes, num_steps + 1)
+        self._terminals = self._last_terminals = np.zeros(shape = (self.num_processes,), dtype = np.bool)
+        self._states = self._last_states = []
+        self._observations = self._last_observations = initial_observations
 
-        self.num_steps = num_steps
-        self.step = 0
+        self._batch = []
 
-    def to(self, device):
-        self.obs = self.obs.to(device)
-        self.rewards = self.rewards.to(device)
-        self.value_preds = self.value_preds.to(device)
-        self.returns = self.returns.to(device)
-        self.action_log_probs = self.action_log_probs.to(device)
-        self.actions = self.actions.to(device)
-        self.masks = self.masks.to(device)
+    def _transform_observation(self, observation):
+        return observation.astype(np.float32) / 255.0
 
-    def insert(self, obs, actions, action_log_probs, value_preds, rewards, masks):
-        self.obs[:,self.step + 1].copy_(obs)
-        self.actions[:,self.step].copy_(actions)
-        self.action_log_probs[:,self.step].copy_(action_log_probs)
-        self.value_preds[:,self.step].copy_(value_preds)
-        self.rewards[:,self.step].copy_(rewards)
-        self.masks[:,self.step + 1].copy_(masks)
+    @property
+    def observations(self):
+        return self._transform_observation(self._observations)
 
-        self.step = (self.step + 1) % self.num_steps
+    @property
+    def terminals(self):
+        return self._terminals.astype(np.float32)
 
-    def after_update(self):
-        self.obs[:,0].copy_(self.obs[:,-1])
-        self.masks[:,0].copy_(self.masks[:,-1])
+    @property
+    def states(self):
+        return self._states
 
-    def compute_returns(self, next_value, gamma):
-        self.returns[:,-1] = next_value
-        for step in reversed(range(self.rewards.size(1))):
-            self.returns[:,step] = self.returns[:,step + 1] * \
-                gamma * self.masks[:,step + 1] + self.rewards[:,step]
+    def insert(self, observations, actions, rewards, terminals, values):
+        self._batch.append((self._observations, actions, values, rewards, terminals))
+        self._observations = observations
+        self._terminals = terminals
 
-    def sample(self, next_value, gamma):
-        self.compute_returns(next_value, gamma)
-        return ExperienceSample(self.obs[:, :-1], self.returns[:, :-1], self.actions, self.masks)
+    def batch(self, last_values, gamma):
+        # Batch in time dimension
+        b_observations, b_actions, b_values, b_rewards, b_terminals = list(map(lambda *x: np.stack(x, axis = 1), *self._batch))
+
+        # Compute cummulative returns
+        last_returns = (1.0 - b_terminals[:, -1]) * last_values
+        b_returns = np.concatenate([np.zeros_like(b_rewards), np.expand_dims(last_returns, 1)], axis = 1)
+        for n in reversed(range(len(self._batch))):
+            b_returns[:, n] = b_rewards[:, n] + \
+                gamma * (1.0 - b_terminals[:, n]) * b_returns[:, n + 1]
+
+        # Compute RNN reset masks
+        b_masks = np.concatenate([np.expand_dims(self._last_terminals, 1), b_terminals[:,:-1]], axis = 1)
+        result = RolloutBatch(
+            self._transform_observation(b_observations),
+            b_returns[:, :-1].astype(np.float32), 
+            b_actions, 
+            b_masks.astype(np.float32),
+            self._last_states
+        )
+
+        self._last_observations = self._observations
+        self._last_states = self._states
+        self._last_terminals = self._terminals
+        self._batch = []
+        return result
