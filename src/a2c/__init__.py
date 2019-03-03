@@ -1,1 +1,1 @@
-from .a2c import A2CTrainer as Trainer
+from .a2c import A2CTrainer, A2CAgent

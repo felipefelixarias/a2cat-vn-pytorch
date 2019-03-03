@@ -3,7 +3,7 @@ from collections import namedtuple
 import numpy as np
 from common.train import AbstractTrainer, SingleTrainer
 from common.env import VecTransposeImage, make_vec_envs
-from common import MetricContext
+from common import MetricContext, AbstractAgent
 
 import gym
 
@@ -50,7 +50,7 @@ class A2CModel:
         if hasattr(model, 'initial_states'):
             self._initial_states = getattr(model, 'initial_states')
         else:
-            self._initial_states = lambda: []
+            self._initial_states = lambda _: []
 
         cuda_devices = torch.cuda.device_count()
         if cuda_devices == 0 or not allow_gpu:
@@ -211,3 +211,46 @@ class A2CTrainer(SingleTrainer, A2CModel):
         metric_context.add_scalar('entropy', dist_entropy)
         metric_context.add_last_value_scalar('fps', fps)
         return self.num_steps * self.num_processes, report, metric_context
+
+class A2CAgent(AbstractAgent):
+    def __init__(self, *args, **kwargs):
+        self.__init__(*args, **kwargs)
+
+        self.model = self._initialize()
+        self.states = None
+        
+    @abstractclassmethod
+    def create_model(self):
+        pass
+
+    def _initialize(self):
+        path = os.path.join('./checkpoints', self.name, 'weights.pth')
+        model = self.create_model()
+        model.load_state_dict(torch.load(path, map_location=torch.device('cpu')))
+
+        def step(observation, states = None):
+            with torch.no_grad:
+                observation = torch.from_numpy(observation)
+                if states is None and hasattr(model, 'initial_states'):
+                    states = getattr(model, 'initial_states')(1)
+                elif states is None:
+                    states = []
+
+                observations = observation.unsqueeze(0).unsqueeze(0)
+                masks = torch.ones([1, 1], dtype = torch.float32)
+                policy_logits, value, states = model.forward(observations, masks, states)
+                dist = torch.distributions.Categorical(logits = policy_logits)
+                action = dist.sample()
+                return action.squeeze().detach().item().numpy(), detach_all(states)
+
+
+        self._step = step
+        return model
+
+
+    def reset_state(self):
+        self.states = None
+
+    def act(state):
+        action, self.states = self._step(state, self.states)
+        return action

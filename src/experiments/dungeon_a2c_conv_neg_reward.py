@@ -1,13 +1,9 @@
-from common.train_wrappers import wrap
 import os
 import gym
 from functools import reduce
-from keras.layers import Input, Dense, Concatenate, Lambda, PReLU, Flatten, Conv2D, TimeDistributed
-from keras.models import Model
-from keras import initializers
-import keras.backend as K
 from common import register_trainer, make_trainer, register_agent, make_agent
-from a2c.a2c import A2CTrainer, A2CAgent
+from a2c import A2CTrainer, A2CAgent
+from a2c.model import TimeDistributedConv
 import numpy as np
 
 from graph.env import SimpleGraphEnv
@@ -21,8 +17,17 @@ class FlatWrapper(gym.ObservationWrapper):
     def observation(self, observation):
         return np.reshape(observation, [-1])
 
+def create_model():
+    return TimeDistributedConv(3, 4)
 
-register_agent('dungeon-a2c-conv-neg-reward')(A2CAgent)
+@register_agent('dungeon-a2c-conv-neg-reward')
+class Agent(A2CAgent):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def create_model(self):
+        return create_model()
+
 @register_trainer('dungeon-a2c-conv-neg-reward', max_time_steps = 100000000, validation_period = 1000,  episode_log_interval = 100, saving_period = 500000)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
@@ -34,18 +39,8 @@ class Trainer(A2CTrainer):
 
         self._last_figure_draw = 0
 
-    def create_model(self, action_space_size, **kwargs):
-        inputs = [Input(batch_shape = (None, None, 20,20,3))]
-        model = inputs[0]
-        model = TimeDistributed(Conv2D(32, (8, 8), strides=(4, 4), activation = 'relu'))(model)
-        model = TimeDistributed(Flatten())(model)
-        policy = TimeDistributed(Dense(64, activation = 'relu'))(model)
-        policy = TimeDistributed(Dense(action_space_size, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01), activation = 'sigmoid'))(policy)
-        value = TimeDistributed(Dense(64, activation = 'relu'))(model)
-        value = TimeDistributed(Dense(1, activation = None, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01)))(value)
-
-        model = Model(inputs = inputs, outputs = [policy, value])
-        return model
+    def create_model(self):
+        return create_model()
 
     def on_graph_built(self, sess, policy_distribution, rnn_model, model, values, **kwargs):
         action = policy_distribution.mode()
@@ -108,5 +103,5 @@ def default_args():
     #env.unwrapped.set_complexity(0.1)
     return dict(
         env_kwargs = env,
-        model_kwargs = dict(action_space_size = 4)
+        model_kwargs = dict()
     )
