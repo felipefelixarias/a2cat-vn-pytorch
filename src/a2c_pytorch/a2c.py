@@ -31,20 +31,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from a2c_ppo_acktr import algo
-from a2c_ppo_acktr.arguments import get_args
-from a2c_pytorch.envs import make_vec_envs
-from a2c.model import Policy
-from a2c_pytorch.storage import RolloutStorage
-from a2c_ppo_acktr.utils import get_vec_normalize, update_linear_schedule
-from a2c_ppo_acktr.visualize import visdom_plot
 from a2c.model import CNNBase, TimeDistributed
 
 from a2c.storage import RolloutStorage
 from a2c_pytorch.core import pytorch_call, to_tensor, to_numpy
-
-device = 'cpu:0'
-
+from common.env import VecTransposeImage, make_vec_envs
 
 class A2CModel:
     def __init__(self, *args, **kwargs):
@@ -66,8 +57,18 @@ class A2CModel:
     def learning_rate(self):
         return 7e-4
 
-    def _build_graph(self):
+    def _build_graph(self, devices = []):
+        if len(devices) == 0:
+            devices = ['cpu']
+
         model = self.build_model()
+        if len(devices) > 1:
+            main_device = 'cpu'
+            model = nn.DataParallel(model, devices, output_device=main_device)
+        else:
+            main_device = devices[0]
+            model = model.to(main_device)
+
         optimizer = optim.RMSprop(model.parameters(), self.learning_rate, eps=self.rms_epsilon, alpha=self.rms_alpha)
 
         # Build train and act functions
@@ -98,7 +99,7 @@ class A2CModel:
             with torch.no_grad():
                 batch_size = observations.size()[0]
                 observations = observations.view(batch_size, 1, *observations.size()[1:])
-                masks = masks.view(1, *masks.size())
+                masks = masks.view(batch_size, 1)
 
                 policy_logits, value = model.forward(observations, masks)
                 dist = torch.distributions.Categorical(logits = policy_logits)
@@ -110,20 +111,21 @@ class A2CModel:
             with torch.no_grad():
                 batch_size = observations.size()[0]
                 observations = observations.view(batch_size, 1, *observations.size()[1:])
-                masks = masks.view(1, *masks.size())
+                masks = masks.view(batch_size, 1)
 
                 _, value = model.forward(observations, masks)
                 return value.squeeze(1).squeeze(-1).detach()
 
-        self._step = step
-        self._value = value
-        self._train = train
+        self._step = pytorch_call(main_device)(step)
+        self._value = pytorch_call(main_device)(value)
+        self._train = pytorch_call(main_device)(train)
         return model
 
 class A2CTrainer(SingleTrainer, A2CModel):
-    def __init__(self, name, env_kwargs, model_kwargs):
+    def __init__(self, name, env_kwargs, model_kwargs, devices = []):
         super().__init__(env_kwargs = env_kwargs, model_kwargs = model_kwargs)
         self.name = name
+        self.devices = devices if len(devices) > 0 else ['cpu']
         self.num_steps = 5
         self.num_processes = 16
         self.num_env_steps = int(10e6)
@@ -133,12 +135,7 @@ class A2CTrainer(SingleTrainer, A2CModel):
         self.win = None
 
     def _initialize(self):
-        super()._build_graph()
-
-        self._step = pytorch_call(device)(self._step)
-        self._train = pytorch_call(device)(self._train)
-        self._value = pytorch_call(device)(self._value)
-
+        super()._build_graph(self.devices)
         self.episode_rewards = deque(maxlen=10)
 
         self._tstart = time.time()
@@ -151,8 +148,15 @@ class A2CTrainer(SingleTrainer, A2CModel):
 
     def create_env(self, env):
         self.log_dir = tempfile.TemporaryDirectory()
-        return make_vec_envs(env, 1, self.num_processes,
-                        self.gamma, self.log_dir.name, None, device, False)
+
+        seed = 1
+        self.validation_env = make_vec_envs(env, seed, 1, self.gamma, self.log_dir.name, None, False)
+        self.validation_env = VecTransposeImage(self.validation_env)
+
+        envs = make_vec_envs(env, seed + 1, self.num_processes,
+                        self.gamma, self.log_dir.name, None, False)
+        return VecTransposeImage(envs)
+        
 
     def process(self, context, mode = 'train', **kwargs):
         metric_context = MetricContext()
@@ -186,7 +190,7 @@ class A2CTrainer(SingleTrainer, A2CModel):
         batched = self.rollouts.batch(last_values, self.gamma)
 
         # Prepare next batch starting point
-        return to_tensor(batched, device), (len(finished_episodes[0]),) + finished_episodes
+        return batched, (len(finished_episodes[0]),) + finished_episodes
 
 
     def _process_train(self, context, metric_context):
