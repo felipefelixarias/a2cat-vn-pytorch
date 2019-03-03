@@ -2,40 +2,27 @@ from abc import abstractclassmethod
 from collections import namedtuple
 import numpy as np
 from common.train import AbstractTrainer, SingleTrainer
+from common.env import VecTransposeImage, make_vec_envs
 from common import MetricContext
-import torch
 
 import gym
-from common.vec_env import SubprocVecEnv
+
 import tempfile
 
-
-
-
-
-
-
-
-
-
-import copy
-import glob
-import os
-import time
-from collections import deque
-
-import gym
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-from a2c.model import CNNBase, TimeDistributed
+import copy
+import glob
+import os
+import time
 
-from a2c.storage import RolloutStorage
-from a2c_pytorch.core import pytorch_call, to_tensor, to_numpy
-from common.env import VecTransposeImage, make_vec_envs
+from .model import TimeDistributedCNN
+from .storage import RolloutStorage
+from .core import pytorch_call, to_tensor, to_numpy
+
 
 class A2CModel:
     def __init__(self, *args, **kwargs):
@@ -51,7 +38,7 @@ class A2CModel:
         self._train = self._step = self._value = not_initialized
 
     def build_model(self):
-        return TimeDistributed(CNNBase(self.env.observation_space.shape[0], self.env.action_space.n))
+        return TimeDistributedCNN(self.env.observation_space.shape[0], self.env.action_space.n)
 
     @property
     def learning_rate(self):
@@ -62,6 +49,7 @@ class A2CModel:
         cuda_devices = torch.cuda.device_count()
         if cuda_devices == 0:
             print('Using CPU only')
+            main_device = torch.device('cpu')
             get_state_dict = lambda: model.state_dict()
         elif cuda_devices > 1:
             print('Using %s GPUs' % cuda_devices)
@@ -80,7 +68,7 @@ class A2CModel:
 
         # Build train and act functions
         def train(observations, returns, actions, masks, states = []):
-            policy_logits, value = model.forward(observations, masks)
+            policy_logits, value = model.forward(observations, masks, states)
 
             dist = torch.distributions.Categorical(logits = policy_logits)
             action_log_probs = dist.log_prob(actions)
@@ -108,7 +96,7 @@ class A2CModel:
                 observations = observations.view(batch_size, 1, *observations.size()[1:])
                 masks = masks.view(batch_size, 1)
 
-                policy_logits, value = model.forward(observations, masks)
+                policy_logits, value = model.forward(observations, masks, states)
                 dist = torch.distributions.Categorical(logits = policy_logits)
                 action = dist.sample()
                 action_log_probs = dist.log_prob(action)
@@ -120,7 +108,7 @@ class A2CModel:
                 observations = observations.view(batch_size, 1, *observations.size()[1:])
                 masks = masks.view(batch_size, 1)
 
-                _, value = model.forward(observations, masks)
+                _, value = model.forward(observations, masks, states)
                 return value.squeeze(1).squeeze(-1).detach()
 
         def save(path):
@@ -146,10 +134,7 @@ class A2CTrainer(SingleTrainer, A2CModel):
 
     def _initialize(self):
         super()._build_graph()
-        self.episode_rewards = deque(maxlen=10)
-
         self._tstart = time.time()
-
         self.rollouts = RolloutStorage(self.env.reset())  
 
     def _finalize(self):
@@ -179,18 +164,14 @@ class A2CTrainer(SingleTrainer, A2CModel):
     def _sample_experience_batch(self):
         finished_episodes = ([], [])
         for _ in range(self.num_steps):
-            # Given observations, take action and value (V(s))
-            # We already have self.obs because Runner superclass run self.obs[:] = env.reset() on init
             actions, values, action_log_prob = self._step(self.rollouts.observations, self.rollouts.terminals, self.rollouts.states)
 
             # Take actions in env and look the results
             observations, rewards, terminals, infos = self.env.step(actions)
 
             # Collect true rewards
-
             for info in infos:
                 if 'episode' in info.keys():
-                    self.episode_rewards.append(info['episode']['r'])
                     finished_episodes[0].append(info['episode']['l'])
                     finished_episodes[1].append(info['episode']['r'])
             
