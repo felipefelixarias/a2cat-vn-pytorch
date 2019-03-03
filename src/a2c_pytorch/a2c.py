@@ -62,16 +62,20 @@ class A2CModel:
         cuda_devices = torch.cuda.device_count()
         if cuda_devices == 0:
             print('Using CPU only')
+            get_state_dict = lambda: model.state_dict()
         elif cuda_devices > 1:
             print('Using %s GPUs' % cuda_devices)
             main_device = torch.device('cuda:0')
             model = nn.DataParallel(model, output_device=main_device)
             model = model.to(main_device)
+            get_state_dict = lambda: model.module.state_dict()
         else:
             print('Using single GPU')
             main_device = torch.device('cuda:0')
             model = model.to(main_device)
+            get_state_dict = lambda: model.state_dict()
 
+        model.train()
         optimizer = optim.RMSprop(model.parameters(), self.learning_rate, eps=self.rms_epsilon, alpha=self.rms_alpha)
 
         # Build train and act functions
@@ -119,9 +123,13 @@ class A2CModel:
                 _, value = model.forward(observations, masks)
                 return value.squeeze(1).squeeze(-1).detach()
 
+        def save(path):
+            torch.save(get_state_dict(), os.path.join(path, 'weights.pth'))
+
         self._step = pytorch_call(main_device)(step)
         self._value = pytorch_call(main_device)(value)
         self._train = pytorch_call(main_device)(train)
+        self.save = save
         return model
 
 class A2CTrainer(SingleTrainer, A2CModel):
