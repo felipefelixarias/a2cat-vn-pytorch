@@ -13,7 +13,10 @@ class RolloutStorage:
         self._batch = []
 
     def _transform_observation(self, observation):
-        return observation.astype(np.float32) / 255.0
+        if observation.dtype == np.uint8:
+            return observation.astype(np.float32) / 255.0
+        else:
+            return observation.astype(np.float32)
 
     @property
     def observations(self):
@@ -22,6 +25,10 @@ class RolloutStorage:
     @property
     def terminals(self):
         return self._terminals.astype(np.float32)
+
+    @property
+    def masks(self):
+        return 1 - self.terminals
 
     @property
     def states(self):
@@ -45,7 +52,7 @@ class RolloutStorage:
                 gamma * (1.0 - b_terminals[:, n]) * b_returns[:, n + 1]
 
         # Compute RNN reset masks
-        b_masks = np.concatenate([np.expand_dims(self._last_terminals, 1), b_terminals[:,:-1]], axis = 1)
+        b_masks = (1 - np.concatenate([np.expand_dims(self._last_terminals, 1), b_terminals[:,:-1]], axis = 1))
         result = RolloutBatch(
             self._transform_observation(b_observations),
             b_returns[:, :-1].astype(np.float32), 
