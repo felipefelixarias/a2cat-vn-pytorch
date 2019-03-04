@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from collections import namedtuple
+from math import ceil
 
 RolloutBatch = namedtuple('RolloutBatch', ['observations', 'returns','actions', 'masks', 'states'])
 KeepTensor = namedtuple('KeepTensor', ['data'])
@@ -107,3 +108,38 @@ def forward_masked_rnn(inputs, masks, states, forward_rnn):
     
     # flatten
     return outputs, states
+
+
+def minibatch_gradient_update(self, inputs, compute_gradient_fn, zero_grad_fn, optimize_fn, minibatch_size = None):
+    def split_inputs(inputs, chunks, axis):
+        if isinstance(inputs, list):
+            return list(map(list, split_inputs(tuple(inputs), chunks, axis)))
+        elif isinstance(inputs, tuple):
+            return list(zip(*[split_inputs(x, chunks, axis) for x in inputs]))
+        else:
+            return torch.chunk(inputs, chunks, axis)                
+
+    batch_size = inputs[1].size()[0]
+    if minibatch_size is None:
+        minibatch_size = batch_size
+
+    # Compute chunks
+    chunks = int(ceil(float(batch_size) / float(minibatch_size)))
+
+    # Split inputs to chunks
+    if chunks != 1:
+        main_inputs = split_inputs(inputs[:-1], chunks, 0)
+        states_inputs = split_inputs(inputs[-1:], chunks, 1)
+        inputs = [x + y for x, y in zip(main_inputs, states_inputs)]
+    else:
+        inputs = [inputs]
+
+    zero_grad_fn()
+    for minibatch in inputs:
+        compute_gradient_fn(*minibatch)
+
+    optimize_fn()
+
+
+    minibatch_size = int(ceil(float(batch_size) / float(chunks)))
+    return minibatch_size
