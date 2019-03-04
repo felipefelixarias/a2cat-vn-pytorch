@@ -158,7 +158,6 @@ class A2CTrainer(SingleTrainer, A2CModel):
         self.name = name
         self.num_steps = 5
         self.num_processes = 16
-        self.num_env_steps = int(10e6)
         self.gamma = 0.99
         self.allow_gpu = True
 
