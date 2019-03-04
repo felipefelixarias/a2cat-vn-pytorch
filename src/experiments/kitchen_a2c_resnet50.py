@@ -48,15 +48,12 @@ def create_model(num_steps):
     return _Model()
 
 
-register_agent('kitchen-a2c-last-frames')(A2CAgent)
-@register_trainer('kitchen-a2c-last-frames', max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10, saving_period = 10000)
+@register_trainer(max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10, saving_period = 10000)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.n_envs = 32
-        self.n_steps = 5
-        self.n_timeframes = 4
-        self.minibatch_size = 1
+        self.num_processes = 16
+        self.num_steps = 5
         self.total_timesteps = 1000000
         self.gamma = 1.0
 
@@ -69,7 +66,7 @@ def default_args():
     with open('./scenes/kitchen-224.pkl', 'rb') as f:
         graph = load_graph(f)
 
-    env = lambda: TimeLimit(OrientedGraphEnv(graph, (0,4)), max_episode_steps = 100)
+    env = lambda: TimeLimit(OrientedGraphEnv(graph, (0,4), rewards=[0.0, -1.0, -1.0]), max_episode_steps = 100)
     return dict(
         env_kwargs = dict(
             id = env,
