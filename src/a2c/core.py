@@ -130,7 +130,10 @@ def minibatch_gradient_update(inputs, compute_loss_fn, zero_grad_fn, optimize_fn
 
     main_inputs = split_inputs(inputs[:-1], chunks, 0)
     states_inputs = split_inputs(inputs[-1:], chunks, 1)
-    inputs = [x + y for x, y in zip(main_inputs, states_inputs)]
+    if len(states_inputs) == 0:
+        inputs = [x + ([],) for x in main_inputs]
+    else:
+        inputs = [x + y for x, y in zip(main_inputs, states_inputs)]
 
     # Zero gradients
     zero_grad_fn()
@@ -164,10 +167,10 @@ class AutoBatchSizeOptimizer:
             try:
                 results = minibatch_gradient_update(inputs, self.compute_loss_fn, self.zero_grad_fn, self.apply_gradients_fn, self._chunks)
             except RuntimeError as e:
-                if 'out of memory' in str(e).lower():
+                if 'out of memory' in str(e).lower() and self._chunks < batch_size:
                     # We will try to recover from this error
                     torch.cuda.empty_cache()
-                    print('Training failed with mini-batch size %s' % ceil(float(batch_size) / float(self._chunks)))
+                    print('ERROR: Training failed with mini-batch size %s' % ceil(float(batch_size) / float(self._chunks)))
                     print('Trying to split the minibatch (%s -> %s)' % (self._chunks, self._chunks + 1))
                     print('Resuming training')
                     self._chunks += 1
