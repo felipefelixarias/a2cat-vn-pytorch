@@ -73,6 +73,23 @@ def TimeDistributedCNN(num_inputs, num_outputs):
     model.forward = lambda inputs, masks, states: _forward(inputs) + (states, )
     return model
 
+class TimeDistributedModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def init_layer(self, layer, activation = None, gain = None):
+        if activation is not None and gain is None:
+            gain = nn.init.calculate_gain(activation.lower())
+        elif activation is None and gain is None:
+            gain = 1.0
+
+        nn.init.orthogonal_(layer.weight.data, gain = gain)
+        nn.init.zeros_(layer.bias.data)
+        output = [TimeDistributed(layer)]
+        if activation is not None:
+            output.append(TimeDistributed(getattr(nn, activation)()))
+        return output
+
 class TimeDistributedConv(nn.Module):
     def __init__(self, num_inputs, num_outputs):
         super().__init__()

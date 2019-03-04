@@ -115,7 +115,7 @@ class SimpleGraphEnv(gym.Env):
         return observation
 
     def step(self, action):
-        if action is None:
+        if action is None or action == -1:
             # Return the latest observation
             return self.observe(self.state), 0.0, False, dict()
 
@@ -194,7 +194,7 @@ class MultipleGraphEnv(gym.Env):
         return observation
 
     def step(self, action):
-        if action is None:
+        if action is None or action == -1:
             # Return the latest observation
             return self.observe(self.state), 0.0, False, dict()
 
