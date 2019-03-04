@@ -3,13 +3,10 @@ from common.env_wrappers import ColorObservationWrapper
 import os
 import gym
 from functools import reduce
-from keras.layers import Input, Dense, Concatenate, Lambda, PReLU, Flatten, Conv2D, TimeDistributed
-from keras.models import Model
-from keras import initializers
 from math import sqrt
-import keras.backend as K
 from common import register_trainer, make_trainer, register_agent, make_agent
-from a2c.a2c import A2CTrainer, A2CAgent, MonitorWrapper
+from a2c import A2CTrainerDynamicBatch as A2CTrainer
+from a2c.model import TimeDistributedConv
 import numpy as np
 from gym.wrappers import TimeLimit
 from baselines.common.atari_wrappers import make_atari, wrap_deepmind
@@ -19,8 +16,7 @@ class FlatWrapper(gym.ObservationWrapper):
         return np.reshape(observation, [-1])
 
 
-register_agent('breakout-a2c')(A2CAgent)
-@register_trainer('breakout-a2c', max_time_steps = 10e6, validation_period = 100,  episode_log_interval = 10, saving_period = 500000)
+@register_trainer(max_time_steps = 10e6, validation_period = None,  episode_log_interval = 10, save = False)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -28,24 +24,13 @@ class Trainer(A2CTrainer):
         self.n_steps = 5
         self.total_timesteps = 10e6
         self.gamma = .99
+        self.devices = ['cuda:0']
 
-    def create_model(self, action_space_size, **kwargs):
-        inputs = [Input(batch_shape = (None, None, 84,84,1))]
-        model = inputs[0]
-        model = TimeDistributed(Conv2D(32, (8, 8), strides=(4, 4), bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=sqrt(2)), activation = 'relu'))(model)
-        model = TimeDistributed(Conv2D(64, (4, 4), strides=(2, 2), bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=sqrt(2)), activation = 'relu'))(model)
-        model = TimeDistributed(Conv2D(32, 3, strides=1, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=sqrt(2)), activation = 'relu'))(model)
-        model = TimeDistributed(Flatten())(model)
-        model = TimeDistributed(Dense(512, kernel_initializer = initializers.Orthogonal(gain=sqrt(2)), bias_initializer = 'zeros', activation = 'relu'))(model)
-        policy_logits = TimeDistributed(Dense(action_space_size, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01), activation = None))(model)
-        value = TimeDistributed(Dense(1, activation = None, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=1.0)))(model)
-
-        model = Model(inputs = inputs, outputs = [policy_logits, value])
-        model.output_names = ['policy_logits', 'value']
-        return model
+    def create_model(self):
+        return TimeDistributedConv(self.env.observation_space.shape[0], self.env.action_space.n)
 
 def default_args():
     return dict(
-        env_kwargs = lambda: wrap_deepmind(MonitorWrapper(make_atari('BreakoutNoFrameskip-v4')), scale=True),
-        model_kwargs = dict(action_space_size = 4)
+        env_kwargs = 'BreakoutNoFrameskip-v4',
+        model_kwargs = dict()
     )
