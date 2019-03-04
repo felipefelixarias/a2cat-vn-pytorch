@@ -110,7 +110,7 @@ def forward_masked_rnn(inputs, masks, states, forward_rnn):
     return outputs, states
 
 
-def minibatch_gradient_update(self, inputs, compute_gradient_fn, zero_grad_fn, optimize_fn, minibatch_size = None):
+def minibatch_gradient_update(self, inputs, compute_loss_fn, zero_grad_fn, optimize_fn, minibatch_size = None):
     def split_inputs(inputs, chunks, axis):
         if isinstance(inputs, list):
             return list(map(list, split_inputs(tuple(inputs), chunks, axis)))
@@ -127,19 +127,35 @@ def minibatch_gradient_update(self, inputs, compute_gradient_fn, zero_grad_fn, o
     chunks = int(ceil(float(batch_size) / float(minibatch_size)))
 
     # Split inputs to chunks
-    if chunks != 1:
-        main_inputs = split_inputs(inputs[:-1], chunks, 0)
-        states_inputs = split_inputs(inputs[-1:], chunks, 1)
-        inputs = [x + y for x, y in zip(main_inputs, states_inputs)]
-    else:
-        inputs = [inputs]
+    if chunks == 1:
+        zero_grad_fn()
+        losses = compute_loss_fn(*inputs)
+        losses[0].backward()
+        optimize_fn()
+        return [x.item() for x in losses]
 
+
+    main_inputs = split_inputs(inputs[:-1], chunks, 0)
+    states_inputs = split_inputs(inputs[-1:], chunks, 1)
+    inputs = [x + y for x, y in zip(main_inputs, states_inputs)]
+
+    # Zero gradients
     zero_grad_fn()
+    total_results = None
     for minibatch in inputs:
-        compute_gradient_fn(*minibatch)
+        results = compute_loss_fn(*minibatch)
+        results = list(map(lambda x: x / minibatch[1].size(0), results))
+        loss = results[0]
+        loss.backward()
 
+        if total_results is None:
+            total_results = results
+        else:
+            total_results = list(map(lambda x,y: x + y, total_results, results))
+
+    # Optimize
     optimize_fn()
 
 
     minibatch_size = int(ceil(float(batch_size) / float(chunks)))
-    return minibatch_size
+    return minibatch_size, [x.item() for x in total_results]
