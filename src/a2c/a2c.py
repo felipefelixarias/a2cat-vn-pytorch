@@ -59,6 +59,34 @@ class A2CModel:
         shapes = (batch_shape + self.env.observation_space.shape, batch_shape, get_shape_rec(self._initial_states(self.num_processes)))
         minimal_summary(model, shapes)
 
+    def _build_train(self, model, main_device):
+        optimizer = optim.RMSprop(model.parameters(), self.learning_rate, eps=self.rms_epsilon, alpha=self.rms_alpha)
+        @pytorch_call(main_device)
+        def train(observations, returns, actions, masks, states = []):
+            policy_logits, value, _ = model(observations, masks, states)
+
+            dist = torch.distributions.Categorical(logits = policy_logits)
+            action_log_probs = dist.log_prob(actions)
+            dist_entropy = dist.entropy().mean()
+            
+            # Compute losses
+            advantages = returns - value.squeeze(-1)
+            value_loss = advantages.pow(2).mean()
+            action_loss = -(advantages.detach() * action_log_probs).mean()
+            loss = value_loss * self.value_coefficient + \
+                action_loss - \
+                dist_entropy * self.entropy_coefficient   
+
+            # Optimize
+            optimizer.zero_grad()
+            loss.backward()
+            nn.utils.clip_grad_norm_(model.parameters(), self.max_gradient_norm)
+            optimizer.step()
+
+            return loss.item(), action_loss.item(), value_loss.item(), dist_entropy.item()
+
+        return train
+
     def _build_graph(self, allow_gpu, **model_kwargs):
         model = self.create_model(**model_kwargs)
         if hasattr(model, 'initial_states'):
@@ -87,32 +115,9 @@ class A2CModel:
             get_state_dict = lambda: model.state_dict()
 
         model.train()
-        optimizer = optim.RMSprop(model.parameters(), self.learning_rate, eps=self.rms_epsilon, alpha=self.rms_alpha)
 
         # Build train and act functions
-        @pytorch_call(main_device)
-        def train(observations, returns, actions, masks, states = []):
-            policy_logits, value, _ = model(observations, masks, states)
-
-            dist = torch.distributions.Categorical(logits = policy_logits)
-            action_log_probs = dist.log_prob(actions)
-            dist_entropy = dist.entropy().mean()
-            
-            # Compute losses
-            advantages = returns - value.squeeze(-1)
-            value_loss = advantages.pow(2).mean()
-            action_loss = -(advantages.detach() * action_log_probs).mean()
-            loss = value_loss * self.value_coefficient + \
-                action_loss - \
-                dist_entropy * self.entropy_coefficient   
-
-            # Optimize
-            optimizer.zero_grad()
-            loss.backward()
-            nn.utils.clip_grad_norm_(model.parameters(), self.max_gradient_norm)
-            optimizer.step()
-
-            return loss.item(), action_loss.item(), value_loss.item(), dist_entropy.item()
+        self._train = self._build_train(model, main_device)
 
         @pytorch_call(main_device)
         def step(observations, masks, states):
@@ -143,7 +148,6 @@ class A2CModel:
 
         self._step = step
         self._value = value
-        self._train = train
         self.save = save
         self.main_device = main_device
         return model

@@ -110,7 +110,7 @@ def forward_masked_rnn(inputs, masks, states, forward_rnn):
     return outputs, states
 
 
-def minibatch_gradient_update(self, inputs, compute_loss_fn, zero_grad_fn, optimize_fn, minibatch_size = None):
+def minibatch_gradient_update(inputs, compute_loss_fn, zero_grad_fn, optimize_fn, minibatch_size = None):
     def split_inputs(inputs, chunks, axis):
         if isinstance(inputs, list):
             return list(map(list, split_inputs(tuple(inputs), chunks, axis)))
@@ -159,3 +159,14 @@ def minibatch_gradient_update(self, inputs, compute_loss_fn, zero_grad_fn, optim
 
     minibatch_size = int(ceil(float(batch_size) / float(chunks)))
     return minibatch_size, [x.item() for x in total_results]
+
+class AutoBatchSizeOptimizer:
+    def __init__(self, zero_grad_fn, compute_loss_fn, apply_gradients_fn):
+        self._batch_size = None
+        self.zero_grad_fn = zero_grad_fn
+        self.compute_loss_fn = compute_loss_fn
+        self.apply_gradients_fn = apply_gradients_fn
+
+    def optimize(self, inputs):
+        self._batch_size, results = minibatch_gradient_update(inputs, self.compute_loss_fn, self.zero_grad_fn, self.apply_gradients_fn, self._batch_size)
+        return results
