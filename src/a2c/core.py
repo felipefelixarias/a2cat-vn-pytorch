@@ -110,21 +110,14 @@ def forward_masked_rnn(inputs, masks, states, forward_rnn):
     return outputs, states
 
 
-def minibatch_gradient_update(inputs, compute_loss_fn, zero_grad_fn, optimize_fn, minibatch_size = None):
+def minibatch_gradient_update(inputs, compute_loss_fn, zero_grad_fn, optimize_fn, chunks = 1):
     def split_inputs(inputs, chunks, axis):
         if isinstance(inputs, list):
             return list(map(list, split_inputs(tuple(inputs), chunks, axis)))
         elif isinstance(inputs, tuple):
             return list(zip(*[split_inputs(x, chunks, axis) for x in inputs]))
         else:
-            return torch.chunk(inputs, chunks, axis)                
-
-    batch_size = inputs[1].size()[0]
-    if minibatch_size is None:
-        minibatch_size = batch_size
-
-    # Compute chunks
-    chunks = int(ceil(float(batch_size) / float(minibatch_size)))
+            return torch.chunk(inputs, chunks, axis)
 
     # Split inputs to chunks
     if chunks == 1:
@@ -155,18 +148,30 @@ def minibatch_gradient_update(inputs, compute_loss_fn, zero_grad_fn, optimize_fn
 
     # Optimize
     optimize_fn()
-
-
-    minibatch_size = int(ceil(float(batch_size) / float(chunks)))
-    return minibatch_size, [x.item() for x in total_results]
+    return [x.item() for x in total_results]
 
 class AutoBatchSizeOptimizer:
     def __init__(self, zero_grad_fn, compute_loss_fn, apply_gradients_fn):
-        self._batch_size = None
+        self._chunks = 1
         self.zero_grad_fn = zero_grad_fn
         self.compute_loss_fn = compute_loss_fn
         self.apply_gradients_fn = apply_gradients_fn
 
     def optimize(self, inputs):
-        self._batch_size, results = minibatch_gradient_update(inputs, self.compute_loss_fn, self.zero_grad_fn, self.apply_gradients_fn, self._batch_size)
+        batch_size = inputs[1].size()[0]
+        results = None
+        while results is None:
+            try:
+                results = minibatch_gradient_update(inputs, self.compute_loss_fn, self.zero_grad_fn, self.apply_gradients_fn, self._chunks)
+            except RuntimeError as e:
+                if 'out of memory' in str(e).lower():
+                    # We will try to recover from this error
+                    torch.cuda.empty_cache()
+                    print('Training failed with mini-batch size %s' % ceil(float(batch_size) / float(self._chunks)))
+                    print('Trying to split the minibatch (%s -> %s)' % (self._chunks, self._chunks + 1))
+                    print('Resuming training')
+                    self._chunks += 1
+                else:
+                    raise e
+
         return results
