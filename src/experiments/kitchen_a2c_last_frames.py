@@ -14,14 +14,14 @@ from graph.util import load_graph
 from gym.wrappers import TimeLimit
 from common.env_wrappers import FrameStack
 from a2c.model import TimeDistributedModel, TimeDistributed, Flatten
-from model.resnet import resnet50
+from model.resnet import resnet50, resnet18
 
 
 def create_model(num_steps):
     class _Model(TimeDistributedModel):
         def __init__(self):
             super().__init__()
-            self.resnet = TimeDistributed(resnet50(pretrained = True))
+            self.resnet = TimeDistributed(resnet18(pretrained = True))
 
             self.main_merged = nn.Sequential(*
                 self.init_layer(nn.Conv2d(num_steps * 4 * 512, 64, 1), activation = 'ReLU') + \
