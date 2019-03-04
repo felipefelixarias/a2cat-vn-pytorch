@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from a2c.model import TimeDistributed
 
 from collections import OrderedDict
 import numpy as np
@@ -32,41 +31,79 @@ def sum_space(sizes):
     else:
         return sizes
 
+def shrink_shape(shape):
+    res = None
+    if isinstance(shape, tuple):
+        res = shrink_shape(list(shape))
+        if len(res) == 0 or isinstance(res[0], (tuple, list)):
+            res = tuple(res)
+    elif isinstance(shape, list):
+        res = [shrink_shape(x) for x in shape]
+    
+    if res is not None:
+        if len(res) == 1:
+            shape = res[0]
+        else:
+            shape = res
+    
+    return shape
+
+def get_shape(tensor, shrink = False):
+    if shrink:
+        return shrink_shape(get_shape(tensor))
+
+    if isinstance(tensor, tuple):
+        return tuple(get_shape(list(tensor)))
+    elif isinstance(tensor, list):
+        return [get_shape(x) for x in tensor]
+    else:
+        return list(tensor.size())
+
 def summary(model, input_size, device="cuda"):
     # create properties
     summary = OrderedDict()
     hooks = []
+    registered_modules = set()
+    hook_dict = dict()
 
     def register_hook(module):
         def hook(module, input, output):
             class_name = str(module.__class__).split(".")[-1].split("'")[0]
+            if module.__class__.__name__ == 'TimeDistributed':
+                class_name = str(module.inner.__class__).split(".")[-1].split("'")[0]
+
             module_idx = len(summary)
 
             m_key = "%s-%i" % (class_name, module_idx + 1)
             summary[m_key] = OrderedDict()
             summary[m_key]["input_shape"] = list(input[0].size())
-            if isinstance(output, (list, tuple)):
-                summary[m_key]["output_shape"] = [
-                    [-1] + list(o.size())[1:] for o in output
-                ]
+
+            if isinstance(output, (tuple, list)) and isinstance(output[-1], tuple):
+                summary[m_key]["output_shape"] = get_shape(output[:-1], True)
+                summary[m_key]["state_shape"] = get_shape(output[-1])
             else:
-                summary[m_key]["output_shape"] = list(output.size())
+                summary[m_key]["output_shape"] = get_shape(output, True)
 
             params = 0
-            if hasattr(module, "weight") and hasattr(module.weight, "size"):
-                params += torch.prod(torch.LongTensor(list(module.weight.size())))
-                summary[m_key]["trainable"] = module.weight.requires_grad
-            if hasattr(module, "bias") and hasattr(module.bias, "size"):
-                params += torch.prod(torch.LongTensor(list(module.bias.size())))
-            summary[m_key]["nb_params"] = params
+            summary[m_key]["nb_params"] = sum_space([x.size() for x in module.parameters()])
+            summary[m_key]["nb_trainable_params"] = sum_space([x.size() for x in module.parameters() if x.requires_grad])
 
         if (
             not isinstance(module, nn.Sequential)
             and not isinstance(module, nn.ModuleList)
-            and not isinstance(module, TimeDistributed)
+            and not module in registered_modules
             and not (module == model)
         ):
-            hooks.append(module.register_forward_hook(hook))
+            hook_obj = module.register_forward_hook(hook)
+            hooks.append(hook_obj)
+            hook_dict[module] = hook_obj
+            if module.__class__.__name__ == 'TimeDistributed':
+                registered_modules.add(module.inner)
+                if module.inner in hook_dict:
+                    hook_obj = hook_dict.pop(module.inner)
+                    hook_obj.remove()
+                    hooks.remove(hook_obj)
+
 
     device = device.lower()
     assert device in [
@@ -109,10 +146,8 @@ def summary(model, input_size, device="cuda"):
             "{0:,}".format(summary[layer]["nb_params"]),
         )
         total_params += summary[layer]["nb_params"]
-        total_output += np.prod(summary[layer]["output_shape"])
-        if "trainable" in summary[layer]:
-            if summary[layer]["trainable"] == True:
-                trainable_params += summary[layer]["nb_params"]
+        total_output += sum_space(summary[layer]["output_shape"])
+        trainable_params += summary[layer]["nb_trainable_params"]
         print(line_new)
 
     # assume 4 bytes/number (float on cuda).

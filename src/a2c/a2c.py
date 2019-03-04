@@ -48,19 +48,26 @@ class A2CModel:
 
     def show_summary(self, model):
         batch_shape = (self.num_processes, self.num_steps) 
-        shapes = (batch_shape + self.env.observation_space.shape, batch_shape, tuple())
+        def get_shape_rec(shapes):
+            if isinstance(shapes, tuple):
+                return tuple(get_shape_rec(list(shapes)))
+            elif isinstance(shapes, list):
+                return [get_shape_rec(x) for x in shapes]
+            else:
+                return shapes.size()
+
+        shapes = (batch_shape + self.env.observation_space.shape, batch_shape, get_shape_rec(self._initial_states(self.num_processes)))
         summary(model, shapes, device = 'cpu')
 
     def _build_graph(self, allow_gpu):
         model = self.create_model()
-
-        # Show summary
-        self.show_summary(model)
-        
         if hasattr(model, 'initial_states'):
             self._initial_states = getattr(model, 'initial_states')
         else:
             self._initial_states = lambda _: []
+
+        # Show summary
+        self.show_summary(model)
 
         cuda_devices = torch.cuda.device_count()
         if cuda_devices == 0 or not allow_gpu:
@@ -85,7 +92,7 @@ class A2CModel:
         # Build train and act functions
         @pytorch_call(main_device)
         def train(observations, returns, actions, masks, states = []):
-            policy_logits, value, _ = model.forward(observations, masks, states)
+            policy_logits, value, _ = model(observations, masks, states)
 
             dist = torch.distributions.Categorical(logits = policy_logits)
             action_log_probs = dist.log_prob(actions)
@@ -115,7 +122,7 @@ class A2CModel:
                 masks = masks.view(batch_size, 1)
 
 
-                policy_logits, value, states = model.forward(observations, masks, states)
+                policy_logits, value, states = model(observations, masks, states)
                 dist = torch.distributions.Categorical(logits = policy_logits)
                 action = dist.sample()
                 action_log_probs = dist.log_prob(action)
@@ -128,7 +135,7 @@ class A2CModel:
                 observations = observations.view(batch_size, 1, *observations.size()[1:])
                 masks = masks.view(batch_size, 1)
 
-                _, value, states = model.forward(observations, masks, states)
+                _, value, states = model(observations, masks, states)
                 return value.squeeze(1).squeeze(-1).detach(), KeepTensor(detach_all(states))
 
         def save(path):
@@ -272,7 +279,7 @@ class A2CAgent(AbstractAgent):
 
                 observations = observation.unsqueeze(0).unsqueeze(0)
                 masks = torch.ones([1, 1], dtype = torch.float32)
-                policy_logits, value, states = model.forward(observations, masks, states)
+                policy_logits, value, states = model(observations, masks, states)
                 dist = torch.distributions.Categorical(logits = policy_logits)
                 action = dist.sample()
                 return action.squeeze().detach().item().numpy(), detach_all(states)

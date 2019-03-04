@@ -33,7 +33,7 @@ class Model(nn.Module):
         return tuple([torch.zeros([1, batch_size, 16], dtype = torch.float32) for _ in range(2)])
 
     def forward(self, inputs, masks, states):
-        features, states = forward_masked_rnn(inputs, masks, states, self.rnn.forward)
+        features, states = forward_masked_rnn(inputs, masks, states, self.rnn)
         return self.actor(features), self.critic(features), states
 
 class TestLstm(gym.Env):

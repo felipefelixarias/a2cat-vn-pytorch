@@ -74,7 +74,7 @@ class Trainer(A2CTrainer):
             # Returns also single batch of returns
             observations = torch.from_numpy(observation).unsqueeze(1)
             mask = torch.ones([1, 1], dtype = torch.float32)
-            policy_logits, value, _ = model.forward(observations, mask, [])
+            policy_logits, value, _ = model(observations, mask, [])
             action = policy_logits.argmax(dim = -1).squeeze(0).squeeze(0).detach().item()
             value = value.squeeze(0).squeeze(0).detach().item()
             return [action, value]
