@@ -178,7 +178,7 @@ class A2CTrainer(SingleTrainer, A2CModel):
         self.log_dir = tempfile.TemporaryDirectory()
 
         seed = 1
-        self.validation_env = make_vec_envs(env, seed, 1, self.gamma, self.log_dir.name, None, False)
+        self.validation_env = make_vec_envs(env, seed, 1, self.gamma, self.log_dir.name, None, allow_early_resets = True)
         if len(self.validation_env.observation_space.shape) == 3:
             self.validation_env = VecTransposeImage(self.validation_env)
 
