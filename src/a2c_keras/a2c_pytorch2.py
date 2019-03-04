@@ -72,7 +72,7 @@ class A2CModel:
 
         # Build train and act functions
         def train(observations, returns, actions, masks, states = []):
-            policy_logits, value = model.forward(observations, masks)
+            policy_logits, value = model(observations, masks)
 
             dist = torch.distributions.Categorical(logits = policy_logits)
             action_log_probs = dist.log_prob(actions)
@@ -100,7 +100,7 @@ class A2CModel:
                 observations = observations.view(batch_size, 1, *observations.size()[1:])
                 masks = masks.view(1, *masks.size())
 
-                policy_logits, value = model.forward(observations, masks)
+                policy_logits, value = model(observations, masks)
                 dist = torch.distributions.Categorical(logits = policy_logits)
                 action = dist.sample()
                 action_log_probs = dist.log_prob(action)
@@ -112,7 +112,7 @@ class A2CModel:
                 observations = observations.view(batch_size, 1, *observations.size()[1:])
                 masks = masks.view(1, *masks.size())
 
-                _, value = model.forward(observations, masks)
+                _, value = model(observations, masks)
                 return value.squeeze(1).squeeze(-1).detach()
 
         self._step = step

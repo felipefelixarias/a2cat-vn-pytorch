@@ -55,9 +55,9 @@ class CNN(nn.Module):
         self.policy_logits = init_layer(nn.Linear(512, num_outputs), gain = 0.01)[0]
 
     def forward(self, inputs):
-        main_features = self.main.forward(inputs)
-        policy_logits = self.policy_logits.forward(main_features)
-        critic = self.critic.forward(main_features)
+        main_features = self.main(inputs)
+        policy_logits = self.policy_logits(main_features)
+        critic = self.critic(main_features)
         return policy_logits, critic
 
     @property
@@ -120,9 +120,9 @@ class TimeDistributedConv(nn.Module):
         self.policy_logits = init_layer(nn.Linear(512, num_outputs), gain = 0.01)[0]
 
     def forward(self, inputs, masks, states):
-        main_features = self.main.forward(inputs)
-        policy_logits = self.policy_logits.forward(main_features)
-        critic = self.critic.forward(main_features)
+        main_features = self.main(inputs)
+        policy_logits = self.policy_logits(main_features)
+        critic = self.critic(main_features)
         return policy_logits, critic, states
 
     @property
@@ -145,11 +145,11 @@ class LSTMConv(TimeDistributedConv):
         return tuple([torch.zeros([self.lstm_layers, batch_size, self.lstm_hidden_size], dtype = torch.float32) for _ in range(2)])
 
     def forward(self, inputs, masks, states):
-        main_features = self.main.forward(inputs)
+        main_features = self.main(inputs)
         main_features, states = forward_masked_rnn(main_features, masks, states, self.rnn.forward)
 
-        policy_logits = self.policy_logits.forward(main_features)
-        critic = self.critic.forward(main_features)
+        policy_logits = self.policy_logits(main_features)
+        critic = self.critic(main_features)
         return [policy_logits, critic, states]
 
 class TimeDistributedMultiLayerPerceptron(nn.Module):
@@ -202,5 +202,5 @@ class LSTMMultiLayerPerceptron(TimeDistributedMultiLayerPerceptron):
     def forward(self, inputs, masks, states):
         features = inputs
         features, states = forward_masked_rnn(features, masks, states, self.lstm.forward)
-        return super().forward(features, masks, states)
+        return super()(features, masks, states)
     
