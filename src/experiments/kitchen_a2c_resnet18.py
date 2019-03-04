@@ -48,13 +48,12 @@ def create_model(num_steps):
     return _Model()
 
 
-@register_trainer(max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10, saving_period = 10000)
+@register_trainer(max_time_steps = 1000000, validation_period = 100,  episode_log_interval = 10, validation_episodes = 10, saving_period = 100000)
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.num_processes = 16
         self.num_steps = 5
-        self.total_timesteps = 1000000
         self.gamma = 1.0
 
         self._last_figure_draw = 0
