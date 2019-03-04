@@ -4,6 +4,7 @@ import numpy as np
 from common.train import AbstractTrainer, SingleTrainer
 from common.env import VecTransposeImage, make_vec_envs
 from common import MetricContext, AbstractAgent
+from common.torchsummary import summary
 
 import gym
 
@@ -45,8 +46,17 @@ class A2CModel:
     def learning_rate(self):
         return 7e-4
 
+    def show_summary(self, model):
+        batch_shape = (self.num_processes, self.num_steps) 
+        shapes = (batch_shape + self.env.observation_space.shape, batch_shape, tuple())
+        summary(model, shapes, device = 'cpu')
+
     def _build_graph(self, allow_gpu):
         model = self.create_model()
+
+        # Show summary
+        self.show_summary(model)
+        
         if hasattr(model, 'initial_states'):
             self._initial_states = getattr(model, 'initial_states')
         else:
