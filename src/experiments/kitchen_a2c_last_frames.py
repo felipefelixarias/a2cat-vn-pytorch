@@ -2,23 +2,50 @@ from common.train_wrappers import wrap
 import os
 import gym
 from functools import reduce
-from keras.layers import Input, Dense, Concatenate, Lambda, PReLU, Flatten, Conv2D, TimeDistributed
-from keras.models import Model
-from keras import initializers
-from keras.applications.resnet50 import ResNet50
-import keras.backend as K
 from common import register_trainer, make_trainer, register_agent, make_agent
-from a2c.a2c_gradient_accumulation import A2CTrainer
-from a2c.a2c import A2CAgent
+from a2c import A2CTrainer, A2CAgent
 import numpy as np
+
+import torch
+from torch import nn
 
 from graph.env import OrientedGraphEnv
 from graph.util import load_graph
 from gym.wrappers import TimeLimit
 from common.env_wrappers import FrameStack
+from a2c.model import TimeDistributedModel, TimeDistributed, Flatten
+from model.resnet import resnet50
 
 
+def create_model(num_steps):
+    class _Model(TimeDistributedModel):
+        def __init__(self):
+            super().__init__()
+            self.resnet = TimeDistributed(resnet50(pretrained = True))
 
+            self.main_merged = nn.Sequential(*
+                self.init_layer(nn.Conv2d(num_steps * 64, 64, 1), activation = 'ReLU') + \
+                [TimeDistributed(Flatten())] + \
+                self.init_layer(nn.Linear(64 * 7 * 7, 256), activation = 'ReLU')
+            )
+
+            self.actor = nn.Sequential(*
+                self.init_layer(nn.Linear(256, 256), activation = 'ReLU') + \
+                self.init_layer(nn.Linear(256, 4), gain = 0.01)
+            )
+
+            self.critic = nn.Sequential(*
+                self.init_layer(nn.Linear(256, 256), activation = 'ReLU') + \
+                self.init_layer(nn.Linear(256, 1), gain = 1.0)
+            )
+        
+        def forward(self, inputs, masks, states):
+            streams = torch.split(inputs, 3, dim = 2)
+            streams = [self.resnet(x) for x in streams]
+            features = torch.cat(streams, dim = 2)
+            features = self.main_merged(features)
+            return self.actor(features), self.critic(features), states
+    return _Model()
 
 
 register_agent('kitchen-a2c-last-frames')(A2CAgent)
@@ -35,35 +62,18 @@ class Trainer(A2CTrainer):
 
         self._last_figure_draw = 0
 
-    def create_model(self, action_space_size, **kwargs):
-        inputs = [Input(batch_shape = (None, None, 224,224,3 * self.n_timeframes))]
-        resnet = TimeDistributed(ResNet50(include_top=False, weights='imagenet', pooling=None))
-
-        resnet_outputs = []
-        for i in range(self.n_timeframes):
-            single_input = TimeDistributed(Lambda(lambda x: x[..., i * 3:(i+1) * 3], output_shape = (224,224,3,)))(inputs[0])
-            single_output = resnet(single_input)
-            resnet_outputs.append(single_output)
-
-        model = Concatenate()(resnet_outputs)
-        model = TimeDistributed(Conv2D(64, 1, activation = 'relu'))(model)
-        model = TimeDistributed(Flatten())(model)
-        model = TimeDistributed(Dense(256, activation = 'relu'))(model)
-        policy = TimeDistributed(Dense(256, activation = 'relu'))(model)
-        policy = TimeDistributed(Dense(action_space_size, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01), activation = 'sigmoid'))(policy)
-        value = TimeDistributed(Dense(256, activation = 'relu'))(model)
-        value = TimeDistributed(Dense(1, activation = None, bias_initializer = 'zeros', kernel_initializer = initializers.Orthogonal(gain=0.01)))(value)
-        model = Model(inputs = inputs, outputs = [policy, value])
-
-        model.summary()
-        return model
+    def create_model(self, num_frame_stack, **kwargs):
+        return create_model(num_frame_stack)
 
 def default_args():
     with open('./scenes/kitchen-224.pkl', 'rb') as f:
         graph = load_graph(f)
 
-    env = lambda: FrameStack(TimeLimit(OrientedGraphEnv(graph, (0,4)), max_episode_steps = 100), 4)
+    env = lambda: TimeLimit(OrientedGraphEnv(graph, (0,4)), max_episode_steps = 100)
     return dict(
-        env_kwargs = env,
-        model_kwargs = dict(action_space_size = 4)
+        env_kwargs = dict(
+            id = env,
+            num_frame_stack = 4
+        ),
+        model_kwargs = dict(num_frame_stack = 4)
     )

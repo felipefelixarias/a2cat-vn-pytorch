@@ -167,3 +167,20 @@ def summary(model, input_size, device="cuda"):
     print("Estimated Total Size (MB): %0.2f" % total_size)
     print("----------------------------------------------------------------")
     # return summary
+
+def minimal_summary(model, input_size):
+    # assume 4 bytes/number (float on cuda).
+    total_params = sum_space([x.size() for x in model.parameters()])
+    trainable_params = sum_space([x.size() for x in model.parameters() if x.requires_grad])
+
+    total_input_size = abs(sum_space(input_size) * 4. / (1024 ** 2.))
+    total_params_size = abs(total_params * 4. / (1024 ** 2.))
+
+    print("================================================================")
+    print("Total params: {0:,}".format(total_params))
+    print("Trainable params: {0:,}".format(trainable_params))
+    print("Non-trainable params: {0:,}".format(total_params - trainable_params))
+    print("----------------------------------------------------------------")
+    print("Input size (MB): %0.2f" % total_input_size)
+    print("Params size (MB): %0.2f" % total_params_size)
+    print("================================================================")

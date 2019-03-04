@@ -4,7 +4,7 @@ import numpy as np
 from common.train import AbstractTrainer, SingleTrainer
 from common.env import VecTransposeImage, make_vec_envs
 from common import MetricContext, AbstractAgent
-from common.torchsummary import summary
+from common.torchsummary import summary, minimal_summary
 
 import gym
 
@@ -57,10 +57,10 @@ class A2CModel:
                 return shapes.size()
 
         shapes = (batch_shape + self.env.observation_space.shape, batch_shape, get_shape_rec(self._initial_states(self.num_processes)))
-        summary(model, shapes, device = 'cpu')
+        minimal_summary(model, shapes)
 
-    def _build_graph(self, allow_gpu):
-        model = self.create_model()
+    def _build_graph(self, allow_gpu, **model_kwargs):
+        model = self.create_model(**model_kwargs)
         if hasattr(model, 'initial_states'):
             self._initial_states = getattr(model, 'initial_states')
         else:
@@ -161,8 +161,8 @@ class A2CTrainer(SingleTrainer, A2CModel):
         self.log_dir = None
         self.win = None
 
-    def _initialize(self):
-        model = super()._build_graph(self.allow_gpu)
+    def _initialize(self, **model_kwargs):
+        model = super()._build_graph(self.allow_gpu, **model_kwargs)
         self._tstart = time.time()
         self.rollouts = RolloutStorage(self.env.reset(), self._initial_states(self.num_processes))
         return model
