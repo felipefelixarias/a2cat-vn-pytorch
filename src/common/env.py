@@ -32,6 +32,11 @@ except ImportError:
 
 
 def make_env(env_id, seed, rank, log_dir, add_timestep, allow_early_resets):
+    env_id = env_id
+    if isinstance(env_id, dict):
+        allow_early_resets = env_id.get('allow_early_resets', allow_early_resets)
+        env_id = env_id.get('id')        
+        
     def _thunk():
         if callable(env_id):
             env = env_id()
@@ -66,7 +71,11 @@ def make_env(env_id, seed, rank, log_dir, add_timestep, allow_early_resets):
 
     return _thunk
 
-def make_vec_envs(env_name, seed, num_processes, gamma, log_dir, add_timestep, allow_early_resets, num_frame_stack=None):
+def make_vec_envs(env_name, seed, num_processes, gamma, log_dir, add_timestep, allow_early_resets, num_frame_stack = None):
+    if isinstance(env_name, dict):
+        if num_frame_stack is None and 'num_frame_stack' in env_name:
+            num_frame_stack = env_name.get('num_frame_stack')
+
     envs = [make_env(env_name, seed, i, log_dir, add_timestep, allow_early_resets)
             for i in range(num_processes)]
 
@@ -83,7 +92,8 @@ def make_vec_envs(env_name, seed, num_processes, gamma, log_dir, add_timestep, a
 
 
     if num_frame_stack is not None:
-        envs = VecFrameStack(envs, num_frame_stack)
+        if num_frame_stack != 1:
+            envs = VecFrameStack(envs, num_frame_stack)
     elif len(envs.observation_space.shape) == 3:
         envs = VecFrameStack(envs, 4)
 

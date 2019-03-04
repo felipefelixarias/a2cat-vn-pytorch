@@ -10,7 +10,7 @@ def direction_to_change(direction):
             return (-1, 0)
         elif direction == 3:
             return (0, -1)
-        return None
+        raise Exception('Unsopported direction %s' % direction)
 
 def step(state, action):
     if action == 0:

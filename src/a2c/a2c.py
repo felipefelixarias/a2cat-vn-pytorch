@@ -128,6 +128,7 @@ class A2CModel:
         self._value = value
         self._train = train
         self.save = save
+        self.main_device = main_device
         return model
 
 class A2CTrainer(SingleTrainer, A2CModel):
@@ -144,9 +145,10 @@ class A2CTrainer(SingleTrainer, A2CModel):
         self.win = None
 
     def _initialize(self):
-        super()._build_graph(self.allow_gpu)
+        model = super()._build_graph(self.allow_gpu)
         self._tstart = time.time()
         self.rollouts = RolloutStorage(self.env.reset(), self._initial_states(self.num_processes))
+        return model
 
     def _finalize(self):
         if self.log_dir is not None:
@@ -172,8 +174,30 @@ class A2CTrainer(SingleTrainer, A2CModel):
         metric_context = MetricContext()
         if mode == 'train':
             return self._process_train(context, metric_context)
+        elif mode == 'validation':
+            return self._process_validation(metric_context)
         else:
             raise Exception('Mode not supported')
+
+    def _process_validation(self, metric_context):
+        done = False
+        states = self._initial_states(1)
+        ep_reward = 0.0
+        ep_length = 0
+        n_steps = 0
+        observations = self.validation_env.reset()
+        while not done:
+            action, _, _, states = self._step(observations, np.ones((1, 1), dtype = np.float32), states)
+            observations, reward, done, infos = self.validation_env.step(action)
+            done = done[0]
+            info = infos[0]
+
+            if 'episode' in info.keys():
+                ep_length = info['episode']['l']
+                ep_reward = info['episode']['r']
+            n_steps += 1
+
+        return n_steps, (ep_length, ep_reward), metric_context
 
 
     def _sample_experience_batch(self):
