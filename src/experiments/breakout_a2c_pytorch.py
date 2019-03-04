@@ -6,6 +6,7 @@ from functools import reduce
 from math import sqrt
 from common import register_trainer, make_trainer, register_agent, make_agent
 from a2c.a2c import A2CTrainer
+from a2c.model import TimeDistributedConv
 import numpy as np
 from gym.wrappers import TimeLimit
 from baselines.common.atari_wrappers import make_atari, wrap_deepmind
@@ -24,6 +25,9 @@ class Trainer(A2CTrainer):
         self.total_timesteps = 10e6
         self.gamma = .99
         self.devices = ['cuda:0']
+
+    def create_model(self):
+        return TimeDistributedConv(self.env.observation_space.shape[0], self.env.action_space.n)
 
 def default_args():
     return dict(

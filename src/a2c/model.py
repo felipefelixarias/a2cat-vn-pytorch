@@ -16,7 +16,7 @@ class TimeDistributed(nn.Module):
     def forward(self, *args):
         batch_shape = args[0].size()[:2]
         args = [x.contiguous().view(-1, *x.size()[2:]) for x in args]
-        results = self.inner.forward(*args)
+        results = self.inner(*args)
         def reshape_res(x):
             return x.view(*(batch_shape + x.size()[1:]))
 
