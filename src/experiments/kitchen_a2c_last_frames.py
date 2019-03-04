@@ -3,7 +3,7 @@ import os
 import gym
 from functools import reduce
 from common import register_trainer, make_trainer, register_agent, make_agent
-from a2c import A2CTrainer, A2CAgent
+from a2c import A2CAgent, A2CTrainerDynamicBatch as A2CTrainer
 import numpy as np
 
 import torch
@@ -21,10 +21,10 @@ def create_model(num_steps):
     class _Model(TimeDistributedModel):
         def __init__(self):
             super().__init__()
-            self.resnet = TimeDistributed(resnet18(pretrained = True))
+            self.resnet = TimeDistributed(resnet50(pretrained = True))
 
             self.main_merged = nn.Sequential(*
-                self.init_layer(nn.Conv2d(num_steps * 512, 64, 1), activation = 'ReLU') + \
+                self.init_layer(nn.Conv2d(num_steps * 4 * 512, 64, 1), activation = 'ReLU') + \
                 [TimeDistributed(Flatten())] + \
                 self.init_layer(nn.Linear(64 * 7 * 7, 256), activation = 'ReLU')
             )
