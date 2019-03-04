@@ -24,7 +24,7 @@ def create_model(num_steps):
             self.resnet = TimeDistributed(resnet50(pretrained = True))
 
             self.main_merged = nn.Sequential(*
-                self.init_layer(nn.Conv2d(num_steps * 512, 64, 1), activation = 'ReLU') + \
+                self.init_layer(nn.Conv2d(num_steps * 4 * 512, 64, 1), activation = 'ReLU') + \
                 [TimeDistributed(Flatten())] + \
                 self.init_layer(nn.Linear(64 * 7 * 7, 256), activation = 'ReLU')
             )
