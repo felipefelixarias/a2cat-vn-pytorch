@@ -64,7 +64,9 @@ class Trainer(A2CTrainer):
         if self._global_t - self._last_complexity_update > 1000: 
             self.env.unwrapped.rpc_unwrapped('set_complexity', self.scene_complexity)
             self._last_complexity_update = self._global_t
-        return super().process(*args, **kwargs)
+        a, b, context = super().process(*args, **kwargs)
+        context.add_last_value_scalar('scene_complexity', self.scene_complexity)
+        return a, b, context
 
     def create_env(self, env):
         graph = env
