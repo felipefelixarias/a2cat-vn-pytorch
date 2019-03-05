@@ -1,21 +1,19 @@
-from common.train_wrappers import wrap
 import os
 import gym
 from functools import reduce
-from common import register_trainer, make_trainer, register_agent, make_agent
-from a2c import A2CAgent, A2CTrainerDynamicBatch as A2CTrainer
 import numpy as np
+from gym.wrappers import TimeLimit
 
 import torch
 from torch import nn
 
+from deep_rl.a2c.model import TimeDistributedModel, TimeDistributed, Flatten
+from deep_rl import register_trainer, make_trainer, register_agent, make_agent
+from deep_rl.a2c import A2CAgent, A2CTrainerDynamicBatch as A2CTrainer
+
+from model.resnet import resnet50, resnet18
 from graph.env import OrientedGraphEnv
 from graph.util import load_graph
-from gym.wrappers import TimeLimit
-from common.env_wrappers import FrameStack
-from a2c.model import TimeDistributedModel, TimeDistributed, Flatten
-from model.resnet import resnet50, resnet18
-
 
 def create_model(num_steps):
     class _Model(TimeDistributedModel):
