@@ -100,8 +100,13 @@ def sample_initial_state(graph, goal, optimal_distance = None):
     if optimal_distance is None:
         x = np.random.choice(np.arange(len(potentials)))
     else:
-        distances = np.array(distances)
-        x = np.random.choice(np.arange(len(potentials)), p = np.abs(distances - optimal_distance))
+        positive = np.less_equal(distances, optimal_distance)
+        negative = np.greater(distances, optimal_distance)
+        positive = 0.9 * positive / np.sum(positive)
+        negative = 0.1 * negative / np.sum(negative)
+        weights = positive + negative
+
+        x = np.random.choice(np.arange(len(potentials)), p = weights)
     return potentials[x]
 
 
