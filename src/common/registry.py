@@ -14,6 +14,12 @@ def get_dynamic_name():
     name = os.path.splitext(name)[0]
     return name.replace('_', '-')
 
+def _pass_args(kwargs):
+    res = dict()
+    if 'max_time_steps' in kwargs:
+        res['max_time_steps'] = kwargs.get('max_time_steps')
+    return res
+
 def register_agent(id = None, **kwargs):
     if id is None:
         id = get_dynamic_name()
@@ -39,10 +45,11 @@ def make_trainer(id = None, **kwargs):
     if id is None:
         id = get_dynamic_name()
 
-    instance = _registry[id]['trainer'](name = id, **kwargs)
-
     wargs = dict(**_registry[id])
     del wargs['trainer']
+    kwargs.update(_pass_args(wargs))
+
+    instance = _registry[id]['trainer'](name = id, **kwargs)    
     instance = wrappers.wrap(instance, **wargs).compile()
     return instance
 
@@ -50,7 +57,6 @@ def make_agent(id, **kwargs):
     if isinstance(id, str):
         wargs = dict(**_agent_registry[id])
         del wargs['agent']
-
         wargs.update(kwargs)
         instance = _agent_registry[id]['agent'](name = id, **wargs)
         return instance

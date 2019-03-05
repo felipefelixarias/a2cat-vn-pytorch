@@ -3,6 +3,16 @@ import gym
 import threading
 import os
 
+class Schedule:
+    def __init__(self):
+        pass
+
+    def __call__(self):
+        return None
+
+    def step(self, time):
+        self.time = time
+
 class AbstractTrainer:
     def __init__(self, env_kwargs, model_kwargs, **kwargs):
         super().__init__(**kwargs)
@@ -13,7 +23,23 @@ class AbstractTrainer:
         self.name = 'trainer'
 
         self.is_initialized = False
+        self.schedules = dict()
         pass
+
+    def __setattr__(self, name, value):
+        super().__setattr__(name, value)
+        if isinstance(value, Schedule):
+            self.schedules[name] = value
+
+    def __getattribute__(self, name):
+        value = super().__getattribute__(name)
+        if isinstance(value, Schedule):
+            if not hasattr(self, '_global_t'):
+                raise Exception('Schedules are supported only for classes with _global_t property')
+            value.step(getattr(self, '_global_t'))
+            return value()
+        else:
+            return value
 
     def save(self, path):
         model = self.model           
