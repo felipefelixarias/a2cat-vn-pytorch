@@ -57,7 +57,7 @@ def compute_rotation_steps(graph, goal, state):
     optimal_action = graph.optimal_actions[state[:2] + goal]
     rot_steps = np.array(list(map(lambda x: abs(state[2] - x), np.where(optimal_action))))
     rot_steps[rot_steps == 3] = 1
-    return min(rot_steps)
+    return np.min(rot_steps)
 
 def sample_initial_position(graph, goal, optimal_distance = None):
     potentials = []
@@ -74,8 +74,9 @@ def sample_initial_position(graph, goal, optimal_distance = None):
         while x is None or potentials[x] == goal:
             x = np.random.choice(np.arange(len(potentials)))
     else:
-        positive = np.less_equal(distances, optimal_distance)
-        negative = np.greater(distances, optimal_distance)
+        distances = np.array(distances)
+        positive = distances <= optimal_distance
+        negative = distances > optimal_distance
         positive = 0.9 * positive / np.sum(positive)
         negative = 0.1 * negative / np.sum(negative)
         weights = positive + negative
