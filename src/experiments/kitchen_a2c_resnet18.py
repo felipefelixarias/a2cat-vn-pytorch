@@ -54,7 +54,7 @@ class Trainer(A2CTrainer):
         super().__init__(*args, **kwargs)
         self.num_processes = 16
         self.num_steps = 5
-        self.gamma = 1.0
+        self.gamma = 0.99
 
         self._last_figure_draw = 0
 
@@ -65,7 +65,7 @@ def default_args():
     with open('./scenes/kitchen-224.pkl', 'rb') as f:
         graph = load_graph(f)
 
-    env = lambda: TimeLimit(OrientedGraphEnv(graph, (0,4), rewards=[0.0, -1.0, -1.0]), max_episode_steps = 100)
+    env = lambda: TimeLimit(OrientedGraphEnv(graph, (0,4)), max_episode_steps = 100)
     return dict(
         env_kwargs = dict(
             id = env,
