@@ -77,9 +77,13 @@ def sample_initial_position(graph, goal, optimal_distance = None):
         distances = np.array(distances)
         positive = distances <= optimal_distance
         negative = distances > optimal_distance
-        positive = 0.9 * positive / np.sum(positive)
-        negative = 0.1 * negative / np.sum(negative)
-        weights = positive + negative
+        sum_negative = np.sum(negative)
+        if sum_negative == 0:
+            weights = positive / np.sum(positive)
+        else:
+            positive = 0.9 * positive / np.sum(positive)
+            negative = 0.1 * negative / sum_negative
+            weights = positive + negative
 
         x = None
         while x is None or potentials[x] == goal:
