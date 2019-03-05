@@ -20,11 +20,9 @@ class FlatWrapper(gym.ObservationWrapper):
 class Trainer(A2CTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.n_envs = 16
-        self.n_steps = 5
-        self.total_timesteps = 10e6
+        self.num_processes = 16
+        self.num_steps = 5
         self.gamma = .99
-        self.devices = ['cuda:0']
 
     def create_model(self):
         return TimeDistributedConv(self.env.observation_space.shape[0], self.env.action_space.n)
