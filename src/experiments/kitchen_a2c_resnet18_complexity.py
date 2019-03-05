@@ -58,9 +58,12 @@ class Trainer(A2CTrainer):
 
         self._last_figure_draw = 0
         self.scene_complexity = LinearSchedule(0.1, 1.0, max_time_steps)
+        self._last_complexity_update = -100000
 
     def process(self, *args, **kwargs):
-        self.env.unwrapped.rpc_unwrapped('set_complexity', self.scene_complexity)
+        if self._global_t - self._last_complexity_update > 1000: 
+            self.env.unwrapped.rpc_unwrapped('set_complexity', self.scene_complexity)
+            self._last_complexity_update = self._global_t
         return super().process(*args, **kwargs)
 
     def create_env(self, env):
