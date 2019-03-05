@@ -37,7 +37,7 @@ class OrientedGraphEnv(gym.Env):
     def reset(self):
         optimal_distance = None
         if self.complexity is not None:
-            optimal_distance = self.complexity * (self.largest_distance - 1) + 1
+            optimal_distance = self.complexity * (self.largest_distance + 4 - 1) + 1
         state = sample_initial_state(self.graph, self.goal, optimal_distance = optimal_distance)
         self.state = state
         return self.observe(self.state)
