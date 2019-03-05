@@ -14,6 +14,8 @@ def worker(remote, parent_remote, env_fn_wrapper):
             if cmd == 'rpc_unwrapped':
                 name, args, kwargs = data
                 result = getattr(env.unwrapped, name)(*args, **kwargs)
+                if result is None:
+                    result = 0
                 remote.send(result)
             elif cmd == 'step':
                 ob, reward, done, info = env.step(data)
