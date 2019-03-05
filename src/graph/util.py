@@ -74,17 +74,15 @@ def sample_initial_position(graph, goal, optimal_distance = None):
         while x is None or potentials[x] == goal:
             x = np.random.choice(np.arange(len(potentials)))
     else:
-        distances = np.array(distances)
-        differences = np.abs(distances - optimal_distance)
-        differences /= np.std(differences)
-
-        # Using normal kernel
-        p = np.exp(-differences**2/2)/np.sqrt(2*np.pi)
-        p /= np.sum(p)
+        positive = np.less_equal(distances, optimal_distance)
+        negative = np.greater(distances, optimal_distance)
+        positive = 0.9 * positive / np.sum(positive)
+        negative = 0.1 * negative / np.sum(negative)
+        weights = positive + negative
 
         x = None
         while x is None or potentials[x] == goal:
-            x = np.random.choice(np.arange(len(potentials)), p = p)
+            x = np.random.choice(np.arange(len(potentials)), p = weights)
     return potentials[x]
 
 def sample_initial_state(graph, goal, optimal_distance = None):
