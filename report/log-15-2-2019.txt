@@ -32,3 +32,11 @@ Supervised learning for maze env. implementation
 3-3-2019
     A2C fully working in PyTorch - tested on breakout env
     A2C supports LSTM - tested on LSTM testbed
+    
+11-3-2019
+    A2C with seekavoid environment
+        - does not work with num_steps=5
+        - works with num_steps=20
+        - unreal (a3c) still has superiod performance
+
+
