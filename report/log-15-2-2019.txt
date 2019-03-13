@@ -46,4 +46,17 @@ Supervised learning for maze env. implementation
         - influenced by annealing learning rate
         - auxiliary tasks did not have big influence
 
+    Implement A3C in PyTorch
+    
+    Test A2C vs A2C_unreal on the breakout environment
+        - better with auxiliary tasks
+
+    A2C with unreal finally working
+        - convergence is slower then for a3c tf implementation
+
+    A2C with auxiliary tasks
+        - fully working
+        - performance on DeepMind Lab similar to that of TensorFlow
+
+
 
