@@ -15,6 +15,7 @@ Supervised learning for maze env. implementation
 21-2-2019
     TODO: in bachelor thesis, talk about different measures needed for different RL environments
     Exploited dynamic scene complexity policy
+        - did not have real effect on the performance
     Created dynamic environment (dungeon)
     Testing DQN in those environments (dynamic scene complexity vs. static complexity)
 
@@ -22,6 +23,7 @@ Supervised learning for maze env. implementation
     Dungeon with full input (conv) negative vs. positive reward + discounting
         - Works well with negative reward for each step and gamma = 1
         - Works very bad for the case of positive 1-0 reward and discounting
+        - Is able of generalization
     Dungeon with state only input
     Dungeon with position only input
 
@@ -38,5 +40,10 @@ Supervised learning for maze env. implementation
         - does not work with num_steps=5
         - works with num_steps=20
         - unreal (a3c) still has superiod performance
+
+13-3-2019
+    A3C vs A2C for deepmindlab environment
+        - influenced by annealing learning rate
+        - auxiliary tasks did not have big influence
 
 
