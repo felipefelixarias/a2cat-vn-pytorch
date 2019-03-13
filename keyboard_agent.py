@@ -3,36 +3,39 @@ import argparse
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
-from agent.environment.vizdoom import VizdoomDiscreteEnvironment
-from agent.environment.ai2thor import AI2THOREnvironment
+import environments
 
 class KeyboardAgent:
     def __init__(self, **kwargs):
         self.config = kwargs
-        self.env = VizdoomDiscreteEnvironment(**kwargs)
-        self.env.start()
+        self.env = environments.make('Kitchen84-v0')
+        self.env.reset()
 
     def show(self):
         fig = plt.figure()
-        imgplot = plt.imshow(self.env.render(mode = 'image'))
+        imgplot = plt.imshow(self.env.render(mode = 'rgbarray'))
         def press(event):
             def redraw():
-                plt.imshow(self.env.render(mode = 'image'))
+                plt.imshow(self.env.render(mode = 'rgbarray'))
                 fig.canvas.draw()
-
+                
+            done = False
             if event.key == 's':
-                mpimg.imsave("output.png",self.env.render(mode = 'image'))
+                mpimg.imsave("output.png",self.env.render(mode = 'rgbarray'))
             elif event.key == 'up':
-                self.env.step('MoveAhead')
+                _, _, done, _ = self.env.step(0)
                 redraw()
             elif event.key == 'right':
-                self.env.step('RotateRight')
+                _, _, done, _ = self.env.step(1)
                 redraw()
             elif event.key == 'left':
-                self.env.step('RotateLeft')
+                _, _, done, _ = self.env.step(3)
                 redraw()
 
-            pass
+            print(self.env.unwrapped.state)
+            if done:
+                print('Goal reached')
+                self.env.reset()
 
         plt.rcParams['keymap.save'] = ''
         fig.canvas.mpl_connect('key_press_event', press)
