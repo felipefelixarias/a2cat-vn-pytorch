@@ -68,4 +68,4 @@ class OrientedGraphEnv(gym.Env):
         elif mode == 'rgbarray':
             return img
         else:
-            raise Exception(f"Render mode '{mode}' is not supported")
+            raise Exception("Render mode %s is not supported" % mode)
