@@ -58,5 +58,10 @@ Supervised learning for maze env. implementation
         - fully working
         - performance on DeepMind Lab similar to that of TensorFlow
 
+14-3-2019
+    A2C Unreal on ai2thor
+        - testing on gridworld graph
+        - testing on ai2thor gridworld
+
 
 
