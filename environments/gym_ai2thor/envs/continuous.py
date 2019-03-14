@@ -8,8 +8,8 @@ import random
 from .env import EnvBase
 
 ACTIONS = [
-    dict(action='MoveAhead', magnitude = 0.33, snapToGrid = False),
-    dict(action='MoveBack', magnitude = 0.33, snapToGrid = False),
+    dict(action='MoveAhead', magnitude = 0.6, snapToGrid = False),
+    dict(action='MoveBack', magnitude = 0.6, snapToGrid = False),
     dict(action='MoveLeft', magnitude = 0.25, snapToGrid = False),
     dict(action='MoveRight', magnitude = 0.25, snapToGrid = False),
     dict(action='Rotate', angle = 30),
@@ -22,7 +22,7 @@ class ContinuousEnv(EnvBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action_space = gym.spaces.Discrete(len(ACTIONS))
-        self.initialize_kwargs = dict()
+        self.initialize_kwargs = dict(continuous = True)
     
     def step(self, action):
         event = self._controller_step(action)
