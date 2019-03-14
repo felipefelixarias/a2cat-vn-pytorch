@@ -58,11 +58,16 @@ def download_resource_task(name):
         return download_resource(name, context)
     return thunk
 
-SCENES_NUMER = 340
-for scene_number in range(SCENES_NUMER):
-    resource = 'thor-scene-images-%s' % scene_number
-    downloader.add_resource(resource, download_resource_task(resource))
-downloader.add_resource('test', download_resource_task('test'))
+def add_resources(downloader):
+    SCENES_NUMER = 340
+    for scene_number in range(SCENES_NUMER):
+        resource = 'thor-scene-images-%s' % scene_number
+        downloader.add_resource(resource, download_resource_task(resource))
 
-def get_resource(name):
+    # Add test resource
+    downloader.add_resource('test', download_resource_task('test'))
+
+add_resources(downloader)
+
+def resource(name):
     return downloader.get(name)
