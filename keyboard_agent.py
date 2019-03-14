@@ -8,7 +8,7 @@ import environments
 class KeyboardAgent:
     def __init__(self, **kwargs):
         self.config = kwargs
-        self.env = environments.make('Kitchen84-v0')
+        self.env = environments.make('DiscreteThor228-v0', goals = ['Laptop_28'])
         self.env.reset()
 
     def show(self):
@@ -26,13 +26,15 @@ class KeyboardAgent:
                 _, _, done, _ = self.env.step(0)
                 redraw()
             elif event.key == 'right':
-                _, _, done, _ = self.env.step(1)
+                _, _, done, _ = self.env.step(4)
                 redraw()
             elif event.key == 'left':
-                _, _, done, _ = self.env.step(3)
+                _, _, done, _ = self.env.step(5)
                 redraw()
 
-            print(self.env.unwrapped.state)
+            if hasattr(self.env.unwrapped, 'state'):
+                print(self.env.unwrapped.state)
+
             if done:
                 print('Goal reached')
                 self.env.reset()

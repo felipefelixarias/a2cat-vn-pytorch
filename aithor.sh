@@ -1,5 +1,5 @@
 RELEASESDIR=~/.ai2thor/releases
-FNAME=thor-201810021256-Linux64
+FNAME=thor-201903131714-Linux64
 mkdir $RELEASESDIR
 wget http://s3-us-west-2.amazonaws.com/ai2-thor/builds/$FNAME.zip -P /tmp
 unzip /tmp/$FNAME.zip -d /tmp/$FNAME/

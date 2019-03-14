@@ -1,6 +1,6 @@
 import gym
 
-NUMBER_OF_SCENES = 120
+NUMBER_OF_SCENES = 430
 
 for i in range(1, NUMBER_OF_SCENES + 1):
     gym.register(
