@@ -3,6 +3,7 @@ import gym.spaces
 import numpy as np
 import ai2thor.controller
 import cv2
+import random
 
 ACTIONS = [
     dict(action='MoveAhead'),
@@ -10,7 +11,9 @@ ACTIONS = [
     dict(action='MoveLeft'),
     dict(action='MoveRight'),
     dict(action='RotateRight'),
-    dict(action='RotateLeft')
+    dict(action='RotateLeft'),
+    dict(action='LookUp'),
+    dict(action='LookDown')
 ]
 
 class DiscreteEnv(gym.Env):
@@ -27,6 +30,8 @@ class DiscreteEnv(gym.Env):
         self.treshold_distance = 1.5
         self._last_event = None
 
+        self.random = random.Random()
+
     def reset(self):
         if not self._was_started:
             self.controller.start()
@@ -34,18 +39,20 @@ class DiscreteEnv(gym.Env):
 
         self.controller.reset('FloorPlan%s' % self.scene_id)
         event = self.controller.step(dict(action='Initialize'))
+        event = self._pick_goal(event)        
 
         num_trials = 0
         while self._has_finished(event):
-            event = self._reset_objects()
+            event = self._sample_start_position(event)
             num_trials += 1
             print('WARNING: Reset invoked to sample nonterminal state')
 
-        event = self._pick_goal(event)
+        
         return self.observe(event)
 
     def _reset_objects(self):
-        return self.controller.random_initialize()
+        seed = self.random.randint(1, 1000000)
+        return self.controller.step(dict(action = 'InitialRandomSpawn', randomSeed = seed, forceVisible = True, maxNumRepeats = 5))
 
     def render(self, mode = 'human'):
         return self.observe() 
@@ -56,9 +63,16 @@ class DiscreteEnv(gym.Env):
         self._last_event = event
         return cv2.resize(event.frame, self.screen_size, interpolation = cv2.INTER_CUBIC)
 
+    def _sample_start_position(self, event):
+        event = self.controller.step(dict(action='GetReachablePositions'))
+        position = self.random.choice(event.metadata['actionReturn'])
+        rotation = self.random.random() * 360.0
+        event = self.controller.step(dict(action='Teleport', horizon=0.0, rotation=rotation, **position))
+        return event
+
     def _has_finished(self, event):
         for o in event.metadata['objects']:
-            if o['name'] in self.goals and o['visible'] and o['distance'] < self.treshold_distance:
+            if o['name'] in self.goals and o['distance'] < self.treshold_distance:
                 return True
 
             if o['name'] in self.goals:
