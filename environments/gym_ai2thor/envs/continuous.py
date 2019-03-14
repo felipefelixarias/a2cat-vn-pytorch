@@ -2,43 +2,38 @@ import gym
 import gym.spaces
 import numpy as np
 import ai2thor.controller
+import cv2
+import random
+
+from .env import EnvBase
 
 ACTIONS = [
-    dict(action='MoveAhead', moveMagnitude=0.33),
-    dict(action='MoveAhead', moveMagnitude=-0.33)
+    dict(action='MoveAhead', magnitude = 0.33, snapToGrid = False),
+    dict(action='MoveBack', magnitude = 0.33, snapToGrid = False),
+    dict(action='MoveLeft', magnitude = 0.25, snapToGrid = False),
+    dict(action='MoveRight', magnitude = 0.25, snapToGrid = False),
+    dict(action='Rotate', angle = 30),
+    dict(action='Rotate', angle = -30),
+    dict(action='LookUp'),
+    dict(action='LookDown')
 ]
 
-class ContinuousEnv(gym.Env):
-    def __init__(self, scene_id, screen_size = (224, 224)):
-        self.controller = ai2thor.controller.Controller()
-        self.scene_id = scene_id
-
+class ContinuousEnv(EnvBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.action_space = gym.spaces.Discrete(len(ACTIONS))
-        self.observation_space = gym.spaces.Box(0, 255, shape = screen_size + (3,), dtype = np.uint8)
-        
-        self._was_started = False
-
-    def reset(self):
-        if not self._was_started:
-            self.controller.start()
-            self._was_started = True
-
-        self.controller.reset('FloorPlan%s' % self.scene_id)
-        self.controller.step(dict(action='Initialize', continuous=True))
-
-        for _ in range(10):
-            env.step({'action' : 'MoveAhead'})
-            env.step({'action' : 'RotateRight'})
-        total_time = time.time() - t_start_total
-        print('total time', total_time, 20 / total_time, 'fps')
-
-    def _has_finished(self):
-
-    def step(self, action):
-        event = self.controller.step(ACTIONS[action])
-
-    def stop(self):
-        if self._was_started:
-            self.controller.stop()
-
+        self.initialize_kwargs = dict()
     
+    def step(self, action):
+        event = self._controller_step(action)
+        return self._finish_step(event)
+
+
+    def _controller_step(self, action):
+        action = ACTIONS[action]
+        if action['action'] == 'Rotate':
+            deltaangle = action['angle']
+            angle = (self.state[1]['y'] + deltaangle) % 360
+            return self.controller.step(dict(action = 'Rotate', rotation = angle))
+        else:
+            return self.controller.step(action)
