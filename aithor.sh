@@ -9,8 +9,9 @@ chmod +x $RELEASESDIR/$FNAME/$FNAME
 apt install -y xvfb
 pip3 install ai2thor
 
-# Fix after installing xvfb
-echo "backend: Agg" >> /root/.config/matplotlib/matplotlibrc
+# Fix matplotlib backend after installing xvfb
+mkdir -p /root/.config/matplotlib && \
+    echo "backend: Agg" >> /root/.config/matplotlib/matplotlibrc
 
 xvfb-run --auto-servernum --server-args='-screen 0 640x480x24' python3
 
