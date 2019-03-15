@@ -10,7 +10,7 @@ from deep_rl.common.schedules import LinearSchedule
 class Trainer(UnrealTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.num_processes = 16
+        self.num_processes = 8
         self.max_gradient_norm = 0.5
         self.rms_alpha = 0.99
         self.rms_epsilon = 1e-5
