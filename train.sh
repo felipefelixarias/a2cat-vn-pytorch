@@ -28,4 +28,4 @@ Xorg -noreset -logverbose -logfile xorg.log -config /root/xorg.conf :0&
 sleep 1
 # x11vnc -display :0 -rfbauth /root/.vnc/passwd&
 cd /experiments/target-driven-visual-navigation/
-DISPLAY=:0.0 python3 train.sh $1
+DISPLAY=:0.0 python3 train.sh $EXPERIMENT
