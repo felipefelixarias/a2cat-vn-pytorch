@@ -4,7 +4,6 @@ FROM kulhanek/deep-rl-pytorch
 ENV DEBIAN_FRONTEND=noninteractive 
 RUN apt-get update && \
   apt-get -y install build-essential libxi-dev libglu1-mesa-dev libglew-dev libvips && \
-  apt-get -qqy install xserver-xorg-core xserver-xorg-video-dummy libxcursor1 x11vnc unzip pciutils software-properties-common kmod gcc make linux-headers-generic wget \
   && rm -rf /var/lib/apt/lists/*
 
 # Fix agg after installing xvfb
