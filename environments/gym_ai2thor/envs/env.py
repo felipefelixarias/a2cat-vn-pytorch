@@ -29,7 +29,6 @@ class EnvBase(gym.Env):
             self._was_started = True
 
         self.controller.reset('FloorPlan%s' % self.scene_id)
-        print(self.initialize_kwargs)
         event = self.controller.step(dict(action='Initialize', **self.initialize_kwargs))
         event = self._pick_goal(event)        
 

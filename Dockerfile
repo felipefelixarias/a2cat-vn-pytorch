@@ -3,7 +3,8 @@ FROM kulhanek/deep-rl-pytorch
 #Install dependencies
 ENV DEBIAN_FRONTEND=noninteractive 
 RUN apt-get update && \
-  apt-get -y install build-essential libxi-dev libglu1-mesa-dev libglew-dev libvips && \
+  apt-get -y install build-essential libxi-dev libglu1-mesa-dev libglew-dev libvips \
+  xvfb \
   && rm -rf /var/lib/apt/lists/*
 
 # Fix agg after installing xvfb
