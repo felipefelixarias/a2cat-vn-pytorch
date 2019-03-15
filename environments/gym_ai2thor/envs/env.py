@@ -9,7 +9,7 @@ import random
 class EnvBase(gym.Env):
     def __init__(self, scene_id, screen_size = (224, 224), goals = ['Mug'], cameraY = 0.675):
         self.screen_size = screen_size
-        self.controller = ai2thor.controller.Controller()
+        self.controller = ai2thor.controller.Controller(quality='low')
         self.scene_id = scene_id
         self.goals = goals
         
