@@ -10,7 +10,7 @@ from deep_rl.common.schedules import LinearSchedule
 class Trainer(UnrealTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.num_processes = 16
+        self.num_processes = 4
         self.max_gradient_norm = 0.5
         self.rms_alpha = 0.99
         self.rms_epsilon = 1e-5
@@ -25,6 +25,6 @@ class Trainer(UnrealTrainer):
 
 def default_args():
     return dict(
-        env_kwargs = dict(id = 'DiscreteThor228-v0', goals = ['laptop']),
+        env_kwargs = dict(id = 'DiscreteThor228-v0', goals = ['laptop'], screen_size=(84,84)),
         model_kwargs = dict()
     )
