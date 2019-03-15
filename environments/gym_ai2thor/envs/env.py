@@ -7,7 +7,7 @@ import random
 
 
 class EnvBase(gym.Env):
-    def __init__(self, scene_id, screen_size = (224, 224), goals = ['Mug']):
+    def __init__(self, scene_id, screen_size = (224, 224), goals = ['Mug'], cameraY = 0.675):
         self.screen_size = screen_size
         self.controller = ai2thor.controller.Controller()
         self.scene_id = scene_id
@@ -20,7 +20,7 @@ class EnvBase(gym.Env):
         self._last_event = None
 
         self.random = random.Random()
-        self.initialize_kwargs = dict()
+        self.initialize_kwargs = dict(cameraY = cameraY)
         self.state = None
 
     def reset(self):
@@ -29,6 +29,7 @@ class EnvBase(gym.Env):
             self._was_started = True
 
         self.controller.reset('FloorPlan%s' % self.scene_id)
+        print(self.initialize_kwargs)
         event = self.controller.step(dict(action='Initialize', **self.initialize_kwargs))
         event = self._pick_goal(event)        
 
@@ -62,29 +63,36 @@ class EnvBase(gym.Env):
         event = self.controller.step(dict(action='Teleport', horizon=0.0, rotation=rotation, **position))
         return event
 
+    def _get_object_type(self, object):
+        s = object['objectId']
+        return s[:s.index('|')].lower()
+
     def _has_finished(self, event):
         for o in event.metadata['objects']:
-            if o['name'] in self.goals and o['distance'] < self.treshold_distance:
+            tp = self._get_object_type(o)
+            if tp in self.goals and o['distance'] < self.treshold_distance:
                 return True
-
-            if o['name'] in self.goals:
-                print(o['distance'])
-                print(o['visible'])
         
         return False
 
     def _pick_goal(self, event):
+        # No goal env
+        if len(self.goals) == 0:
+            return event
+
         hasgoal = False
         numtrials = 0
         while not hasgoal:
             event = self._reset_objects()
             for o in event.metadata['objects']:
-                if o['name'] in self.goals:
+                tp = self._get_object_type(o)
+                if tp in self.goals:
                     hasgoal = True
-                print(o['name'])
-            
-            numtrials += 1
-            print('WARNING: Reset invoked to sample scene with goals')
+
+            if numtrials > 0:
+                print('WARNING: (%s) Reset invoked to sample scene with goals' % numtrials)
+
+            numtrials += 1            
 
         return event
 
