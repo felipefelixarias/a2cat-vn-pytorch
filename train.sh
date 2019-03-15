@@ -27,4 +27,5 @@ EOF
 Xorg -noreset -logverbose -logfile xorg.log -config /root/xorg.conf :0&
 sleep 1
 # x11vnc -display :0 -rfbauth /root/.vnc/passwd&
-DISPLAY=:0.0 python3 train.py $1
+cd /experiments/target-driven-visual-navigation/
+DISPLAY=:0.0 python3 train.sh $1
