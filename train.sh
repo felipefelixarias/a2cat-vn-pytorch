@@ -1,5 +1,4 @@
 # !/bin/bash
-apt-get -qqy install xserver-xorg-core xserver-xorg-video-dummy libxcursor1 x11vnc unzip pciutils software-properties-common kmod gcc make linux-headers-generic wget
 
 cat << EOF > /root/xorg.conf
 Section "Device"
