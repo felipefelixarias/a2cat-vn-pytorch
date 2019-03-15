@@ -22,7 +22,7 @@ class ContinuousEnv(EnvBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action_space = gym.spaces.Discrete(len(ACTIONS))
-        self.initialize_kwargs = dict(continuous = True)
+        self.initialize_kwargs['continuous'] = True
     
     def step(self, action):
         event = self._controller_step(action)

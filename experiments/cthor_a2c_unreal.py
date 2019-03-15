@@ -25,6 +25,6 @@ class Trainer(UnrealTrainer):
 
 def default_args():
     return dict(
-        env_kwargs = dict(id = 'DiscreteThor228-v0', goals = ['laptop']),
+        env_kwargs = dict(id = 'ContinuousThor220-v0', goals = ['laptop'], cameraY = 0.2),
         model_kwargs = dict()
     )
