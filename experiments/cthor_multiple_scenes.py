@@ -39,7 +39,7 @@ class Trainer(UnrealTrainer):
                 return env
             return _thunk
 
-        self.validation_environment = DummyVecEnv([_create_thunk(validation_scenes)])
+        self.validation_env = DummyVecEnv([_create_thunk(validation_scenes)])
         return SubprocVecEnv([_create_thunk(scenes) for _ in range(self.num_processes)])
 
     def create_env(self, env):
