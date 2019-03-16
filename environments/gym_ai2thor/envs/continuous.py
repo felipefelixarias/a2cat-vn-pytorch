@@ -6,6 +6,7 @@ import cv2
 import random
 
 from .env import EnvBase
+from .goal import GoalEnvBase
 
 ACTIONS = [
     dict(action='MoveAhead', magnitude = 0.6, snapToGrid = False),
@@ -18,7 +19,29 @@ ACTIONS = [
     dict(action='LookDown')
 ]
 
+    
 class ContinuousEnv(EnvBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.action_space = gym.spaces.Discrete(len(ACTIONS))
+        self.initialize_kwargs['continuous'] = True
+    
+    def step(self, action):
+        event = self._controller_step(action)
+        return self._finish_step(event)
+
+
+    def _controller_step(self, action):
+        action = ACTIONS[action]
+        if action['action'] == 'Rotate':
+            deltaangle = action['angle']
+            angle = (self.state[1]['y'] + deltaangle) % 360
+            return self.controller.step(dict(action = 'Rotate', rotation = angle))
+        else:
+            return self.controller.step(action)
+
+
+class GoalContinuousEnv(GoalEnvBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.action_space = gym.spaces.Discrete(len(ACTIONS))
