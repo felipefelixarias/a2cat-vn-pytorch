@@ -63,5 +63,11 @@ Supervised learning for maze env. implementation
         - testing on gridworld graph
         - testing on ai2thor gridworld
 
+15-3-2019
+    Unreal
+        - continuous aithor environment
+        
+    - evaluating previous results
 
-
+16-3-2019
+    Collecting results from previous experiments

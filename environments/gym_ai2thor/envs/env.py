@@ -5,12 +5,11 @@ import ai2thor.controller
 import cv2
 import random
 
-
 class EnvBase(gym.Env):
-    def __init__(self, scene_id, screen_size = (224, 224), goals = ['Mug'], cameraY = 0.675):
+    def __init__(self, scenes, screen_size = (224, 224), goals = ['Mug'], cameraY = 0.675):
         self.screen_size = screen_size
         self.controller = ai2thor.controller.Controller(quality='Very Low')
-        self.scene_id = scene_id
+        self.scenes = scenes
         self.goals = goals
         
         self.observation_space = gym.spaces.Box(0, 255, shape = screen_size + (3,), dtype = np.uint8)
@@ -28,7 +27,12 @@ class EnvBase(gym.Env):
             self.controller.start()
             self._was_started = True
 
-        self.controller.reset('FloorPlan%s' % self.scene_id)
+        if isinstance(self.scenes, (list, tuple)):
+            selected_scene = self.random.choice(self.scenes)
+        else:
+            selected_scene = self.scenes
+
+        self.controller.reset('FloorPlan%s' % selected_scene)
         event = self.controller.step(dict(action='Initialize', **self.initialize_kwargs))
         event = self._pick_goal(event)        
 
