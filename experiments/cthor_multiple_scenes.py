@@ -37,6 +37,7 @@ class Trainer(UnrealTrainer):
                 env = ScaledFloatFrame(env)
                 env = UnrealEnvBaseWrapper(env)
                 return env
+            return _thunk
 
         self.validation_environment = DummyVecEnv([_create_thunk(validation_scenes)])
         return SubprocVecEnv([_create_thunk(scenes) for _ in range(self.num_processes)])
