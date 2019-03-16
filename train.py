@@ -1,5 +1,6 @@
 import argparse
 from deep_rl import make_trainer
+import deep_rl
 import torch.multiprocessing as mp
 
 if __name__ == '__main__':
@@ -7,6 +8,12 @@ if __name__ == '__main__':
     # Fork does not play well with pytorch
     mp.set_start_method('spawn')
 
+    deep_rl.configure(
+        visdom=dict(
+            server= 'https://kvisdom.herokuapp.com/',
+            port=80
+        )
+    )
 
     parser = argparse.ArgumentParser()
     parser.add_argument('name', type = str, help = 'Experiment name')
