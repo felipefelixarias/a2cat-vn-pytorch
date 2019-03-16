@@ -32,6 +32,7 @@ class EnvBase(gym.Env):
         else:
             selected_scene = self.scenes
 
+        print('Loading scene %s' % selected_scene)
         self.controller.reset('FloorPlan%s' % selected_scene)
         event = self.controller.step(dict(action='Initialize', **self.initialize_kwargs))
         event = self._pick_goal(event)        
