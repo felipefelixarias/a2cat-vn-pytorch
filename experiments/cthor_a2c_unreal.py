@@ -6,7 +6,7 @@ from deep_rl.a2c_unreal import UnrealTrainer
 from deep_rl.a2c_unreal.model import UnrealModel
 from deep_rl.common.schedules import LinearSchedule
 
-@register_trainer(max_time_steps = 40e6, validation_period = 50000, validation_episodes = 20,  episode_log_interval = 10, saving_period = 500000, save = True)
+@register_trainer(max_time_steps = 40e6, validation_period = None, validation_episodes = None,  episode_log_interval = 10, saving_period = 100000, save = True)
 class Trainer(UnrealTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

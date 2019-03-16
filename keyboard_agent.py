@@ -8,7 +8,7 @@ import environments
 class KeyboardAgent:
     def __init__(self, **kwargs):
         self.config = kwargs
-        self.env = environments.make('ContinuousThor311-v0', goals = [])
+        self.env = environments.make('ContinuousThor-v0', goals = ['laptop'], scenes = list(range(201, 230)))
         self.env.reset()
 
     def show(self):
