@@ -35,7 +35,7 @@ class EnvBase(gym.Env):
         print('Loading scene %s' % selected_scene)
         self.controller.reset('FloorPlan%s' % selected_scene)
         event = self.controller.step(dict(action='Initialize', **self.initialize_kwargs))
-        event = self._pick_goal(event)        
+        event = self._pick_goal(event, selected_scene)        
 
         num_trials = 0
         while self._has_finished(event):
@@ -79,7 +79,7 @@ class EnvBase(gym.Env):
         
         return False
 
-    def _pick_goal(self, event):
+    def _pick_goal(self, event, scene):
         # No goal env
         if len(self.goals) == 0:
             return event

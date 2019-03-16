@@ -22,3 +22,9 @@ gym.register(
     entry_point = 'environments.gym_ai2thor.envs.continuous:ContinuousEnv',
     max_episode_steps = 900,
 )
+
+gym.register(
+    id = 'ContinuousGoalThor-v0',
+    entry_point = 'environments.gym_ai2thor.envs.continuous:GoalContinuousEnv',
+    max_episode_steps = 900,
+)
