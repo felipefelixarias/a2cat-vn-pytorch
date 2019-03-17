@@ -6,4 +6,5 @@ export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 nvm install v10.13.0 && \
   npm install --prefix /root/.minos/minos/server && \
   pip3 install -e /root/.minos -r /root/.minos/requirements.txt && \
-  pip3 install -e /root/.minos/gym
+  pip3 install -e /root/.minos/gym && \
+  pip3 install git+https://github.com/msavva/socketIO-client-2.git@master#egg=socketIO-client-2-0.7.4
