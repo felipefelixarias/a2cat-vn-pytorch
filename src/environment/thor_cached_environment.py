@@ -74,7 +74,7 @@ class THORDiscreteCachedEnvironment(environment.Environment):
 
     @property
     def reward_configuration(self):
-        return (1.0, 0.0,-1.0)
+        return (1.0, 0.0, 0.0)
 
     def process(self, action):
         collided = False

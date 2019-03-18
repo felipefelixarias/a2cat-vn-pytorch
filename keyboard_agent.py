@@ -5,31 +5,36 @@ import matplotlib.image as mpimg
 import numpy as np
 import environments
 
+import deep_rl
+from configuration import configuration
+deep_rl.configure(**configuration)
+
 class KeyboardAgent:
     def __init__(self, **kwargs):
         self.config = kwargs
-        self.env = environments.make('ContinuousThor-v0', goals = ['laptop'], scenes = list(range(201, 230)))
-        self.env.reset()
+        #self.env = environments.make('ContinuousThor-v0', goals = ['laptop'], scenes = list(range(201, 230)))
+        self.env = environments.make('House-v0')
+        self.obs = self.env.reset()
 
     def show(self):
         fig = plt.figure()
-        imgplot = plt.imshow(self.env.render(mode = 'rgbarray'))
+        imgplot = plt.imshow(self.obs)
         def press(event):
             def redraw():
-                plt.imshow(self.env.render(mode = 'rgbarray'))
+                plt.imshow(self.obs)
                 fig.canvas.draw()
                 
             done = False
             if event.key == 's':
                 mpimg.imsave("output.png",self.env.render(mode = 'rgbarray'))
             elif event.key == 'up':
-                _, _, done, _ = self.env.step(0)
+                self.obs, _, done, _ = self.env.step(0)
                 redraw()
             elif event.key == 'right':
-                _, _, done, _ = self.env.step(4)
+                self.obs, _, done, _ = self.env.step(4)
                 redraw()
             elif event.key == 'left':
-                _, _, done, _ = self.env.step(5)
+                self.obs, _, done, _ = self.env.step(5)
                 redraw()
 
             if hasattr(self.env.unwrapped, 'state'):
@@ -37,7 +42,9 @@ class KeyboardAgent:
 
             if done:
                 print('Goal reached')
-                self.env.reset()
+                self.obs = self.env.reset()
+
+                redraw()
 
         plt.rcParams['keymap.save'] = ''
         fig.canvas.mpl_connect('key_press_event', press)
