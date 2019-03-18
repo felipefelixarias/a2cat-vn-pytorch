@@ -13,7 +13,7 @@ class KeyboardAgent:
     def __init__(self, **kwargs):
         self.config = kwargs
         #self.env = environments.make('ContinuousThor-v0', goals = ['laptop'], scenes = list(range(201, 230)))
-        self.env = environments.make('House-v0')
+        self.env = environments.make('House-v0', scene = '00a76592d5cc7d92eef022393784a2de', goals = ['bathroom'])
         self.obs = self.env.reset()
 
     def show(self):
