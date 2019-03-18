@@ -1,6 +1,6 @@
-DATASET_ORIGINAL=/datasets/suncg
-DATASET_NEW=/datasets/suncg
-TOOLBOX_PATH=/media/data/repos/SUNCGtoolbox/gaps/bin/x86_64
+DATASET_ORIGINAL=/home-net/kulhajon/datasets/suncg
+DATASET_NEW=/home-net/kulhajon/datasets/suncg
+TOOLBOX_PATH=~/toolbox/SUNCGtoolbox/gaps/bin/x86_64
 
 HOUSES="00a76592d5cc7d92eef022393784a2de
 066e8a32fd15541e814a9eafa82abf5d
