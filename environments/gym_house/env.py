@@ -23,7 +23,12 @@ class GymHouseWrapper(gym.ObservationWrapper):
         self.room_types = room_types
 
     def observation(self, observation):
-        return cv2.resize(observation, self.screen_size, interpolation = cv2.INTER_CUBIC)
+        return observation
+
+    def step(self, action):
+        r = super().step(action)
+        print(r[1])
+        return r
 
     def reset(self):
         goals = set(self.env.house.all_desired_roomTypes)
@@ -36,9 +41,9 @@ class GymHouseWrapper(gym.ObservationWrapper):
 
 def GymHouseEnv(scene = '05cac5f7fdd5f8138234164e76a97383', screen_size = (84,84), goals = ['bedroom']):
     h, w = screen_size
-    api = objrender.RenderAPI(w = 300, h = 300, device = 0)
+    api = objrender.RenderAPI(w = w, h = h, device = 0)
     env = Environment(api, scene, create_configuration())
     env.reset()
-    env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False)
+    env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False, reward_type=None)
     env.observation_space.dtype = np.uint8
     return GymHouseWrapper(env, room_types=goals, screen_size = screen_size)

@@ -25,6 +25,6 @@ class Trainer(UnrealTrainer):
 
 def default_args():
     return dict(
-        env_kwargs = dict(id = 'House-v0', screen_size=(84,84)),
+        env_kwargs = dict(id = 'House-v0', screen_size=(84,84), scene = '00a76592d5cc7d92eef022393784a2de', goals = ['bathroom']),
         model_kwargs = dict()
     )
