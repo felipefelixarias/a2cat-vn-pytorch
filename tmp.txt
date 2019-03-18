@@ -1,0 +1,61 @@
+
+
+
+FROM nvidia/cuda:9.0-base
+
+
+
+
+RUN apt-get update && apt-get install -y \
+	libglfw3-dev libglm-dev libx11-dev libegl1-mesa-dev \
+  libxext-dev libx11-dev x11proto-gl-dev \
+	libpng-dev libjpeg-dev \
+  cmake \
+	python3-dev build-essential pkg-config git curl wget automake libtool
+
+RUN cd /tmp && \
+  git clone https://github.com/NVIDIA/libglvnd && cd libglvnd && \
+  ./autogen.sh && ./configure --prefix=/opt/clibs --disable-egl  && \
+  make && make install
+
+ENV LD_LIBRARY_PATH=/opt/clibs/lib:$LD_LIBRARY_PATH
+ENV PKG_CONFIG_PATH=/opt/clibs/lib/pkgconfig:$PKG_CONFIG_PATH
+
+RUN cd /tmp && mkdir -p /opt/clibs && \
+  wget https://github.com/glfw/glfw/releases/download/3.2.1/glfw-3.2.1.zip && \
+  unzip glfw-3.2.1.zip && cd glfw-3.2.1 && \
+  mkdir build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=/opt/clibs -DBUILD_SHARED_LIBS=ON && \
+  make && make install
+
+RUN cd /tmp && \
+  wget https://github.com/g-truc/glm/releases/download/0.9.8.4/glm-0.9.8.4.zip && \
+  unzip glm-0.9.8.4 && cd glm && \
+  mkdir build && cd build && cmake .. -DCMAKE_INSTALL_PREFIX=/opt/clibs && \
+  make && make install
+
+RUN cd /opt/clibs/include && \
+  wget -P EGL https://www.khronos.org/registry/EGL/api/EGL/egl.h && \
+  wget -P EGL https://www.khronos.org/registry/EGL/api/EGL/eglext.h && \
+  wget -P EGL https://www.khronos.org/registry/EGL/api/EGL/eglplatform.h
+
+
+# tqdm is only used by the tests
+RUN pip3 install tqdm
+
+# update git
+RUN git clone --recursive https://github.com/facebookresearch/House3D /House3D
+RUN wget https://github.com/facebookresearch/House3D/releases/download/example-data/example-data.tgz \
+ -O /House3D/data.tgz && cd /House3D && tar xzf data.tgz
+ENV TEST_HOUSE /House3D/house/05cac5f7fdd5f8138234164e76a97383/house.obj
+
+# build renderer
+WORKDIR /House3D/renderer
+ENV PYTHON_CONFIG python3-config
+RUN INCLUDE_DIR=-I/opt/clibs/include make -j
+
+
+# install House3D
+WORKDIR /House3D
+RUN pip3 install -e .
+
+WORKDIR /root
