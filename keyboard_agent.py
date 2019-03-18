@@ -37,6 +37,8 @@ class KeyboardAgent:
                 self.obs, _, done, _ = self.env.step(5)
                 redraw()
 
+            print(self.env.unwrapped.info['target_room'])
+
             if hasattr(self.env.unwrapped, 'state'):
                 print(self.env.unwrapped.state)
 
