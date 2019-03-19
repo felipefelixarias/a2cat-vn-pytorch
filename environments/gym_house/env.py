@@ -28,6 +28,7 @@ class GymHouseWrapper(gym.ObservationWrapper):
         return observation
 
     def reset(self):
+        print(self.env.house.all_desired_roomTypes)
         goals = set(self.env.house.all_desired_roomTypes)
         if self.room_types is not None:
             goals.intersection_update(set(self.room_types))
@@ -36,11 +37,20 @@ class GymHouseWrapper(gym.ObservationWrapper):
 
         return self.observation(self.env.reset(target))
 
-def GymHouseEnv(scene = '05cac5f7fdd5f8138234164e76a97383', screen_size = (84,84), goals = ['bedroom'], configuration = None):
+def GymHouseEnvOriginal(scene = '2364b7dcc432c6d6dcc59dba617b5f4b', screen_size = (84,84), goals = ['kitchen'], hardness=0.3, configuration = None):
     h, w = screen_size
     api = objrender.RenderAPI(w = w, h = h, device = 0)
     env = Environment(api, scene, create_configuration(configuration))
     env.reset()
-    env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False, reward_type=None)
+    env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False, hardness=hardness)
+    env.observation_space.dtype = np.uint8
+    return GymHouseWrapper(env, room_types=goals, screen_size = screen_size)
+
+def GymHouseEnv2(scene = '05cac5f7fdd5f8138234164e76a97383', screen_size = (84,84), goals = ['living_room'], configuration = None):
+    h, w = screen_size
+    api = objrender.RenderAPI(w = w, h = h, device = 0)
+    env = Environment(api, scene, create_configuration(configuration))
+    env.reset()
+    env = RoomNavTask2(env, discrete_action = True, depth_signal = False, segment_input = False, reward_type=None)
     env.observation_space.dtype = np.uint8
     return GymHouseWrapper(env, room_types=goals, screen_size = screen_size)

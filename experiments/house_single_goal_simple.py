@@ -12,6 +12,18 @@ from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
 
 from torchvision.models.resnet import resnet18
 
+class ConvBlock(nn.Module):
+    def __init__(self, in_planes, out_planes, kernel_size, stride):
+        self.relu = nn.ReLU(True)
+        self.conv = nn.Conv2d(in_planes, out_planes)
+        self.in_planes = in_planes
+        self.out_planes = out_planes
+
+    def forward(self, x):
+        pass
+
+        
+
 class HouseModel(nn.Module):
     def init_weights(self, module):
         if type(module) in [nn.GRU, nn.LSTM, nn.RNN]:
@@ -29,8 +41,8 @@ class HouseModel(nn.Module):
             d = 1.0 / math.sqrt(fan_in)
             nn.init.uniform_(module.weight.data, -d, d)
 
-    def _resnet_block(self, planes, stride, layers = 2):
-        pass 
+    def _conv_block(self, planes, stride, layers = 2):
+        pass
 
     def __init__(self, num_inputs, num_outputs):
         super().__init__()
@@ -143,6 +155,12 @@ class Trainer(UnrealTrainer):
 
 def default_args():
     return dict(
-        env_kwargs = dict(id = 'House-v0', screen_size=(84,84), scene = '00a76592d5cc7d92eef022393784a2de', goals = ['bathroom'], configuration=deep_rl.configuration.get('house3d').as_dict()),
+        env_kwargs = dict(
+            id = 'House-v0', 
+            screen_size=(84,84), 
+            scene = '05cac5f7fdd5f8138234164e76a97383', 
+            goals = ['living_room'], 
+            hardness = 0.1,
+            configuration=deep_rl.configuration.get('house3d').as_dict()),
         model_kwargs = dict()
     )
