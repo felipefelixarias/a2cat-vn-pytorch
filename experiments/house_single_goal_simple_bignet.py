@@ -137,7 +137,7 @@ class Trainer(UnrealTrainer):
         self.num_processes = 8
         self.max_gradient_norm = 0.5
         self.rms_alpha = 0.99
-        self.rms_epsilon = 1e-5
+        self.rms_epsilon = 0.01
         self.num_steps = 20
         self.gamma = .99
         self.allow_gpu = True
