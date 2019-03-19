@@ -59,6 +59,7 @@ RUN make -j
 # install House3D and baselines
 WORKDIR /House3D
 RUN pip3 install -e . && \
+  pip3 install tensorflow && \
   pip3 install git+https://github.com/openai/baselines.git
 
 WORKDIR /root
