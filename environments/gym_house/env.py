@@ -27,11 +27,6 @@ class GymHouseWrapper(gym.ObservationWrapper):
     def observation(self, observation):
         return observation
 
-    def step(self, action):
-        r = super().step(action)
-        print(r[1])
-        return r
-
     def reset(self):
         goals = set(self.env.house.all_desired_roomTypes)
         if self.room_types is not None:
