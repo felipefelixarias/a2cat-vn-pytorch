@@ -98,8 +98,8 @@ def reset_random(env, house, room):
     return True
 
 
-def render_current_location(env, houseID, room_type, index):
-    output_dir = os.path.join(get_house_dir(houseID), room_type)
+def render_current_location(env, houseID, room_type, index, room_type_name):
+    output_dir = os.path.join(get_house_dir(houseID), room_type_name)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
         print('Created directory {}'.format(output_dir))
@@ -127,7 +127,7 @@ def get_valid_rooms(house):
     for room in house.all_rooms:
         for tp in room['roomTypes']:
             if tp.lower() in ROOM_TYPES:
-                result.append(room)
+                result.append((room, tp.lower()))
                 break
     return result
 
@@ -166,13 +166,13 @@ def house_renderer(cfg, house_queue, progress_queue):
 
         loc_idx = 0
         valid_rooms = get_valid_rooms(house)
-        for room in valid_rooms:
+        for room, room_type in valid_rooms:
             for _i in range(SAMPLES_PER_ROOM):
                 if not reset_random(env, house, room):
                     print('Unable to sample location for house {}'.format(
                         houseID))
                     break
-                render_current_location(env, houseID, room['id'], loc_idx)
+                render_current_location(env, houseID, room['id'], loc_idx, room_type)
                 loc_idx += 1
 
         house_queue.task_done()
