@@ -7,12 +7,22 @@ from deep_rl.a2c_unreal import UnrealTrainer
 from deep_rl.a2c_unreal.model import UnrealModel
 from deep_rl.common.schedules import LinearSchedule
 
-import torch
 from torch import nn
-import math
 from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
 
 from torchvision.models.resnet import resnet18
+
+class ConvBlock(nn.Module):
+    def __init__(self, in_planes, out_planes, kernel_size, stride):
+        self.relu = nn.ReLU(True)
+        self.conv = nn.Conv2d(in_planes, out_planes)
+        self.in_planes = in_planes
+        self.out_planes = out_planes
+
+    def forward(self, x):
+        pass
+
+        
 
 class HouseModel(nn.Module):
     def init_weights(self, module):
@@ -38,17 +48,17 @@ class HouseModel(nn.Module):
         super().__init__()
         self._in_planes = num_inputs
         self.conv_base = TimeDistributed(nn.Sequential(
-            nn.Conv2d(num_inputs, 32, 7, stride = 4, padding=3), # 56
-            nn.ReLU(True),
-            nn.Conv2d(32, 64, 7, stride = 4, padding=3), # 14 
-            nn.ReLU(True),
-            nn.Conv2d(64, 64, 4, stride = 2), # 6
-            nn.ReLU(True)
+            nn.Conv2d(num_inputs, 32, 8, stride = 4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 4, stride = 2),
+            nn.ReLU(),
+            nn.Conv2d(64, 32, 3),
+            nn.ReLU()
         ))
 
         self.conv_merge = TimeDistributed(nn.Sequential(
             Flatten(),
-            nn.Linear(6 ** 2 * 64, 512),
+            nn.Linear(7 ** 2 * 32, 512),
             nn.ReLU()
         ))
 
@@ -68,7 +78,6 @@ class HouseModel(nn.Module):
         self._create_rp_network()
 
         self.apply(self.init_weights)
-        self.pc_cell_size = 5
 
     def initial_states(self, batch_size):
         return tuple([torch.zeros([batch_size, self.lstm_layers, self.lstm_hidden_size], dtype = torch.float32) for _ in range(2)])
@@ -93,21 +102,17 @@ class HouseModel(nn.Module):
         ))
 
         self.pc_action = TimeDistributed(nn.Sequential(
-            nn.ConvTranspose2d(32, 32, kernel_size = 4, stride = 2), # 14
-            nn.ReLU(),
             nn.ConvTranspose2d(32, 1, kernel_size = 4, stride = 2),
             nn.ReLU()
         ))
 
         self.pc_value = TimeDistributed(nn.Sequential(
-            nn.ConvTranspose2d(32, 32, kernel_size = 4, stride = 2), # 14
-            nn.ReLU(),
             nn.ConvTranspose2d(32, num_outputs, kernel_size = 4, stride=2),
             nn.ReLU()
         ))
 
     def _create_rp_network(self):
-        self.rp = nn.Linear(6 ** 2 * 64 * 3, 3)
+        self.rp = nn.Linear(9 ** 2 * 32 * 3, 3)
 
     def reward_prediction(self, inputs):
         observations, _ = inputs
@@ -148,14 +153,11 @@ class Trainer(UnrealTrainer):
         self.vr_weight = 1.0
         #self.pc_cell_size = 
 
-    def create_model(self):
-        return HouseModel(self.env.observation_space.spaces[0].shape[0], self.env.action_space.n)
-
 def default_args():
     return dict(
         env_kwargs = dict(
             id = 'House-v0', 
-            screen_size=(224,224), 
+            screen_size=(84,84), 
             scene = '05cac5f7fdd5f8138234164e76a97383', 
             goals = ['living_room'], 
             hardness = 0.1,
