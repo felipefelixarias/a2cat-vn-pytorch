@@ -154,7 +154,7 @@ class Trainer(UnrealTrainer):
 def default_args():
     return dict(
         env_kwargs = dict(
-            id = 'House-v0', 
+            id = 'House-v1', 
             screen_size=(224,224), 
             scene = '05cac5f7fdd5f8138234164e76a97383', 
             goals = ['living_room'], 

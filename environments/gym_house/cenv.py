@@ -14,28 +14,14 @@ import pickle
 
 import gym
 from gym import spaces
-from .house import House
-from .core import Environment, MultiHouseEnv
-from . import objrender
-from .objrender import RenderMode
-
-__all__ = ['RoomNavTask']
+from House3D.house import House
+from House3D.core import Environment, MultiHouseEnv
+from House3D import objrender
 
 ###############################################
 # Task related definitions and configurations
 ###############################################
 flag_print_debug_info = False  # flag for printing debug info
-
-dist_reward_scale = 1.0  # 2.0
-collision_penalty_reward = 0.3  # penalty for collision
-correct_move_reward = None  # reward when moving closer to target
-stay_room_reward = 0.1  # reward when staying in the correct target room
-indicator_reward = 0.5
-success_reward = 10   # reward when success
-
-time_penalty_reward = 0.1   # penalty for each time step
-delta_reward_coef = 0.5
-speed_reward_coef = 1.0
 
 success_distance_range = 1.0
 success_stay_time_steps = 5
@@ -47,18 +33,12 @@ default_move_sensitivity = 0.5  # 1.0   # maximum movement per time step
 
 # discrete action space actions, totally <13> actions
 # Fwd, L, R, Lrot, Rrot, back, s-Fwd, s-L, s-R, s-Lrot, s-Rrot
-discrete_actions=[(1.,0.,0.), (0.,0.7.,0.), (0.,-0.7.,0.),
+discrete_actions=[(1.,0.,0.), (0.,0.7,0.), (0.,-0.7,0.),
                   (0.,0.,1.), (0.,0.,-1.),
                   (-0.4, 0., 0.)]
                   #,
                   #(0.4,0.,0.), (0.,0.,0.4), (0.,0.,-0.4)]
 n_discrete_actions = len(discrete_actions)
-
-# criteria for seeing the object
-n_pixel_for_object_see = 450   # need at least see 450 pixels for success under default resolution 120 x 90
-n_pixel_for_object_sense = 50
-L_pixel_reward_range = n_pixel_for_object_see - n_pixel_for_object_sense
-pixel_object_reward = 0.4
 
 
 #################
@@ -141,11 +121,9 @@ class RoomNavTask(gym.Env):
         # configs
         self.move_sensitivity = (move_sensitivity or default_move_sensitivity)  # at most * meters per frame
         self.rot_sensitivity = rotation_sensitivity
-        self.dist_scale = dist_reward_scale or 1
-        self.successRew = success_reward
-        self.inroomRew = stay_room_reward or 0.2
-        self.colideRew = collision_penalty_reward or 0.02
-        self.goodMoveRew = correct_move_reward or 0.0
+        self.successRew = 1.0
+        self.colideRew = 0
+        self.goodMoveRew = 0  # reward when moving closer to target
 
         self.last_obs = None
         self.last_info = None
@@ -294,7 +272,7 @@ class RoomNavTask(gym.Env):
         if not self.env.move_forward(move_fwd, move_hor):
             if flag_print_debug_info:
                 print('Collision! No Movement Performed!')
-            reward -= self.colideRew
+            #reward -= self.colideRew
             self.collision_flag = True
         else:
             self.collision_flag = False
@@ -306,13 +284,7 @@ class RoomNavTask(gym.Env):
             self.last_obs = obs = np.concatenate([self.env.render(mode='rgb'), obs], axis=-1)
         cur_info = self.info
         raw_dist = cur_info['dist']
-        orig_raw_dist = self.last_info['dist']
-        if raw_dist < orig_raw_dist:
-            reward += self.goodMoveRew
-        if raw_dist == 0:
-            reward += self.inroomRew
-        raw_scaled_dist = cur_info['scaled_dist']
-        dist = raw_scaled_dist * self.dist_scale
+
         done = False
         if self._is_success(raw_dist):
             reward += self.successRew
@@ -320,35 +292,6 @@ class RoomNavTask(gym.Env):
         # accumulate episode step
         self.current_episode_step += 1
         if (self.max_steps > 0) and (self.current_episode_step >= self.max_steps): done = True
-
-        # reward shaping
-        if self.reward_type == 'linear':
-            reward -= dist
-        elif self.reward_type == 'indicator':
-            if raw_dist != orig_raw_dist:  # indicator reward
-                reward += indicator_reward if raw_dist < orig_raw_dist else -indicator_reward
-            if raw_dist >= orig_raw_dist: reward -= time_penalty_reward
-        elif self.reward_type == 'delta':
-            delta_raw_dist = orig_raw_dist - raw_dist
-            ratio = self.move_sensitivity / self.house.grid_det
-            delta_reward = delta_raw_dist / ratio * delta_reward_coef
-            delta_reward = np.clip(delta_reward, -indicator_reward, indicator_reward)
-            reward += delta_reward
-            if raw_dist >= orig_raw_dist: reward -= time_penalty_reward
-        elif self.reward_type == 'speed':
-            movement = np.sqrt((self.last_info['pos'][0]-cur_info['pos'][0])**2
-                               + (self.last_info['pos'][1]-cur_info['pos'][1])**2)
-            sign = np.sign(orig_raw_dist - raw_dist)
-            det_dist = movement * sign * speed_reward_coef
-            det_dist = np.clip(det_dist, -indicator_reward, indicator_reward)
-            reward += det_dist
-            if raw_dist >= orig_raw_dist: reward -= time_penalty_reward
-
-        # object seen reward
-        if (raw_dist == 0) and (self.success_measure == 'see'):  # inside target room and success measure is <see>
-            if not done:
-                object_reward = np.clip((self._object_cnt - n_pixel_for_object_sense) / L_pixel_reward_range, 0., 1.) * pixel_object_reward
-                reward += object_reward
 
         if self.depth_signal:
             dep_sig = self.env.render(mode='depth')
@@ -398,29 +341,54 @@ class RoomNavTask(gym.Env):
         self._availCoorsDict = [dict() for i in range(n_house)]
         self._availCoorsDict[self.house._id][self.house.targetRoomTp] = self.availCoors
 
-    """
-    recover the state (location) of the agent from the info dictionary
-    """
-    def set_state(self, info):
-        self.env.reset(x=info['pos'][0], y=info['pos'][1], yaw=info['yaw'])
 
-    """
-    return 2d topdown map
-    """
-    def get_2dmap(self):
-        return self.env.gen_2dmap()
+from .env import create_configuration
 
-    """
-    show a image.
-    if img is not None, it will visualize the img to monitor
-    if img is None, it will return a img object of the observation
-    Note: whenever this function is called with img not None, the task cannot perform rendering any more!!!!
-    """
-    def show(self, img=None):
-        return self.env.show(img=img,
-                             renderMapLoc=(None if img is not None else self.info['grid']),
-                             renderSegment=True,
-                             display=(img is not None))
+class GymHouseEnvOriginal(gym.Env):
+    def __init__(self, scene = '2364b7dcc432c6d6dcc59dba617b5f4b', screen_size = (84,84), goals = ['kitchen'], hardness=0.3, configuration = None):
+        super().__init__()
 
-    def debug_show(self):
-        return self.env.debug_render()
+        self.screen_size = screen_size
+        self.room_types = goals
+        self.scene = scene
+        self.configuration = create_configuration(configuration)
+        self._env = None
+
+        self.action_space = gym.spaces.Discrete(n_discrete_actions)
+        self.observation_space = gym.spaces.Box(0, 255, screen_size + (3,), dtype = np.uint8)
+
+    def _initialize(self):
+        h, w = self.screen_size
+        api = objrender.RenderAPI(w = w, h = h, device = 0)
+        env = Environment(api, self.scene, self.configuration)
+        env.reset()
+        env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False, reward_type=None)
+        self._env = env
+
+    def observation(self, observation):
+        return observation
+
+    def _ensure_env_ready(self):
+        if self._env is None:
+            self._initialize()
+
+    def reset(self):
+        self._ensure_env_ready()
+
+        goals = set(self._env.house.all_desired_roomTypes)
+        if self.room_types is not None:
+            goals.intersection_update(set(self.room_types))
+
+        target = random.choice(list(goals))
+
+        return self.observation(self._env.reset(target))
+
+    @property
+    def info(self):
+        self._ensure_env_ready()
+        return self._env.info
+
+    def step(self, action):
+        self._ensure_env_ready()
+        obs, reward, done, info = self._env.step(action)
+        return self.observation(obs), reward, done, info
