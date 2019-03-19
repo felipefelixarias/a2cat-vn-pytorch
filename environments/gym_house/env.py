@@ -55,7 +55,7 @@ class GymHouseEnvOriginal(gym.Env):
 
         target = random.choice(list(goals))
 
-        return self.observation(self.env.reset(target))
+        return self.observation(self._env.reset(target))
 
     @property
     def info(self):
