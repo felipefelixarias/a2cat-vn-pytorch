@@ -7,9 +7,6 @@ from deep_rl.a2c_unreal import UnrealTrainer
 from deep_rl.a2c_unreal.model import UnrealModel
 from deep_rl.common.schedules import LinearSchedule
 
-from configuration import configuration
-deep_rl.configure(**configuration)
-
 @register_trainer(max_time_steps = 40e6, validation_period = None, validation_episodes = None,  episode_log_interval = 10, saving_period = 100000, save = True)
 class Trainer(UnrealTrainer):
     def __init__(self, *args, **kwargs):
@@ -29,6 +26,6 @@ class Trainer(UnrealTrainer):
 
 def default_args():
     return dict(
-        env_kwargs = dict(id = 'House-v0', screen_size=(84,84), scene = '00a76592d5cc7d92eef022393784a2de', goals = ['bathroom']),
+        env_kwargs = dict(id = 'House-v0', screen_size=(84,84), scene = '00a76592d5cc7d92eef022393784a2de', goals = ['bathroom'], configuration=deep_rl.configuration.get('house3d')),
         model_kwargs = dict()
     )
