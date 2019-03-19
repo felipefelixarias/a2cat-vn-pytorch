@@ -71,3 +71,9 @@ Supervised learning for maze env. implementation
 
 16-3-2019
     Collecting results from previous experiments
+
+    AI2 thor too slow to be usefull
+    Experimenting with house3d
+        - too difficult for the original net
+        - using simplified environment
+        - trying
