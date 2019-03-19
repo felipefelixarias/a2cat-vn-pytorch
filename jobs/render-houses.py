@@ -101,7 +101,7 @@ def reset_random(env, house, room):
 def render_current_location(env, houseID, room_type, index):
     output_dir = os.path.join(get_house_dir(houseID), room_type)
     if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
+        os.makedirs(output_dir, exist_ok=True)
         print('Created directory {}'.format(output_dir))
 
     for mode_idx in range(len(RENDER_MODES)):
