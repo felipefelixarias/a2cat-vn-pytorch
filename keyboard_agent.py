@@ -13,7 +13,7 @@ class KeyboardAgent:
     def __init__(self, **kwargs):
         self.config = kwargs
         #self.env = environments.make('ContinuousThor-v0', goals = ['laptop'], scenes = list(range(201, 230)))
-        self.env = environments.make('House-v0', scene = '2364b7dcc432c6d6dcc59dba617b5f4b', goals=['kitchen'])#, goals = ['living_room'])
+        self.env = environments.make('House-v0', scene = 'b814705bc93d428507a516b866efda28', goals=['kitchen'])#, goals = ['living_room'])
         self.obs = self.env.reset()
 
     def show(self):
@@ -38,6 +38,7 @@ class KeyboardAgent:
                 redraw()
 
             print(self.env.unwrapped.info['target_room'])
+            print(self.env.unwrapped._env.house.all_desired_roomTypes)
 
             if hasattr(self.env.unwrapped, 'state'):
                 print(self.env.unwrapped.state)
