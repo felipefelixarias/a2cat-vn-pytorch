@@ -1,10 +1,14 @@
 import environments
 import numpy as np
 
+import deep_rl
 from deep_rl import register_trainer
 from deep_rl.a2c_unreal import UnrealTrainer
 from deep_rl.a2c_unreal.model import UnrealModel
 from deep_rl.common.schedules import LinearSchedule
+
+from configuration import configuration
+deep_rl.configure(**configuration)
 
 @register_trainer(max_time_steps = 40e6, validation_period = None, validation_episodes = None,  episode_log_interval = 10, saving_period = 100000, save = True)
 class Trainer(UnrealTrainer):
