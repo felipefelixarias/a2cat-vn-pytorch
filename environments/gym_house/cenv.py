@@ -344,7 +344,7 @@ class RoomNavTask(gym.Env):
 
 from .env import create_configuration
 
-class GymHouseEnvOriginal(gym.Env):
+class GymHouseEnv(gym.Env):
     def __init__(self, scene = '2364b7dcc432c6d6dcc59dba617b5f4b', screen_size = (84,84), goals = ['kitchen'], hardness=0.3, configuration = None):
         super().__init__()
 
