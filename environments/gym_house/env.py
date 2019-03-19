@@ -28,7 +28,6 @@ class GymHouseWrapper(gym.ObservationWrapper):
         return observation
 
     def reset(self):
-        print(self.env.house.all_desired_roomTypes)
         goals = set(self.env.house.all_desired_roomTypes)
         if self.room_types is not None:
             goals.intersection_update(set(self.room_types))
