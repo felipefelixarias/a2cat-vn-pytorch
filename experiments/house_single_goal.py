@@ -26,6 +26,6 @@ class Trainer(UnrealTrainer):
 
 def default_args():
     return dict(
-        env_kwargs = dict(id = 'House-v0', screen_size=(84,84), scene = '00a76592d5cc7d92eef022393784a2de', goals = ['bathroom'], configuration=deep_rl.configuration.get('house3d')),
+        env_kwargs = dict(id = 'House-v0', screen_size=(84,84), scene = '00a76592d5cc7d92eef022393784a2de', goals = ['bathroom'], configuration=deep_rl.configuration.get('house3d').as_dict()),
         model_kwargs = dict()
     )
