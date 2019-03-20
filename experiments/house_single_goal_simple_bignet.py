@@ -14,6 +14,8 @@ from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
 
 from torchvision.models.resnet import resnet18
 
+# NOT WORKING!!!!!
+
 class HouseModel(nn.Module):
     def init_weights(self, module):
         if type(module) in [nn.GRU, nn.LSTM, nn.RNN]:
@@ -158,7 +160,7 @@ def default_args():
             screen_size=(224,224), 
             scene = '05cac5f7fdd5f8138234164e76a97383', 
             goals = ['living_room'], 
-            hardness = 0.1,
+            hardness = 0.3,
             configuration=deep_rl.configuration.get('house3d').as_dict()),
         model_kwargs = dict()
     )

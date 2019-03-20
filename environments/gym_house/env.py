@@ -26,6 +26,7 @@ class GymHouseEnvOriginal(gym.Env):
         self.room_types = goals
         self.scene = scene
         self.configuration = create_configuration(configuration)
+        self.hardness = hardness
         self._env = None
 
         self.action_space = gym.spaces.Discrete(n_discrete_actions)
@@ -36,7 +37,7 @@ class GymHouseEnvOriginal(gym.Env):
         api = objrender.RenderAPI(w = w, h = h, device = 0)
         env = Environment(api, self.scene, self.configuration)
         env.reset()
-        env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False, reward_type=None)
+        env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False, reward_type=None, hardness=self.hardness)
         self._env = env
 
     def observation(self, observation):
