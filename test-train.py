@@ -3,6 +3,7 @@ from deep_rl import make_trainer
 import deep_rl
 import torch.multiprocessing as mp
 from configuration import configuration
+from deep_rl.common.torchsummary import get_shape
 
 if __name__ == '__main__':
     # Set mp method to spawn
