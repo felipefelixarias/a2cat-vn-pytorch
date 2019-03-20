@@ -13,11 +13,12 @@ default_configuration = dict(
     )
 )
 
-os.makedirs('~/.visual_navigation', exist_ok=True)
+basepath = os.path.expanduser('~/.visual_navigation')
+os.makedirs(basepath, exist_ok=True)
 configuration = dict(**default_configuration)
-if not os.path.exists('~/.visual_navigation/config'):
-    with open('~/.visual_navigation/config', 'w+') as f:
+if not os.path.exists(os.path.join(basepath, 'config')):
+    with open(os.path.join(basepath, 'config'), 'w+') as f:
         json.dump(configuration, f)
 
-with open('~/.visual_navigation/config', 'r') as f:
+with open(os.path.join(basepath, 'config'), 'r') as f:
     configuration.update(**json.load(f))
