@@ -1,5 +1,4 @@
 import os
-import goal
 import random
 import cv2
 
