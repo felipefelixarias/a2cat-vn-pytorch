@@ -7,6 +7,7 @@ from deep_rl.a2c_unreal import UnrealTrainer
 from deep_rl.a2c_unreal.model import UnrealModel
 from deep_rl.common.schedules import LinearSchedule
 
+import torch
 from torch import nn
 from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
 
@@ -152,6 +153,11 @@ class Trainer(UnrealTrainer):
         self.pc_weight = 0.05
         self.vr_weight = 1.0
         #self.pc_cell_size = 
+
+    def create_model(self):
+        model = super().create_model()
+        model.load_state_dict(torch.load('./checkpoints/chouse-single-goal-simple/weights.pth'))
+        return model
 
 def default_args():
     return dict(
