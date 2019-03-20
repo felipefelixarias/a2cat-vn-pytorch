@@ -160,7 +160,7 @@ def default_args():
             screen_size=(84,84), 
             scene = '05cac5f7fdd5f8138234164e76a97383', 
             goals = ['living_room'], 
-            hardness = 0.1,
+            hardness = 0.3,
             configuration=deep_rl.configuration.get('house3d').as_dict()),
         model_kwargs = dict()
     )
