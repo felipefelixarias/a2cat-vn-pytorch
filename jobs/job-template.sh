@@ -1,13 +1,13 @@
 #!/bin/bash
 
-#SBATCH --job-name=chouse-single-goal-hard-bignet
+#SBATCH --job-name=train-{jobname}
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
 #SBATCH --time=1-00:00:00
 #SBATCH --mem=12G
 #SBATCH --gres=gpu:1
 
-TASKNAME=chouse-single-goal-hard-bignet
+TASKNAME={jobname}
 
 ml load singularity
 SCRATCH_DIRECTORY=/lscratch/${USER}/${SLURM_JOBID}.stallo-adm.uit.no
