@@ -41,7 +41,8 @@ class GoalImageCache:
         if (scene, resource, sampled_image) in self.cache:
             return self.cache[(scene, resource, sampled_image)]
 
-        impath = os.path.join(root, resource, sampled_image)
+        impath = os.path.join(root, sampled_image)
+        assert os.path.isfile(impath), ('Missing file %s' % impath)
         image = cv2.imread(impath)
         image = cv2.resize(image, self.image_size, interpolation = cv2.INTER_CUBIC)
         self.cache[(scene, resource, sampled_image)] = image
