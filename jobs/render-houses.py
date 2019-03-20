@@ -109,7 +109,7 @@ def render_current_location(env, houseID, room_type, index, room_type_name):
         render_name = RENDER_NAMES[mode_idx]
 
         env.set_render_mode(RENDER_MODES[mode_idx])
-        img = env.render_cube_map(copy=True)
+        img = env.render(copy=True)
         if render_mode == RenderMode.DEPTH:
             img = img[:, :, 0]
         elif render_mode == RenderMode.INVDEPTH:
@@ -189,7 +189,7 @@ def progress_tracker(total, progress_queue):
 
 
 if __name__ == '__main__':
-    output_dir = '/datasets/suncg/render'
+    output_dir = os.path.expanduser('~/datasets/suncg/render')
     os.makedirs(output_dir, exist_ok=True)
     with open(os.path.join(os.path.dirname(__file__), 'houses'), 'r') as f:
         houses = [a.strip() for a in f.readlines()]
@@ -200,7 +200,7 @@ if __name__ == '__main__':
         "colorFile": '/House3D/House3D/metadata/colormap_coarse.csv',
         "roomTargetFile": '/House3D/House3D/metadata/room_target_object_map.csv',
         "modelCategoryFile": '/House3D/House3D/metadata/ModelCategoryMapping.csv',
-        "prefix": '/datasets/suncg/house'
+        "prefix": os.path.expanduser('~/datasets/suncg/house')
     }
 
 
