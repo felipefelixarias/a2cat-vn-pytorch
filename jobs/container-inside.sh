@@ -1,3 +1,4 @@
+#!/bin/bash
 echo "Downloading new version of deep-rl-pytorch"
 pip3 install --user git+https://github.com/jkulhanek/deep-rl-pytorch.git
 echo "Verifying mounted repository"

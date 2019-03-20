@@ -1,8 +1,8 @@
 Bootstrap: docker
 From: kulhanek/target-driven-visual-navigation:latest
 
-%copy
-jobs/container-inside.sh /runscript.sh
+%files
+jobs/container-inside.sh /opt/runscript.sh
 
 %runscript
-exec /bin/bash runscript.sh "$@"
+exec /opt/runscript.sh "$@"
