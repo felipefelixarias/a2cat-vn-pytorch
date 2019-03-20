@@ -7,7 +7,7 @@ class GoalImageCache:
         self.scenes = dict()
         self.cache = dict()
         self.image_size = image_size
-        self.dataset_path = dataset_path
+        self.dataset_path = os.path.join(dataset_path, 'render')
         self.random = random.Random()
         pass
 
