@@ -11,5 +11,6 @@
 TASKNAME=chouse-single-goal-hard-bignet
 
 ml load singularity
+cd ~
 singularity exec images/jkulhanek
 singularity exec --nv images/jkulhanek-target-driven-visual-navigation-master-latest.simg python3 ~/experiments/target-driven-visual-navigation/train.py $TASKNAME
