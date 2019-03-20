@@ -4,8 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
 #SBATCH --time=2-00:00
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=120G
+#SBATCH --mem=12G
 #SBATCH --gres=gpu:1
 
 TASKNAME=chouse-single-goal-hard-bignet
