@@ -54,6 +54,47 @@ class KeyboardAgent:
         plt.axis('off')
         plt.show()
 
+
+class GoalKeyboardAgent:
+    def __init__(self, env):
+        self.env = env
+
+    def show(self):
+        fig, (ax1, ax2) = plt.subplots(1,2)
+        self.o = self.env.reset()
+        def redraw():
+            a, b = self.o
+            ax1.imshow(a)
+            ax2.imshow(b)
+            fig.canvas.draw()
+
+        def press(event):                
+            done = False
+            if event.key == 's':
+                mpimg.imsave("output.png",self.env.render(mode = 'rgbarray'))
+            elif event.key == 'up':
+                self.o, _, done, _ = self.env.step(0)
+                redraw()
+            elif event.key == 'right':
+                self.o, _, done, _ = self.env.step(4)
+                redraw()
+            elif event.key == 'left':
+                self.o, _, done, _ = self.env.step(5)
+                redraw()
+
+            if hasattr(self.env.unwrapped, 'state'):
+                print(self.env.unwrapped.state)
+
+            if done:
+                print('Goal reached')
+                self.o = self.env.reset()
+                redraw()
+
+        plt.rcParams['keymap.save'] = ''
+        fig.canvas.mpl_connect('key_press_event', press)
+        plt.axis('off')
+        plt.show()
+
 if __name__ == '__main__':
     argparse.ArgumentParser(description="")
     parser = argparse.ArgumentParser(description='Deep reactive agent scene explorer.')
@@ -64,4 +105,5 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    KeyboardAgent(**args).show()
+    env = environments.make('GoalHouse-v1', scene = 'b814705bc93d428507a516b866efda28')
+    GoalKeyboardAgent(env).show()

@@ -47,6 +47,9 @@ class GymHouseEnvOriginal(gym.Env):
         if self._env is None:
             self._initialize()
 
+    def _reset_with_target(self, target):
+        return self._env.reset(target)
+
     def reset(self):
         self._ensure_env_ready()
 
@@ -56,7 +59,7 @@ class GymHouseEnvOriginal(gym.Env):
 
         target = random.choice(list(goals))
 
-        return self.observation(self._env.reset(target))
+        return self.observation(self._reset_with_target(target))
 
     @property
     def info(self):

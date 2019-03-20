@@ -1,10 +1,9 @@
 import torch
-import torch.nn as nn
+from torch import nn
 import math
+from deep_rl.model import TimeDistributed, MaskedRNN, Flatten
 
-from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
-
-class GoalUnrealModel(nn.Module):
+class BigHouseModel(nn.Module):
     def init_weights(self, module):
         if type(module) in [nn.GRU, nn.LSTM, nn.RNN]:
             for name, param in module.named_parameters():
@@ -21,33 +20,35 @@ class GoalUnrealModel(nn.Module):
             d = 1.0 / math.sqrt(fan_in)
             nn.init.uniform_(module.weight.data, -d, d)
 
+    def _conv_block(self, planes, stride, layers = 2):
+        pass
+
     def __init__(self, num_inputs, num_outputs):
         super().__init__()
-
-        self.shared_base = TimeDistributed(nn.Sequential(
-            nn.Conv2d(num_inputs, 16, 8, stride = 4),
-            nn.ReLU()
-        ))
-
+        self._in_planes = num_inputs
         self.conv_base = TimeDistributed(nn.Sequential(
-            nn.Conv2d(32, 32, 4, stride = 2),
+            nn.Conv2d(num_inputs, 32, 8, stride = 4),
             nn.ReLU(),
+            nn.Conv2d(32, 64, 4, stride = 2),
+            nn.ReLU(),
+            nn.Conv2d(64, 32, 3),
+            nn.ReLU()
         ))
 
         self.conv_merge = TimeDistributed(nn.Sequential(
             Flatten(),
-            nn.Linear(9 ** 2 * 32, 256),
+            nn.Linear(7 ** 2 * 32, 512),
             nn.ReLU()
         ))
 
-        self.main_output_size = 256
+        self.main_output_size = 512
         
         self.critic = TimeDistributed(nn.Linear(self.main_output_size, 1))
         self.policy_logits = TimeDistributed(nn.Linear(self.main_output_size, num_outputs))
 
         self.lstm_layers = 1
-        self.lstm_hidden_size = 256
-        self.rnn = MaskedRNN(nn.LSTM(256 + num_outputs + 1, # Conv outputs + last action, reward
+        self.lstm_hidden_size = 512
+        self.rnn = MaskedRNN(nn.LSTM(512 + num_outputs + 1, # Conv outputs + last action, reward
             hidden_size = self.lstm_hidden_size, 
             num_layers = self.lstm_layers,
             batch_first = True))
@@ -56,7 +57,6 @@ class GoalUnrealModel(nn.Module):
         self._create_rp_network()
 
         self.apply(self.init_weights)
-        self.pc_cell_size = 4
 
     def initial_states(self, batch_size):
         return tuple([torch.zeros([batch_size, self.lstm_layers, self.lstm_hidden_size], dtype = torch.float32) for _ in range(2)])
@@ -69,10 +69,7 @@ class GoalUnrealModel(nn.Module):
 
     def _forward_base(self, inputs, masks, states):
         observations, last_reward_action = inputs
-        image, goal = observations
-        image, goal = self.shared_base(image), self.shared_base(goal)
-        features = torch.cat((image, goal), 2)
-        features = self.conv_base(features)
+        features = self.conv_base(observations)
         features = self.conv_merge(features)
         features = torch.cat((features, last_reward_action,), dim = 2)
         return self.rnn(features, masks, states)
@@ -98,10 +95,7 @@ class GoalUnrealModel(nn.Module):
 
     def reward_prediction(self, inputs):
         observations, _ = inputs
-        image, goal = observations
-        image, goal = self.shared_base(image), self.shared_base(goal)
-        features = torch.cat((image, goal), 2)
-        features = self.conv_base(features)
+        features = self.conv_base(observations)
         features = features.view(features.size()[0], -1)
         features = self.rp(features)
         return features
