@@ -8,27 +8,21 @@ class GoalImageCache:
         self.scenes = dict()
         self.cache = dict()
         self.image_size = image_size
+        self.dataset_path = dataset_path
         self.random = random.Random()
         pass
 
     def sample_image(self, collection):
-        return self.random.choice([x for x in collection if x.endswith('')])
-
-    def fetch_resource(self, )
+        return self.random.choice([x for x in collection if x.endswith('-render_rgb.png')])
 
     def fetch_scene(self, scene):
         if not scene in self.scenes:
             self.scenes[scene] = sceneobj = dict(
-                path = self.fetch_resource('thor-scene-images-%s' % scene),
+                path = os.path.join(self.dataset_path, scene),
                 resources = dict()
             )
 
-            sceneobj['available_goals'] = os.listdir(sceneobj['path'])
-
         return self.scenes[scene]
-
-    def all_goals(self, scene):
-        return self.fetch_scene(scene)['available_goals']
 
     def fetch_random(self, scene, resource):
         self.fetch_scene(scene)
@@ -45,11 +39,11 @@ class GoalImageCache:
             root, images = row['root'], row['images']
 
         sampled_image = self.sample_image(images)
-        if (scene, sampled_image) in self.cache:
-            return self.cache[(scene, sampled_image)]
+        if (scene, resource, sampled_image) in self.cache:
+            return self.cache[(scene, resource, sampled_image)]
 
-        impath = os.path.join(root, sampled_image)
+        impath = os.path.join(root, resource, sampled_image)
         image = cv2.imread(impath)
         image = cv2.resize(image, self.image_size, interpolation = cv2.INTER_CUBIC)
-        self.cache[(scene, sampled_image)] = image
+        self.cache[(scene, resource, sampled_image)] = image
         return image
