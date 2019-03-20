@@ -3,7 +3,7 @@
 #SBATCH --job-name=chouse-single-goal-hard-bignet
 #SBATCH --ntasks=1
 #SBATCH --nodes=1
-#SBATCH --time=2-00:00:00
+#SBATCH --time=1-00:00:00
 #SBATCH --mem=12G
 #SBATCH --gres=gpu:1
 
