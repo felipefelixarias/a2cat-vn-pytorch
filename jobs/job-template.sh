@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 #SBATCH --job-name=chouse-single-goal-hard-bignet
 #SBATCH --ntasks=1
