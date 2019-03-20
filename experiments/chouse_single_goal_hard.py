@@ -12,6 +12,8 @@ from torch import nn
 from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
 
 from torchvision.models.resnet import resnet18
+from deep_rl import configuration
+import os
 
 class ConvBlock(nn.Module):
     def __init__(self, in_planes, out_planes, kernel_size, stride):
@@ -156,7 +158,7 @@ class Trainer(UnrealTrainer):
 
     def create_model(self):
         model = super().create_model()
-        model.load_state_dict(torch.load('./checkpoints/chouse-single-goal-simple/weights.pth'))
+        model.load_state_dict(torch.load(os.path.join(configuration.get('models_path'), 'chouse-single-goal-simple/weights.pth')))
         return model
 
 def default_args():

@@ -6,6 +6,7 @@
 #SBATCH --time=1-00:00:00
 #SBATCH --mem=12G
 #SBATCH --gres=gpu:1
+#SBATCH --output ~/slurm-{jobname}.log
 
 TASKNAME={jobname}
 
