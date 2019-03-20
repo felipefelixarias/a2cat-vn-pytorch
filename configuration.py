@@ -9,8 +9,10 @@ default_configuration = dict(
     
     house3d = dict(
         framework_path = '/House3D', # '/House3D',
-        dataset_path = os.path.expanduser('~/datasets/suncg') # '/datasets/suncg'
-    )
+        dataset_path = '~/datasets/suncg' # '/datasets/suncg'
+    ),
+
+    models_path = '~/models'
 )
 
 basepath = os.path.expanduser('~/.visual_navigation')
@@ -22,3 +24,20 @@ if not os.path.exists(os.path.join(basepath, 'config')):
 
 with open(os.path.join(basepath, 'config'), 'r') as f:
     configuration.update(**json.load(f))
+
+def expand_user(d):
+    if isinstance(d, dict):
+        dnew = dict()
+        for key, v in d.items():
+            if key.endswith('_path') and isinstance(v, str) and v.startswith('~'):
+                dnew[key] = os.path.expanduser(v)
+            else:
+                dnew[key] = expand_user(v)
+        return dnew
+
+    return d
+
+configuration = expand_user(configuration)
+
+
+
