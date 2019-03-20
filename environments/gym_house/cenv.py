@@ -17,6 +17,7 @@ from gym import spaces
 from House3D.house import House
 from House3D.core import Environment, MultiHouseEnv
 from House3D import objrender
+from .goal import GoalImageCache
 
 ###############################################
 # Task related definitions and configurations
@@ -382,6 +383,59 @@ class GymHouseEnv(gym.Env):
 
         target = random.choice(list(goals))
 
+        return self.observation(self._env.reset(target))
+
+    @property
+    def info(self):
+        self._ensure_env_ready()
+        return self._env.info
+
+    def step(self, action):
+        self._ensure_env_ready()
+        obs, reward, done, info = self._env.step(action)
+        return self.observation(obs), reward, done, info
+
+
+class GoalGymHouseEnv(gym.Env):
+    def __init__(self, scene = '2364b7dcc432c6d6dcc59dba617b5f4b', screen_size = (84,84), goals = None, hardness=0.3, configuration = None):
+        super().__init__()
+
+        self.screen_size = screen_size
+        self.room_types = goals
+        self.scene = scene
+        self.configuration = create_configuration(configuration)
+        self.hardness = hardness
+        self._env = None
+
+        self.action_space = gym.spaces.Discrete(n_discrete_actions)
+        self.observation_space = gym.spaces.Box(0, 255, screen_size + (3,), dtype = np.uint8)
+
+    def _initialize(self):
+        h, w = self.screen_size
+        api = objrender.RenderAPI(w = w, h = h, device = 0)
+        env = Environment(api, self.scene, self.configuration)
+        env.reset()
+        env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False, hardness=self.hardness, reward_type=None)
+        self.image_cache = GoalImageCache(self.screen_size, os.path.join(self.configuration['prefix'], '..'))
+        self._env = env
+
+    def observation(self, observation):
+        return (observation, self.goal_image)
+
+    def _ensure_env_ready(self):
+        if self._env is None:
+            self._initialize()
+
+    def reset(self):
+        self._ensure_env_ready()
+
+        goals = set(self._env.house.all_desired_roomTypes)
+        if self.room_types is not None:
+            goals.intersection_update(set(self.room_types))
+
+        target = random.choice(list(goals))
+
+        self.goal_image = self.image_cache.fetch_random(self.scene, target)
         return self.observation(self._env.reset(target))
 
     @property
