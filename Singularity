@@ -11,7 +11,7 @@ then
     echo "Experiment directory mounted"
     echo "Container is ready!"
     echo "Launching experiment with arguments [$@]"
-    exec python3 "/experiment/$1" "${@:1}"
+    exec python3 "/experiment/$@"
 else
     echo "You have to mount your repository to /experiment"
 fi
