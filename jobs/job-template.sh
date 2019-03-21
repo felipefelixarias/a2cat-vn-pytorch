@@ -17,7 +17,7 @@ cd ${SCRATCH_DIRECTORY}
 git init
 git remote add origin git@github.com:jkulhanek/target-driven-visual-navigation.git
 git pull origin master
-singularity pull shub://jkulhanek/target-driven-visual-navigation:latest
+#singularity pull shub://jkulhanek/target-driven-visual-navigation:latest
 
 cd ~
-singularity run -B ${SCRATCH_DIRECTORY}:/experiment --nv ${SCRATCH_DIRECTORY}/jkulhanek-target-driven-visual-navigation-master-latest.simg train.py $TASKNAME
+singularity run -B ${SCRATCH_DIRECTORY}:/experiment --nv images/jkulhanek-target-driven-visual-navigation-master-latest.simg train.py $TASKNAME
