@@ -1,10 +1,11 @@
 Bootstrap: docker
 From: kulhanek/target-driven-visual-navigation:latest
 
+%post
+    export LC_ALL=C
+    pip3 install git+https://github.com/jkulhanek/deep-rl-pytorch.git
+
 %runscript
-echo "Downloading new version of deep-rl-pytorch"
-export LC_ALL=C
-pip3 install --user git+https://github.com/jkulhanek/deep-rl-pytorch.git
 echo "Verifying mounted repository"
 if [ -e /experiment ]
 then
