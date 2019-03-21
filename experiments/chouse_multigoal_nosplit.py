@@ -103,7 +103,6 @@ class GoalUnrealModel(nn.Module):
         observations, _ = inputs
         image, goal = observations
         features = self.conv_base(torch.cat((image, goal), 2))
-        features = self.conv_base(features)
         features = features.view(features.size()[0], -1)
         features = self.rp(features)
         return features
