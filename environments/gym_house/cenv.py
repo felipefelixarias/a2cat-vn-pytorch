@@ -351,7 +351,9 @@ class GymHouseEnv(gym.Env):
 
         self.screen_size = screen_size
         self.room_types = goals
-        self.scene = scene
+        self.scenes = scene
+        self.reset_scene_trials = 5
+        self.is_multi = not isinstance(scene, str)
         self.configuration = create_configuration(configuration)
         self.hardness = hardness
         self._env = None
@@ -362,8 +364,19 @@ class GymHouseEnv(gym.Env):
     def _initialize(self):
         h, w = self.screen_size
         api = objrender.RenderAPI(w = w, h = h, device = 0)
-        env = Environment(api, self.scene, self.configuration)
-        env.reset()
+        if not self.is_multi:
+            self.scene = self.scenes  
+            env = Environment(api, self.scenes, self.configuration)
+            env.reset()
+        else:
+            env = MultiHouseEnv(api, self.scenes, self.configuration)
+            scene_id = random.randrange(len(self.scenes))
+            self.scene = self.scenes[scene_id]
+            env.reset_house(scene_id)
+            env.reset()
+            self._inner_env = env
+            self._reset_scene_counter = self.reset_scene_trials
+
         env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False, hardness=self.hardness, reward_type=None)
         self._env = env
 
@@ -377,8 +390,19 @@ class GymHouseEnv(gym.Env):
     def _reset_with_target(self, target):
         return self._env.reset(target)
 
+    def _try_reset_scene(self):
+        self._reset_scene_counter -= 1
+        if self._reset_scene_counter != -1:
+            return
+
+        scene_id = random.randrange(len(self.scenes))
+        self.scene = self.scenes[scene_id]
+        self._inner_env.reset_house(scene_id)
+        self._reset_scene_counter = self.reset_scene_trials
+
     def reset(self):
         self._ensure_env_ready()
+        self._try_reset_scene()
 
         goals = set(self._env.house.all_desired_roomTypes)
         if self.room_types is not None:
