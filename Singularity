@@ -4,6 +4,7 @@ From: kulhanek/target-driven-visual-navigation:latest
 %post
 pip3 install git+https://github.com/jkulhanek/deep-rl-pytorch.git
 
+
 %runscript
 echo "Verifying mounted repository"
 if [ -e /experiment ]
