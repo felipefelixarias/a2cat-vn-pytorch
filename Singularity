@@ -2,9 +2,6 @@ Bootstrap: docker
 From: kulhanek/target-driven-visual-navigation:latest
 
 %post
-    export LC_ALL=C
-    pip3 install tensorflow && \
-    pip3 install git+https://github.com/openai/baselines.git && \
     pip3 install git+https://github.com/jkulhanek/deep-rl-pytorch.git
 
 %runscript
