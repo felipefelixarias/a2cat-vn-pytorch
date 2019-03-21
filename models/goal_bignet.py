@@ -27,7 +27,7 @@ class BigGoalHouseModel(nn.Module):
         self.shared_base = TimeDistributed(nn.Sequential(
             nn.Conv2d(num_inputs, 32, 7, stride = 4, padding=3), # 56
             nn.ReLU(True),
-            nn.Conv2d(32, 64, 7, stride = 4, padding=3), # 14 
+            nn.Conv2d(32, 32, 7, stride = 4, padding=3), # 14 
             nn.ReLU(True),
         ))
 
