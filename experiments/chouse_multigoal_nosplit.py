@@ -7,6 +7,7 @@ from deep_rl.a2c_unreal import UnrealTrainer
 from deep_rl.a2c_unreal.model import UnrealModel
 from deep_rl.common.schedules import LinearSchedule
 
+import torch
 from torch import nn
 from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
 import math
