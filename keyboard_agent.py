@@ -82,6 +82,10 @@ class GoalKeyboardAgent:
                 self.o, _, done, _ = self.env.step(5)
                 redraw()
 
+            elif event.key == 'r':
+                self.o = self.env.reset()
+                redraw()
+
             if hasattr(self.env.unwrapped, 'state'):
                 print(self.env.unwrapped.state)
 
@@ -95,6 +99,8 @@ class GoalKeyboardAgent:
         plt.axis('off')
         plt.show()
 
+        redraw()
+
 if __name__ == '__main__':
     argparse.ArgumentParser(description="")
     parser = argparse.ArgumentParser(description='Deep reactive agent scene explorer.')
@@ -105,5 +111,6 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    env = environments.make('GoalHouse-v1', scene = 'b814705bc93d428507a516b866efda28')
+    from experiments.data import TRAIN, VALIDATION
+    env = environments.make('GoalHouse-v1', scene =  VALIDATION) #['b814705bc93d428507a516b866efda28','e3ae3f7b32cf99b29d3c8681ec3be321','5f3f959c7b3e6f091898caa8e828f110'])
     GoalKeyboardAgent(env).show()
