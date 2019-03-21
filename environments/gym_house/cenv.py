@@ -391,6 +391,9 @@ class GymHouseEnv(gym.Env):
         return self._env.reset(target)
 
     def _try_reset_scene(self):
+        if not self.is_multi:
+            return
+
         self._reset_scene_counter -= 1
         if self._reset_scene_counter != -1:
             return
