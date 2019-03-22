@@ -15,10 +15,9 @@ import pickle
 import gym
 from gym import spaces
 from House3D.house import House
-from House3D.core import Environment
+from House3D.core import Environment, MultiHouseEnv
 from House3D import objrender
 from .goal import GoalImageCache
-from .multi import MultiHouseEnv
 
 ###############################################
 # Task related definitions and configurations
@@ -358,6 +357,9 @@ class GymHouseEnv(gym.Env):
 
         self.action_space = gym.spaces.Discrete(n_discrete_actions)
         self.observation_space = gym.spaces.Box(0, 255, screen_size + (3,), dtype = np.uint8)
+
+        if self.is_multi:
+            print('Multienvironment with %s environments' % len(self.scenes))
 
     def _initialize(self):
         h, w = self.screen_size
