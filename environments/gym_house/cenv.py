@@ -15,7 +15,8 @@ import pickle
 import gym
 from gym import spaces
 from House3D.house import House
-from House3D.core import Environment, MultiHouseEnv
+from House3D.core import Environment
+from .multi import MultiHouseEnv
 from House3D import objrender
 from .goal import GoalImageCache
 
