@@ -15,7 +15,7 @@ cfg = {
     "prefix": os.path.expanduser('/mnt/cluster-home/datasets/suncg/house')
 }
 
-
+SAMPLING_DEAD_END = 200
 ROBOT_RAD = 0.5
 ROBOT_HEIGHT = 1.0
 ROOM_TYPES = {'kitchen', 'dining_room', 'living_room', 'bathroom', 'bedroom'}
@@ -134,7 +134,7 @@ def is_object_visible(room_target_object, semantic, room_tp):
     return is_visible, _object_cnt / float(total_pixel)
 
 def sample_true_object(room_target_object, env, house, locations, room_type):
-    while True:
+    for _ in range(SAMPLING_DEAD_END)
         room, location = sample_location(house, locations)
         roomTp = get_target_room_type(room, room_type)
 
@@ -198,9 +198,10 @@ if __name__ == '__main__':
 
             for j in range(samples_per_room):
                 #print_progress(0, samples_per_room)
-                _, location = sample_true_object(room_target_object, env, house, locations, room_type)
-                env.reset(*location)
-                render_current_location(env, houseID, room_type, j, cfg)
+                location = sample_true_object(room_target_object, env, house, locations, room_type)
+                if location is not None:
+                    env.reset(*location[1])
+                    render_current_location(env, houseID, room_type, j, cfg)
 
             #print_progress(samples_per_room, samples_per_room)
 
