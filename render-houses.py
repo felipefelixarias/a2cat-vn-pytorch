@@ -101,13 +101,11 @@ def get_valid_room_dict(house):
             types_to_rooms[key] = [value]
     return types_to_rooms
         
-def get_valid_locations(rooms):
+def get_valid_locations(house, rooms):
     locations = []
     for room in rooms:
         locations.extend([(room, x) for x in house._getValidRoomLocations(room)])
         
-    if len(locations) == 0:
-        raise Exception('Cannot find the location')
     return locations
 
 def sample_location(house, locations):
@@ -193,7 +191,11 @@ if __name__ == '__main__':
         for room_type, rooms in types_to_rooms.items():
             print('Processing house %s (%s/%s) - %s' % (houseID, i + 1, len(houses), room_type))
             
-            locations = get_valid_locations(rooms)
+            locations = get_valid_locations(house, rooms)
+            if len(locations) == 0:
+                print('ERROR: no locations for room %s' % room_type)
+                continue
+
             for j in range(samples_per_room):
                 #print_progress(0, samples_per_room)
                 _, location = sample_true_object(room_target_object, env, house, locations, room_type)
