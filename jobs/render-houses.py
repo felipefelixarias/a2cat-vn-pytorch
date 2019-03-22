@@ -30,6 +30,8 @@ ROOM_TYPES = {'kitchen', 'dining_room', 'living_room', 'bathroom', 'bedroom'}
 ROBOT_RAD = 0.5
 ROBOT_HEIGHT = 1.0
 
+SAMPLING_DEAD_END = 200
+
 RENDER_MODES = [
     RenderMode.RGB,
     RenderMode.DEPTH,
