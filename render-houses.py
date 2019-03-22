@@ -144,6 +144,8 @@ def sample_true_object(room_target_object, env, house, locations, room_type):
         if is_visible:
             return room, location
 
+    print('ERROR: cannot sample location')
+
 def render_current_location(env, houseID, room_type, index, cfg):
     house_dir = os.path.join(os.path.dirname(cfg.get('prefix')),'render2', houseID)
     output_dir = os.path.join(house_dir, room_type)
