@@ -8,6 +8,7 @@ import tqdm
 import cv2
 import numpy as np
 import os
+import csv
 import queue
 import time
 import argparse
@@ -51,6 +52,17 @@ class RestrictedHouse(House):
                 result.append(self._getRoomBounds(room))
         return result
 
+def load_target_object_data(roomTargetFile):
+    room_target_object = dict()
+    with open(roomTargetFile) as csvFile:
+        reader = csv.DictReader(csvFile)
+        for row in reader:
+            c = np.array((row['r'],row['g'],row['b']), dtype=np.uint8)
+            room = row['target_room']
+            if room not in room_target_object:
+                room_target_object[room] = []
+            room_target_object[room].append(c)
+    return room_target_object
 
 def create_house(houseID, config, robotRadius=ROBOT_RAD):
     print('Loading house {}'.format(houseID))
@@ -128,7 +140,6 @@ def get_valid_rooms(house):
         for tp in room['roomTypes']:
             if tp.lower() in ROOM_TYPES:
                 result.append((room, tp.lower()))
-                break
     return result
 
 
