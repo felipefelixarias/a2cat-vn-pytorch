@@ -165,11 +165,8 @@ class RoomNavTask(gym.Env):
     reset the target room type to navigate to
     when target is None, a valid target will be randomly selected
     """
-    def reset_target(self, target=None):
-        if target is None:
-            target = random.choice(self.house.all_desired_roomTypes)
-        else:
-            assert target in self.house.all_desired_roomTypes, '[RoomNavTask] desired target <{}> does not exist in the current house!'.format(target)
+    def reset_target(self, target):
+        assert target in self.house.all_desired_roomTypes, '[RoomNavTask] desired target <{}> does not exist in the current house!'.format(target)
         if self.house.setTargetRoom(target):  # target room changed!!!
             _id = self.house._id
             if self.house.targetRoomTp not in self._availCoorsDict[_id]:
@@ -403,11 +400,15 @@ class GymHouseEnv(gym.Env):
         self._inner_env.reset_house(scene_id)
         self._reset_scene_counter = self.reset_scene_trials
 
+    @property
+    def all_desired_rooms(self):
+        return self._env.house.all_desired_roomTypes
+
     def reset(self):
         self._ensure_env_ready()
         self._try_reset_scene()
 
-        goals = set(self._env.house.all_desired_roomTypes)
+        goals = set(self.all_desired_rooms)
         if self.room_types is not None:
             goals.intersection_update(set(self.room_types))
 
@@ -440,6 +441,10 @@ class GoalGymHouseEnv(GymHouseEnv):
 
     def observation(self, observation):
         return (observation, self.goal_image)
+
+    @property
+    def all_desired_rooms(self):
+        return set(super().all_desired_rooms).intersection(self.image_cache.all_goals(self.scene))
 
     def _reset_with_target(self, target):
         self.goal_image = self.image_cache.fetch_random(self.scene, target)

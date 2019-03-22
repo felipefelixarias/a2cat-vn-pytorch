@@ -19,9 +19,15 @@ class GoalImageCache:
             self.scenes[scene] = sceneobj = dict(
                 path = os.path.join(self.dataset_path, scene),
                 resources = dict()
+
             )
+            
+            sceneobj['available_goals'] = os.listdir(sceneobj['path'])
 
         return self.scenes[scene]
+
+    def all_goals(self, scene):
+        return self.fetch_scene(scene)['available_goals']
 
     def fetch_random(self, scene, resource):
         self.fetch_scene(scene)
