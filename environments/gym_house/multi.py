@@ -10,7 +10,7 @@ def create_multiscene(num_processes, scenes, wrap = lambda e: e, **kwargs):
 
     funcs = []
     for i in range(num_processes):
-        funcs.append(lambda: wrap(gym.make(**kwargs, scene = scenes[i:i+scenes_per_process])))
+        funcs.append(lambda: wrap(gym.make(**kwargs, scene = scenes[i * scenes_per_process:(i + 1) * scenes_per_process])))
 
     if num_processes == 1:
         return DummyVecEnv(funcs)
