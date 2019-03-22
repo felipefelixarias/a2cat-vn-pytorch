@@ -69,7 +69,8 @@ class GoalUnrealModel(nn.Module):
 
     def _forward_base(self, inputs, masks, states):
         observations, last_reward_action = inputs
-        image, goal = observations
+        image = observations[0]
+        goal = observations[1]
         image, goal = self.shared_base(image), self.shared_base(goal)
         features = torch.cat((image, goal), 2)
         features = self.conv_base(features)
@@ -98,7 +99,8 @@ class GoalUnrealModel(nn.Module):
 
     def reward_prediction(self, inputs):
         observations, _ = inputs
-        image, goal = observations
+        image = observations[0]
+        goal = observations[1]
         image, goal = self.shared_base(image), self.shared_base(goal)
         features = torch.cat((image, goal), 2)
         features = self.conv_base(features)

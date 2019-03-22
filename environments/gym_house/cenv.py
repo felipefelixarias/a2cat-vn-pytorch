@@ -453,3 +453,32 @@ class GoalGymHouseEnv(GymHouseEnv):
     def _reset_with_target(self, target):
         self.goal_image = self.image_cache.fetch_random(self.scene, target)
         return super()._reset_with_target(target)
+
+
+class GoalGymHouseAuxiliaryEnv(GymHouseEnv):
+    def __init__(self, goals = None, **kwargs):
+        super().__init__(goals = goals, **kwargs)
+
+        self.observation_space = gym.spaces.Tuple((
+            self.observation_space,
+            gym.spaces.Box(0, 255, self.screen_size + (3,), dtype = np.uint8),
+            gym.spaces.Box(0, 255, self.screen_size + (1,), dtype = np.uint8),
+            gym.spaces.Box(0, 255, self.screen_size + (3,), dtype = np.uint8),
+            gym.spaces.Box(0, 255, self.screen_size + (3,), dtype = np.uint8)))
+
+    def _initialize(self):
+        super()._initialize()
+        self.image_cache = GoalImageCache(self.screen_size, os.path.join(self.configuration['prefix'], '..'))
+
+    def observation(self, observation):
+        depth = self._env.env.render(mode='depth')[...,:1]
+        mask = self._env.env.render(mode = 'semantic')        
+        return (observation, self.goal_target[0], depth, mask, self.goal_target[1])
+
+    @property
+    def all_desired_rooms(self):
+        return set(super().all_desired_rooms).intersection(self.image_cache.all_goals(self.scene))
+
+    def _reset_with_target(self, target):
+        self.goal_target = self.image_cache.fetch_random_with_semantic(self.scene, target)
+        return super()._reset_with_target(target)

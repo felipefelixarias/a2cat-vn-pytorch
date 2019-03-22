@@ -17,3 +17,9 @@ gym.register(
     entry_point = 'environments.gym_house.cenv:GoalGymHouseEnv',
     max_episode_steps = 900
 )
+
+gym.register(
+    id = 'AuxiliaryGoalHouse-v1',
+    entry_point = 'environments.gym_house.cenv:GoalGymHouseAuxiliaryEnv',
+    max_episode_steps = 900
+)
