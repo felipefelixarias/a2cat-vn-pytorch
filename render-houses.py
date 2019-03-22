@@ -134,7 +134,7 @@ def is_object_visible(room_target_object, semantic, room_tp):
     return is_visible, _object_cnt / float(total_pixel)
 
 def sample_true_object(room_target_object, env, house, locations, room_type):
-    for _ in range(SAMPLING_DEAD_END)
+    for _ in range(SAMPLING_DEAD_END):
         room, location = sample_location(house, locations)
         roomTp = get_target_room_type(room, room_type)
 
