@@ -194,11 +194,11 @@ if __name__ == '__main__':
             print('Processing house %s (%s/%s) - %s' % (houseID, i + 1, len(houses), room_type))
             
             locations = get_valid_locations(rooms)
-            for i in range(samples_per_room):
+            for j in range(samples_per_room):
                 #print_progress(0, samples_per_room)
                 _, location = sample_true_object(room_target_object, env, house, locations, room_type)
                 env.reset(*location)
-                render_current_location(env, houseID, room_type, i, cfg)
+                render_current_location(env, houseID, room_type, j, cfg)
 
             #print_progress(samples_per_room, samples_per_room)
 
