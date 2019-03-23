@@ -64,6 +64,7 @@ class RoomNavTask(gym.Env):
                  segment_input=True,
                  joint_visual_signal=False,
                  depth_signal=True,
+                 enable_noise = False,
                  max_steps=-1,
                  success_measure='see',
                  discrete_action=False):
@@ -121,6 +122,7 @@ class RoomNavTask(gym.Env):
             random.seed(seed)
 
         # configs
+        self.enable_noise = enable_noise
         self.move_sensitivity = (move_sensitivity or default_move_sensitivity)  # at most * meters per frame
         self.rot_sensitivity = rotation_sensitivity
         self.successRew = 1.0
@@ -253,6 +255,14 @@ class RoomNavTask(gym.Env):
             self.success_stay_cnt = 0  # did not see any target objects!
         return self.success_stay_cnt >= success_see_target_time_steps
 
+    def _apply_noise(self, value, sensitivity):
+        if not self.enable_noise:
+            return value * sensitivity
+
+        else:
+            std = sensitivity * 0.04
+            return value * sensitivity + np.random.normal(0.0, std)
+
     """
     gym api: step function
     return: obs, reward, done, info (a dictionary containing some state information)
@@ -260,9 +270,9 @@ class RoomNavTask(gym.Env):
     def step(self, action):
         reward = 0
         det_fwd, det_hor, det_rot = self._apply_action(action)
-        move_fwd = det_fwd * self.move_sensitivity
-        move_hor = det_hor * self.move_sensitivity
-        rotation = det_rot * self.rot_sensitivity
+        move_fwd = self._apply_noise(det_fwd, self.move_sensitivity)
+        move_hor = self._apply_noise(det_hor, self.move_sensitivity)
+        rotation = self._apply_noise(det_rot, self.rot_sensitivity)
 
         self.env.rotate(rotation)
         if not self.env.move_forward(move_fwd, move_hor):
@@ -341,13 +351,14 @@ class RoomNavTask(gym.Env):
 from .env import create_configuration
 
 class GymHouseEnv(gym.Env):
-    def __init__(self, scene = '2364b7dcc432c6d6dcc59dba617b5f4b', screen_size = (84,84), goals = ['kitchen'], hardness=0.3, configuration = None):
+    def __init__(self, scene = '2364b7dcc432c6d6dcc59dba617b5f4b', screen_size = (84,84), goals = ['kitchen'], hardness=0.3, configuration = None, enable_noise = False):
         super().__init__()
 
         self.screen_size = screen_size
         self.room_types = goals
         self.scenes = scene
         self.reset_scene_trials = 5
+        self.enable_noise = enable_noise
         self.is_multi = not isinstance(scene, str)
         self.configuration = create_configuration(configuration)
         self.hardness = hardness
@@ -375,7 +386,7 @@ class GymHouseEnv(gym.Env):
             self._inner_env = env
             self._reset_scene_counter = self.reset_scene_trials
 
-        env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False, hardness=self.hardness, reward_type=None)
+        env = RoomNavTask(env, discrete_action = True, depth_signal = False, segment_input = False, hardness=self.hardness, reward_type=None, enable_noise = self.enable_noise)
         self._env = env
 
     def observation(self, observation):
