@@ -17,7 +17,7 @@ from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
 from models import GoalUnrealModel
 import math
 
-VALIDATION_PROCESSES = 4
+VALIDATION_PROCESSES = 1 # note: single environment is supported at the moment
 
 
 @register_trainer(max_time_steps = 40e6, validation_period = 200, validation_episodes = 20,  episode_log_interval = 10, saving_period = 100000, save = True)
