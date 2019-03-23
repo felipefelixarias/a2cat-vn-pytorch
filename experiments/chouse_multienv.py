@@ -63,7 +63,8 @@ def default_args():
     return dict(
         env_kwargs = dict(
             id = 'GoalHouse-v1', 
-            screen_size=(84,84), 
+            screen_size=(84,84),
+            enable_noise = True,
             hardness = 0.3,
             configuration=deep_rl.configuration.get('house3d').as_dict()),
         model_kwargs = dict()
