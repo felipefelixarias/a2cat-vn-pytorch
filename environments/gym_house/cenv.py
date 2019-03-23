@@ -195,9 +195,6 @@ class RoomNavTask(gym.Env):
         self.success_stay_cnt = 0
         self._object_cnt = 0
 
-        # reset house
-        self.env.reset_house()
-
         self.house.targetRoomTp = None  # [NOTE] IMPORTANT! clear this!!!!!
 
         # reset target room

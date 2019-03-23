@@ -112,5 +112,5 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     from experiments.data import TRAIN, VALIDATION
-    env = environments.make('GoalHouse-v1', scene =  VALIDATION) #['b814705bc93d428507a516b866efda28','e3ae3f7b32cf99b29d3c8681ec3be321','5f3f959c7b3e6f091898caa8e828f110'])
+    env = environments.make('GoalHouse-v1', scene =  ['0b6d4fe900eaddd80aecf4bc79248dd9']) #['b814705bc93d428507a516b866efda28','e3ae3f7b32cf99b29d3c8681ec3be321','5f3f959c7b3e6f091898caa8e828f110'])
     GoalKeyboardAgent(env).show()
