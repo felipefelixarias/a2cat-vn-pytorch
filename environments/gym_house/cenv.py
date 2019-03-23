@@ -167,7 +167,7 @@ class RoomNavTask(gym.Env):
     when target is None, a valid target will be randomly selected
     """
     def reset_target(self, target):
-        assert target in self.house.all_desired_roomTypes, '[RoomNavTask] desired target <{}> does not exist in the current house!'.format(target)
+        assert target in self.house.all_desired_roomTypes, '[RoomNavTask] desired target <{}> does not exist in the house<{}>!'.format(target, self.house.objFile)
         if self.house.setTargetRoom(target):  # target room changed!!!
             _id = self.house._id
             if self.house.targetRoomTp not in self._availCoorsDict[_id]:
