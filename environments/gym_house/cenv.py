@@ -354,6 +354,9 @@ class GymHouseEnv(gym.Env):
     def __init__(self, scene = '2364b7dcc432c6d6dcc59dba617b5f4b', screen_size = (84,84), goals = ['kitchen'], hardness=0.3, configuration = None, enable_noise = False):
         super().__init__()
 
+        if isinstance(scene, (list, tuple)) and len(scene) == 1:
+            scene = scene[0]
+
         self.screen_size = screen_size
         self.room_types = goals
         self.scenes = scene
