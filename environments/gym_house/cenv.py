@@ -336,8 +336,14 @@ class RoomNavTask(gym.Env):
     reset the hardness of the task
     """
     def reset_hardness(self, hardness=None, force = False):
-        if self.hardness == hardness and not force:
+        # If the difference is too small, do not set the hardness
+        do_reset = self.hardness != hardness and (self.hardness is None or hardness is None or abs(self.hardness - hardness) >= 0.02)
+
+        if not do_reset and not force:
             return
+
+        if do_reset:
+            print('Setting complexity to %s' % hardness)
 
         self.hardness = hardness
         if hardness is None:
