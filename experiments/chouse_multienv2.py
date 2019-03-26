@@ -64,7 +64,7 @@ def default_args():
             id = 'GoalHouse-v1', 
             screen_size=(172,172), 
             enable_noise = True,
-            hardness = 0.6,
+            hardness = 0.3,
             configuration=deep_rl.configuration.get('house3d').as_dict()),
         model_kwargs = dict()
     )
