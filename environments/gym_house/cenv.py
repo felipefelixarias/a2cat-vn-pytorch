@@ -335,7 +335,10 @@ class RoomNavTask(gym.Env):
     """
     reset the hardness of the task
     """
-    def reset_hardness(self, hardness=None):
+    def reset_hardness(self, hardness=None, force = False):
+        if self.hardness == hardness and not force:
+            return
+
         self.hardness = hardness
         if hardness is None:
             self.availCoors = self.house.connectedCoors
@@ -399,6 +402,11 @@ class GymHouseEnv(gym.Env):
         if self._env is None:
             self._initialize()
 
+    def set_hardness(self, complexity):
+        self.hardness = complexity
+        if self._env is not None:
+            self._env.reset_hardness(complexity)
+
     def _reset_with_target(self, target):
         return self._env.reset(target)
 
@@ -414,6 +422,7 @@ class GymHouseEnv(gym.Env):
         self.scene = self.scenes[scene_id]
         self._inner_env.reset_house(scene_id)
         self._reset_scene_counter = self.reset_scene_trials
+        self._env.reset_hardness(self.hardness, force = True)
 
     @property
     def all_desired_rooms(self):
