@@ -44,7 +44,7 @@ def default_args():
     return dict(
         env_kwargs = dict(
             id = 'AuxiliaryGoalHouse-v1', 
-            screen_size=(84,84), 
+            screen_size=(172,172), 
             scene = '05cac5f7fdd5f8138234164e76a97383', 
             hardness = 0.3,
             configuration=deep_rl.configuration.get('house3d').as_dict()),
