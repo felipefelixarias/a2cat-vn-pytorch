@@ -8,7 +8,9 @@ from experiments.ai2_auxiliary.model import GoalModelWithAuxiliary
 from deep_rl.a2c_unreal.model import UnrealModel
 from deep_rl.common.schedules import LinearSchedule
 
+
 from torch import nn
+from models import AuxiliaryBigGoalHouseModel2
 from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
 from models import GoalUnrealModel
 import math
@@ -35,7 +37,7 @@ class Trainer(AuxiliaryTrainer):
         return inputs[0][0]
 
     def create_model(self):
-        return GoalModelWithAuxiliary(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
+        return AuxiliaryBigGoalHouseModel2(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
 
 
 def default_args():
