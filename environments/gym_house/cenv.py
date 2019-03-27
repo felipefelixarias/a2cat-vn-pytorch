@@ -358,6 +358,10 @@ class RoomNavTask(gym.Env):
 
 
 from .env import create_configuration
+from collections import namedtuple
+
+GymHouseState = namedtuple('GymHouseState', ['house_id', 'x', 'y', 'rotation'])
+GoalGymHouseState = namedtuple('GymHouseState', ['house_id', 'target_image', 'x', 'y', 'rotation'])
 
 class GymHouseEnv(gym.Env):
     def __init__(self, scene = '2364b7dcc432c6d6dcc59dba617b5f4b', screen_size = (84,84), goals = ['kitchen'], hardness=0.3, configuration = None, enable_noise = False):
@@ -447,6 +451,18 @@ class GymHouseEnv(gym.Env):
         return self.observation(self._reset_with_target(target))
 
     @property
+    def state(self):
+        if self._env is None:
+            raise Exception('Not initialized')
+
+        return GymHouseState(
+            self.scene,
+            self._env.env.cam.pos.x,
+            self._env.env.cam.pos.z,
+            self._env.env.cam.yaw
+        )
+
+    @property
     def info(self):
         self._ensure_env_ready()
         return self._env.info
@@ -461,6 +477,7 @@ class GoalGymHouseEnv(GymHouseEnv):
     def __init__(self, goals = None, **kwargs):
         super().__init__(goals = goals, **kwargs)
 
+        self.goal_image_file = None
         self.observation_space = gym.spaces.Tuple((
             self.observation_space,
             gym.spaces.Box(0, 255, self.screen_size + (3,), dtype = np.uint8)))
@@ -477,8 +494,13 @@ class GoalGymHouseEnv(GymHouseEnv):
         return set(super().all_desired_rooms).intersection(self.image_cache.all_goals(self.scene))
 
     def _reset_with_target(self, target):
-        self.goal_image = self.image_cache.fetch_random(self.scene, target)
+        self.goal_image, self.goal_image_file = self.image_cache.fetch_random(self.scene, target)
         return super()._reset_with_target(target)
+
+    @property
+    def state(self):
+        state = super().state
+        return GoalGymHouseState(target_image = self.goal_image_file, **state._asdict())
 
 
 class GoalGymHouseAuxiliaryEnv(GymHouseEnv):
@@ -506,5 +528,5 @@ class GoalGymHouseAuxiliaryEnv(GymHouseEnv):
         return set(super().all_desired_rooms).intersection(self.image_cache.all_goals(self.scene))
 
     def _reset_with_target(self, target):
-        self.goal_target = self.image_cache.fetch_random_with_semantic(self.scene, target)
+        self.goal_target, self.goal_image_file = self.image_cache.fetch_random_with_semantic(self.scene, target)
         return super()._reset_with_target(target)
