@@ -40,8 +40,8 @@ class Trainer(AuxiliaryTrainer):
         #self.pc_cell_size = 
 
         self.scene_complexity = MultistepSchedule(0.3, [
-            (5000000, LinearSchedule(0.3, 0.6, 8000000)),
-            (12000000, 0.6)
+            (5000000, LinearSchedule(0.3, 1.0, 5000000)),
+            (10000000, 1.0)
         ])
 
     def _get_input_for_pixel_control(self, inputs):
@@ -55,9 +55,10 @@ class Trainer(AuxiliaryTrainer):
         return AuxiliaryBigGoalHouseModel2(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
 
     def process(self, *args, **kwargs):
-        result = super().process(*args, **kwargs)
+        a, b, metric_context = super().process(*args, **kwargs)
         self.env.set_hardness(self.scene_complexity)
-        return result
+        metric_context.add_last_value_scalar('scene_complexity', self.scene_complexity)
+        return a, b, metric_context
 
 
 def create_envs(num_training_processes, env_kwargs):
