@@ -34,8 +34,8 @@ class Trainer(UnrealTrainer):
         self.vr_weight = 1.0
         #self.pc_cell_size = 
         self.scene_complexity = MultistepSchedule(0.3, [
-            (5000000, LinearSchedule(0.3, 0.6, 8000000)),
-            (12000000, 0.6)
+            (500, LinearSchedule(0.3, 0.6, 20000)),
+            (20000, 0.6)
         ])
 
     def _get_input_for_pixel_control(self, inputs):
@@ -53,9 +53,10 @@ class Trainer(UnrealTrainer):
         return GoalUnrealModel(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
 
     def process(self, *args, **kwargs):
-        result = super().process(*args, **kwargs)
+        a, b, metric_context = super().process(*args, **kwargs)
         self.env.set_hardness(self.scene_complexity)
-        return result
+        metric_context.add_scalar('scene_complexity', self.scene_complexity)
+        return a, b, metric_context
 
 def default_args():
     return dict(
