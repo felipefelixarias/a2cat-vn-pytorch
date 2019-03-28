@@ -59,7 +59,7 @@ class GoalImageCache:
     def fetch_random(self, scene, resource):
         root, images = self.fetch_resource(scene, resource)       
         sampled_image = self.sample_image(images)        
-        return self.fetch_image(root, scene, resource, sampled_image + '-render_rgb.png'), sampled_image
+        return self.fetch_image(root, scene, resource, sampled_image + '-render_rgb.png'), os.path.join(root, sampled_image)
 
     def fetch_random_with_semantic(self, scene, resource):
         root, images = self.fetch_resource(scene, resource)       
@@ -67,4 +67,4 @@ class GoalImageCache:
         return (
             self.fetch_image(root, scene, resource, sampled_image + '-render_rgb.png'),
             self.fetch_image(root, scene, resource, sampled_image + '-render_semantic.png')
-        ), sampled_image
+        ), os.path.join(root, sampled_image)

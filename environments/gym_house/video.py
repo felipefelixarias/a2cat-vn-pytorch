@@ -5,20 +5,22 @@ from House3D.core import Environment
 from House3D.objrender import RenderAPI
 from deep_rl.configuration import configuration
 from .cenv import GymHouseState
+from .env import create_configuration
 from cv2 import VideoWriter, VideoWriter_fourcc
+import numpy as np
+import cv2
 import os
 
 
 class RenderVideoWrapper(gym.Wrapper):
-    def __init__(self, env, path, action_frames = 20, width = 500, height = 500, renderer_config = None):
+    def __init__(self, env, path, action_frames = 10, width = 500, height = 500, renderer_config = None):
         super().__init__(env)
         self.path = path
         self.last_video_id = 1
         self.action_frames = action_frames
         self.size = (height, width)
         self.api = RenderAPI(w = width, h = height, device = 0)
-        self.renderer_config = renderer_config if renderer_config is not None else configuration.get('house3d').as_dict()
-        
+        self.renderer_config = create_configuration(renderer_config)
         self.ep_states = []
         pass
 
@@ -42,13 +44,22 @@ class RenderVideoWrapper(gym.Wrapper):
 
     def render_video(self, states):
         renderer = Environment(self.api, states[0].house_id, self.renderer_config)
+        renderer.reset()
         output_filename = "vid-%s.avi" % self.last_video_id
         self.last_video_id += 1
-        writer = VideoWriter(os.path.join(self.path, output_filename), VideoWriter_fourcc(*"MJPG"), 30, self.size)
+
+        height, width = self.size
+        writer = VideoWriter(os.path.join(self.path, output_filename), VideoWriter_fourcc(*"XVID"), 30.0, (2 * width, height))
+        goal_image = '%s-render_rgb.png' % states[0].target_image
+        goal_image = cv2.imread(goal_image)
+        goal_image = cv2.resize(goal_image, self.size, interpolation = cv2.INTER_CUBIC)
 
         def render_single(position):
             renderer.reset(*position)
-            frame = renderer.render(mode = 'rgb', copy = True)
+            frame = renderer.render()
+            print(frame.shape)
+            print(goal_image.shape)
+            frame = np.concatenate([frame, goal_image], axis = 1)
             writer.write(frame)
 
         state = states[0]
@@ -61,7 +72,7 @@ class RenderVideoWrapper(gym.Wrapper):
                 interpolated = tuple(map(lambda a, b: a + (b - a) * j / self.action_frames, old_position, position))
                 render_single(interpolated)
 
-        for _ in self.action_frames:
+        for _ in range(self.action_frames):
             render_single(position)
 
         render_single(position)        
