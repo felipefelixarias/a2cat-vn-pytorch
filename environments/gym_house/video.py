@@ -2,7 +2,7 @@ import gym
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from House3D.core import Environment
-from House3D.objrender import RenderAPI
+from House3D.objrender import RenderAPIThread as RenderAPI
 from deep_rl.configuration import configuration
 from .cenv import GymHouseState
 from .env import create_configuration
@@ -57,8 +57,6 @@ class RenderVideoWrapper(gym.Wrapper):
         def render_single(position):
             renderer.reset(*position)
             frame = renderer.render()
-            print(frame.shape)
-            print(goal_image.shape)
             frame = np.concatenate([frame, goal_image], axis = 1)
             writer.write(frame)
 

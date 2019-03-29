@@ -17,7 +17,7 @@ from gym import spaces
 from House3D.house import House
 from House3D.core import Environment
 from .multi import MultiHouseEnv
-from House3D import objrender
+from House3D.objrender import RenderAPIThread as RenderAPI
 from .goal import GoalImageCache
 
 ###############################################
@@ -390,7 +390,7 @@ class GymHouseEnv(gym.Env):
 
     def _initialize(self):
         h, w = self.screen_size
-        api = objrender.RenderAPI(w = w, h = h, device = 0)
+        api = RenderAPI(w = w, h = h, device = 0)
         if not self.is_multi:
             self.scene = self.scenes  
             env = Environment(api, self.scenes, self.configuration)
@@ -545,7 +545,7 @@ class GoalGymHouseAuxiliaryEnv(GymHouseEnv):
         return (observation, self.goal_target[0], depth, mask, self.goal_target[1])
 
     @property
-    def all_desired_roomsimage_cache(self):
+    def all_desired_rooms(self):
         return set(super().all_desired_rooms).intersection(self.image_cache.all_goals(self.scene))
 
     def _reset_with_target(self, target, state):
