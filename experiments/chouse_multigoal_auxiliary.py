@@ -14,9 +14,6 @@ from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
 from deep_rl.common.tester import TestingEnv, TestingVecEnv
 from models import GoalUnrealModel
 import math
-import torch
-import os
-from deep_rl.configuration import configuration
 
 TestingEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
 TestingVecEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
@@ -57,10 +54,7 @@ class Trainer(AuxiliaryTrainer):
         return env
 
     def create_model(self):
-        model = AuxiliaryBigGoalHouseModel2(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
-        model_path = os.path.join(configuration.get('models_path'),'chouse-auxiliary-supervised', 'weights.pth')
-        model.load_state_dict(torch.load(model_path))
-        return model
+        return AuxiliaryBigGoalHouseModel2(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
 
     def process(self, *args, **kwargs):
         a, b, metric_context = super().process(*args, **kwargs)
