@@ -12,6 +12,9 @@ class GoalImageCache:
         self.random = random.Random()
         pass
 
+    def seed(self, seed = None):
+        self.random.seed(seed)
+
     def sample_image(self, collection):
         return self.random.choice([x[:-len('-render_rgb.png')] for x in collection if x.endswith('-render_rgb.png')])
 

@@ -191,7 +191,7 @@ class RoomNavTask(gym.Env):
     gym api: reset function
     when target is not None, we will set the target room type to navigate to
     """
-    def reset(self, target=None):
+    def reset(self, target=None, state = None):
         # clear episode steps
         self.current_episode_step = 0
         self.success_stay_cnt = 0
@@ -206,8 +206,10 @@ class RoomNavTask(gym.Env):
         gx, gy = random.choice(self.availCoors)
         self.collision_flag = False
         # generate state
-        x, y = self.house.to_coor(gx, gy, True)
-        self.env.reset(x=x, y=y)
+        if state == None:
+            state = self.house.to_coor(gx, gy, True)
+
+        self.env.reset(*state)
         self.last_obs = self.env.render()
         if self.joint_visual_signal:
             self.last_obs = np.concatenate([self.env.render(mode='rgb'), self.last_obs], axis=-1)
@@ -417,8 +419,8 @@ class GymHouseEnv(gym.Env):
         if self._env is not None:
             self._env.reset_hardness(complexity)
 
-    def _reset_with_target(self, target):
-        return self._env.reset(target)
+    def _reset_with_target(self, target, state):
+        return self._env.reset(target, state)
 
     def _try_reset_scene(self):
         if not self.is_multi:
@@ -448,7 +450,7 @@ class GymHouseEnv(gym.Env):
 
         target = random.choice(list(goals))
 
-        return self.observation(self._reset_with_target(target))
+        return self.observation(self._reset_with_target(target, None))
 
     @property
     def state(self):
@@ -486,16 +488,35 @@ class GoalGymHouseEnv(GymHouseEnv):
         super()._initialize()
         self.image_cache = GoalImageCache(self.screen_size, os.path.join(self.configuration['prefix'], '..'))
 
+    def seed(self, seed = None):
+        self._ensure_env_ready()
+        self.image_cache.seed(seed)
+        self._env.seed(seed)
+
     def observation(self, observation):
         return (observation, self.goal_image)
+
+    def reset(self):
+        if hasattr(self, '_next_task'):
+            next_task = getattr(self, '_next_task')
+            delattr(self, '_next_task')
+
+            state, goal = next_task
+            self._ensure_env_ready()
+            return self.observation(self._reset_with_target(goal, state))
+        else:
+            return super().reset()
+
+    def set_next_task(self, task):
+        self._next_task = task
 
     @property
     def all_desired_rooms(self):
         return set(super().all_desired_rooms).intersection(self.image_cache.all_goals(self.scene))
 
-    def _reset_with_target(self, target):
+    def _reset_with_target(self, target, state):
         self.goal_image, self.goal_image_file = self.image_cache.fetch_random(self.scene, target)
-        return super()._reset_with_target(target)
+        return super()._reset_with_target(target, state)
 
     @property
     def state(self):
@@ -524,9 +545,9 @@ class GoalGymHouseAuxiliaryEnv(GymHouseEnv):
         return (observation, self.goal_target[0], depth, mask, self.goal_target[1])
 
     @property
-    def all_desired_rooms(self):
+    def all_desired_roomsimage_cache(self):
         return set(super().all_desired_rooms).intersection(self.image_cache.all_goals(self.scene))
 
-    def _reset_with_target(self, target):
+    def _reset_with_target(self, target, state):
         self.goal_target, self.goal_image_file = self.image_cache.fetch_random_with_semantic(self.scene, target)
-        return super()._reset_with_target(target)
+        return super()._reset_with_target(target, state)
