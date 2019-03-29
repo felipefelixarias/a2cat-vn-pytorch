@@ -1,6 +1,7 @@
 import os
 import random
 import cv2
+from itertools import count
 
 class GoalImageCache:
     def __init__(self, image_size, dataset_path):
@@ -29,14 +30,19 @@ class GoalImageCache:
     def all_goals(self, scene):
         return self.fetch_scene(scene)['available_goals']
 
+    def read_image(self, impath):
+        image = cv2.imread(impath)
+        print(impath)
+        image = cv2.resize(image, self.image_size, interpolation = cv2.INTER_CUBIC)
+        return image
+
     def fetch_image(self, root, scene, resource, sampled_image):
         if (scene, resource, sampled_image) in self.cache:
             return self.cache[(scene, resource, sampled_image)]
 
         impath = os.path.join(root, sampled_image)
         assert os.path.isfile(impath), ('Missing file %s' % impath)
-        image = cv2.imread(impath)
-        image = cv2.resize(image, self.image_size, interpolation = cv2.INTER_CUBIC)
+        image = self.read_image(impath)
         self.cache[(scene, resource, sampled_image)] = image
         return image
 
@@ -55,6 +61,46 @@ class GoalImageCache:
 
         return root, images
 
+    def enumerate_all_paths(self):
+        for d in os.listdir(self.dataset_path):
+            pdirectory = os.path.join(self.dataset_path, d)
+            for d2name in os.listdir(pdirectory):
+                yield os.path.join(pdirectory, d2name)
+
+    def all_images_count(self):
+        if hasattr(self, '_all_images_count'):
+            return getattr(self, '_all_images_count')
+
+        self._all_images_count = sum(1 for _ in self.enumerate_all_paths()) * 20
+        return self._all_images_count
+
+    def all_images(self, modes = ['rgb']):
+        for d in self.enumerate_all_paths():
+            for i in range(20):
+                ret = tuple()
+                if 'rgb' in modes:
+                    ret = ret + (self.read_image(os.path.join(d, 'loc_%s-render_rgb.png' % i)),)
+
+                if 'depth' in modes:
+                    ret = ret + (self.read_image(os.path.join(d, 'loc_%s-render_depth.png' % i)),)
+
+                if 'semantic' in modes:
+                    ret = ret + (self.read_image(os.path.join(d, 'loc_%s-render_semantic.png' % i)),)
+                yield ret
+
+    def all_image_paths(self, modes = ['rgb']):
+        for d in self.enumerate_all_paths():
+            for i in range(20):
+                ret = tuple()
+                if 'rgb' in modes:
+                    ret = ret + (os.path.join(d, 'loc_%s-render_rgb.png' % i),)
+
+                if 'depth' in modes:
+                    ret = ret + (os.path.join(d, 'loc_%s-render_depth.png' % i),)
+
+                if 'segmentation' in modes:
+                    ret = ret + (os.path.join(d, 'loc_%s-render_semantic.png' % i),)
+                yield ret
 
     def fetch_random(self, scene, resource):
         root, images = self.fetch_resource(scene, resource)       
