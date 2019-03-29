@@ -90,6 +90,7 @@ class SupervisedTrained(AbstractTrainer):
     def _initialize(self):
         model = AuxiliaryBigGoalHouseModel3(3, 6).to(self.main_device)
         model_path = os.path.join(configuration.get('models_path'),'chouse-auxiliary-supervised', 'weights.pth')
+        print('Loading %s' % model_path)
         model.load_state_dict(torch.load(model_path))
 
         self.dataset = self.create_dataset(model.deconv_cell_size)     
