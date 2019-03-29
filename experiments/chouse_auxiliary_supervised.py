@@ -45,7 +45,7 @@ class SupervisedTrained(AbstractTrainer):
         super().__init__(dict(), dict())
         self.name = name
         self.batch_size = 32
-        self.main_device = torch.device('cpu')
+        self.main_device = torch.device('cuda')
 
     def optimize(self, image, depth, segmentation):
         image = image.to(self.main_device)
@@ -83,8 +83,8 @@ class SupervisedTrained(AbstractTrainer):
         return HouseDataset(deconv_cell_size)
 
     def _initialize(self):
-        model = AuxiliaryBigGoalHouseModel3(3, 6)
-        self.dataset = self.create_dataset(model.deconv_cell_size)        
+        model = AuxiliaryBigGoalHouseModel3(3, 6).to(self.main_device)
+        self.dataset = self.create_dataset(model.deconv_cell_size)     
         self.optimizer = Adam(model.parameters())
         return model
 
