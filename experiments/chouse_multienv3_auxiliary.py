@@ -3,8 +3,10 @@ from environments.gym_house.multi import create_multiscene
 from deep_rl.common.env import RewardCollector, TransposeImage, ScaledFloatFrame
 from deep_rl.common.vec_env import DummyVecEnv, SubprocVecEnv
 from deep_rl.a2c_unreal.util import UnrealEnvBaseWrapper
+from deep_rl.configuration import configuration
 import deep_rl
 import environments
+import os
 import numpy as np
 
 from deep_rl import register_trainer
@@ -53,7 +55,10 @@ class Trainer(AuxiliaryTrainer):
         return env
 
     def create_model(self):
-        return AuxiliaryBigGoalHouseModel3(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
+        model = AuxiliaryBigGoalHouseModel3(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
+        model_path = os.path.join(configuration.get('models_path'),'chouse-auxiliary-supervised', 'weights.pth')
+        model.load_state_dict(torch.load(model_path))
+        return model
 
     def process(self, *args, **kwargs):
         a, b, metric_context = super().process(*args, **kwargs)
