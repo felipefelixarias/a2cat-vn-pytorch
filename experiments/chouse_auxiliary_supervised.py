@@ -39,7 +39,7 @@ class HouseDataset(Dataset):
             ret = self.transform(ret)
         return ret
 
-@register_trainer()
+@register_trainer(save = True, saving_period = 1)
 class SupervisedTrained(AbstractTrainer):
     def __init__(self, name, **kwargs):
         super().__init__(dict(), dict())
@@ -67,6 +67,7 @@ class SupervisedTrained(AbstractTrainer):
     def process(self, mode = 'train', **kwargs):
         assert mode == 'train'
         # Single epoch
+        metric_context = MetricContext()
         dataloader = DataLoader(self.dataset, batch_size=self.batch_size,shuffle=True, num_workers=4)
         total_loss = 0
         total_updates = 0
@@ -77,6 +78,7 @@ class SupervisedTrained(AbstractTrainer):
             total_updates += 1
 
         print('Epoch done with loss=%s' % (total_loss / total_updates))
+        return (1, (1, 1), metric_context)
             
 
     def create_dataset(self, deconv_cell_size):        
