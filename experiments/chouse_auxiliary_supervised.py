@@ -97,6 +97,7 @@ class SupervisedTrained(AbstractTrainer):
     def run(self, process, **kwargs):
         self.model = self._initialize()
         for i in range(20):
+            print('Starting epoch %s' % (i + 1))
             process()
 
 def default_args():
