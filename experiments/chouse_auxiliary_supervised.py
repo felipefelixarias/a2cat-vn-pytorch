@@ -51,9 +51,10 @@ class SupervisedTrained(AbstractTrainer):
         image = image.to(self.main_device)
         depth = depth.to(self.main_device)
         segmentation = segmentation.to(self.main_device)
-        zeros = torch.zeros((image.size()[0], 1, 3,174,174), dtype = torch.float32, device = self.main_device)
-        (r_depth, r_segmentation, _), _ = self.model.forward_deconv(((image, zeros), None), None, None)
-        (_, _, r_goal_segmentation), _ = self.model.forward_deconv(((zeros, image), None,), None, None)
+        zeros1 = torch.rand((image.size()[0], 1, 3,174,174), dtype = torch.float32, device = self.main_device)
+        zeros2 = torch.rand((image.size()[0], 1, 3,174,174), dtype = torch.float32, device = self.main_device)
+        (r_depth, r_segmentation, _), _ = self.model.forward_deconv(((image, zeros1), None), None, None)
+        (_, _, r_goal_segmentation), _ = self.model.forward_deconv(((zeros2, image), None,), None, None)
         loss = F.mse_loss(r_depth, depth) + F.mse_loss(r_segmentation, segmentation) + F.mse_loss(r_goal_segmentation, segmentation)
         loss = loss / 3.0
 
