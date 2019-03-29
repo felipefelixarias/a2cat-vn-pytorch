@@ -70,16 +70,12 @@ class GoalImageCache:
             for d2name in os.listdir(pdirectory):
                 yield os.path.join(pdirectory, d2name)
 
-    def all_images_count(self):
-        if hasattr(self, '_all_images_count'):
-            return getattr(self, '_all_images_count')
-
-        self._all_images_count = sum(1 for _ in self.enumerate_all_paths()) * 20
-        return self._all_images_count
-
     def all_images(self, modes = ['rgb']):
         for d in self.enumerate_all_paths():
             for i in range(20):
+                if not os.path.isfile(os.path.join(d, 'loc_%s-render_rgb.png' % i)):
+                    continue
+
                 ret = tuple()
                 if 'rgb' in modes:
                     ret = ret + (self.read_image(os.path.join(d, 'loc_%s-render_rgb.png' % i)),)
@@ -92,18 +88,8 @@ class GoalImageCache:
                 yield ret
 
     def all_image_paths(self, modes = ['rgb']):
-        for d in self.enumerate_all_paths():
-            for i in range(20):
-                ret = tuple()
-                if 'rgb' in modes:
-                    ret = ret + (os.path.join(d, 'loc_%s-render_rgb.png' % i),)
-
-                if 'depth' in modes:
-                    ret = ret + (os.path.join(d, 'loc_%s-render_depth.png' % i),)
-
-                if 'segmentation' in modes:
-                    ret = ret + (os.path.join(d, 'loc_%s-render_semantic.png' % i),)
-                yield ret
+        for impaths in self.all_image_paths(modes):
+            yield tuple(map(self.read_image, impaths))
 
     def fetch_random(self, scene, resource):
         root, images = self.fetch_resource(scene, resource)       
