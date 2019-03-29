@@ -189,7 +189,7 @@ class AuxiliaryBigGoalHouseModel2(BigGoalHouseModel2):
         return (depth, mask, mask_goal), states
 
 
-class BigGoalHouseModel3(nn.Module):
+class BigGoalHouseModel4(nn.Module):
     def init_weights(self, module):
         if type(module) in [nn.GRU, nn.LSTM, nn.RNN]:
             for name, param in module.named_parameters():
@@ -333,7 +333,8 @@ class BigGoalHouseModel3(nn.Module):
         critic = self.critic(features)
         return critic, states
 
-class AuxiliaryBigGoalHouseModel3(BigGoalHouseModel3):
+
+class AuxiliaryBigGoalHouseModel4(BigGoalHouseModel4):
     def __init__(self, num_inputs, num_outputs):
         super().__init__(num_inputs, num_outputs)
         self._create_deconv_networks()
@@ -382,6 +383,60 @@ class AuxiliaryBigGoalHouseModel3(BigGoalHouseModel3):
         lstm_features = self.conv_merge(features)
         side_features = self.conv_merge2(features)
         features = torch.cat((lstm_features, side_features,), 2)
+
+        # heads
+        depth = self.deconv_depth(features)
+        mask = self.deconv_mask(features)
+        mask_goal = self.deconv_mask_goal(features)
+        return (depth, mask, mask_goal), states
+
+class AuxiliaryBigGoalHouseModel3(BigGoalHouseModel2):
+    def __init__(self, num_inputs, num_outputs):
+        super().__init__(num_inputs, num_outputs)
+        self._create_deconv_networks()
+        self.deconv_cell_size = self.pc_cell_size
+
+    def _create_deconv_networks(self):
+        self.deconv_depth = TimeDistributed(nn.Sequential(
+            nn.Linear(512, 32 * 9 * 9),
+            nn.ReLU(),
+            Unflatten(32, 9, 9),
+            nn.ConvTranspose2d(32, 32, kernel_size = 4, stride = 2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(32, 1, kernel_size = 4, stride = 2),
+        ))
+
+        self.deconv_mask = TimeDistributed(nn.Sequential(
+            nn.Linear(512, 64 * 9 * 9),
+            nn.ReLU(),
+            Unflatten(64, 9, 9),
+            nn.ConvTranspose2d(64, 64, kernel_size = 4, stride = 2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 3, kernel_size = 4, stride = 2)
+        ))
+
+        self.deconv_mask_goal = TimeDistributed(nn.Sequential(
+            nn.Linear(512, 64 * 9 * 9),
+            nn.ReLU(),
+            Unflatten(64, 9, 9),
+            nn.ConvTranspose2d(64, 64, kernel_size = 4, stride = 2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(64, 3, kernel_size = 4, stride = 2)
+        ))
+
+
+        self.deconv_depth.apply(self.init_weights)
+        self.deconv_mask_goal.apply(self.init_weights)
+        self.deconv_mask.apply(self.init_weights)
+    
+    def forward_deconv(self, inputs, masks, states):
+        observations, _ = inputs
+        image = observations[0]
+        goal = observations[1]
+        image, goal = self.shared_base(image), self.shared_base(goal)
+        features = torch.cat((image, goal), 2)
+        features = self.conv_base(features)
+        features = self.conv_merge(features)
 
         # heads
         depth = self.deconv_depth(features)
