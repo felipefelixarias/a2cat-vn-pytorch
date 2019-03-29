@@ -83,7 +83,7 @@ class GoalImageCache:
                 if 'depth' in modes:
                     ret = ret + (os.path.join(d, 'loc_%s-render_depth.png' % i),)
 
-                if 'semantic' in modes:
+                if 'segmentation' in modes:
                     ret = ret + (os.path.join(d, 'loc_%s-render_semantic.png' % i),)
                 yield ret
 
