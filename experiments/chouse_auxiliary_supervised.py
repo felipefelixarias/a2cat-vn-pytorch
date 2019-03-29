@@ -63,6 +63,10 @@ class SupervisedTrained(AbstractTrainer):
         self.optimizer.step()
         return loss.item()
 
+    def save(self, path):
+        super().save(path)
+        torch.save(self.model.state_dict(), os.path.join(path, 'weights.pth'))
+
 
     def process(self, mode = 'train', **kwargs):
         assert mode == 'train'
