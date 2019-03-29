@@ -31,9 +31,12 @@ class GoalImageCache:
         return self.fetch_scene(scene)['available_goals']
 
     def read_image(self, impath):
-        image = cv2.imread(impath)
-        print(impath)
-        image = cv2.resize(image, self.image_size, interpolation = cv2.INTER_CUBIC)
+        try:
+            image = cv2.imread(impath)
+            image = cv2.resize(image, self.image_size, interpolation = cv2.INTER_CUBIC)
+        except Exception as e:
+            print('ERROR: wrong image %s' % impath)
+            raise e
         return image
 
     def fetch_image(self, root, scene, resource, sampled_image):
