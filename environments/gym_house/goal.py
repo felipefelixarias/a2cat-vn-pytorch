@@ -70,7 +70,7 @@ class GoalImageCache:
             for d2name in os.listdir(pdirectory):
                 yield os.path.join(pdirectory, d2name)
 
-    def all_images(self, modes = ['rgb']):
+    def all_image_paths(self, modes = ['rgb']):
         for d in self.enumerate_all_paths():
             for i in range(20):
                 if not os.path.isfile(os.path.join(d, 'loc_%s-render_rgb.png' % i)):
@@ -78,16 +78,16 @@ class GoalImageCache:
 
                 ret = tuple()
                 if 'rgb' in modes:
-                    ret = ret + (self.read_image(os.path.join(d, 'loc_%s-render_rgb.png' % i)),)
+                    ret = ret + (os.path.join(d, 'loc_%s-render_rgb.png' % i),)
 
                 if 'depth' in modes:
-                    ret = ret + (self.read_image(os.path.join(d, 'loc_%s-render_depth.png' % i)),)
+                    ret = ret + (os.path.join(d, 'loc_%s-render_depth.png' % i),)
 
                 if 'semantic' in modes:
-                    ret = ret + (self.read_image(os.path.join(d, 'loc_%s-render_semantic.png' % i)),)
+                    ret = ret + (os.path.join(d, 'loc_%s-render_semantic.png' % i),)
                 yield ret
 
-    def all_image_paths(self, modes = ['rgb']):
+    def all_images(self, modes = ['rgb']):
         for impaths in self.all_image_paths(modes):
             yield tuple(map(self.read_image, impaths))
 
