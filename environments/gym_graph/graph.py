@@ -5,9 +5,20 @@ from graph.util import load_graph, step, sample_initial_state, is_valid_state
 from .download import get_graph
 
 class OrientedGraphEnv(gym.Env):
-    def __init__(self, graph_name, rewards = [1.0, 0.0, 0.0]):
-        self.graph = get_graph(graph_name)
-        self.goal = self.graph.goal
+    def __init__(self, graph_name = None, graph_file = None, goal = None, rewards = [1.0, 0.0, 0.0]):
+        if graph_name is not None:
+            self.graph = get_graph(graph_name)
+        elif graph_file is not None:
+            from graph.util import load_graph
+            with open(graph_file, 'rb') as f:
+                self.graph = load_graph(f)
+        else:
+            raise Exception('Not supported')
+
+        if goal is None:
+            self.goal = self.graph.goal
+        else:
+            self.goal = goal
 
         
         if self.graph.dtype == np.float32:

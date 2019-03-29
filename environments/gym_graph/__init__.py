@@ -10,3 +10,9 @@ for key, name in available_scenes():
             graph_name = name
         )
     )
+
+gym.register(
+    id = 'OrientedGraph-v0',
+    entry_point = 'environments.gym_graph.graph:OrientedGraphEnv',
+    max_episode_steps = 900,
+)
