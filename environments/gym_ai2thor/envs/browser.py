@@ -43,8 +43,9 @@ class KeyboardAgent:
 
 
 class GoalKeyboardAgent:
-    def __init__(self, env):
+    def __init__(self, env, actions = [0, 4, 5]):
         self.env = env
+        self.actions = actions
 
     def show(self):
         fig, (ax1, ax2) = plt.subplots(1,2)
@@ -60,13 +61,13 @@ class GoalKeyboardAgent:
             if event.key == 's':
                 mpimg.imsave("output.png",self.env.render(mode = 'rgbarray'))
             elif event.key == 'up':
-                self.o, _, done, _ = self.env.step(0)
+                self.o, _, done, _ = self.env.step(self.actions[0])
                 redraw()
             elif event.key == 'right':
-                self.o, _, done, _ = self.env.step(4)
+                self.o, _, done, _ = self.env.step(self.actions[1])
                 redraw()
             elif event.key == 'left':
-                self.o, _, done, _ = self.env.step(5)
+                self.o, _, done, _ = self.env.step(self.actions[2])
                 redraw()
 
             if hasattr(self.env.unwrapped, 'state'):

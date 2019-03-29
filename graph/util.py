@@ -148,3 +148,48 @@ def compute_shortest_path_data(maze):
 
     return distances, actions
 
+
+def compute_resnet(graph):
+    return None
+
+def save_graph_as_h5(graph, path):
+    import h5py
+
+    if not hasattr(graph, 'graph') or graph.graph is None:
+        graph.graph, graph.optimal_actions = compute_shortest_path_data(graph.maze)
+
+    locations = list(enumerate_positions(graph.maze))
+    locations_lookup = { key: i for i, key in enumerate(locations) }
+    num_locations = len(locations) * 4
+
+    def compute_graph_line(point, rotation):
+        return [locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change(rotation), point)), -1),
+            locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change((rotation + 2) % 4), point)), -1)]
+
+    with h5py.File(path, 'w') as file:
+        graph_dataset = file.create_dataset('graph', (num_locations, 4), np.int)
+        location_dataset = file.create_dataset('location', (num_locations, 2), np.float)
+        observation_dataset = file.create_dataset('observation', (num_locations,) + graph.observation_shape, np.uint8)
+        #resnet_feature_dataset = file.create_dataset('resnet_feature', (num_locations, 2048), np.float32)
+        shortest_path_distance_dataset = file.create_dataset('shortest_path_distance', (num_locations, num_locations), np.int64)
+
+        for point, location in enumerate(locations):
+            for rotation in range(4):
+                actions = compute_graph_line(location, rotation) + \
+                    [point * 4 + (rotation + 1) % 4, point * 4 + (rotation - 1) % 4]
+
+                graph_dataset[point * 4 + rotation,:] = np.array(actions, dtype=np.int)
+                location_dataset[point * 4 + rotation,...] = location
+                observation_dataset[point * 4 + rotation,...] = graph.render(location, rotation)
+
+            for point2, location2 in enumerate(locations):
+                base_distance = graph.graph[location + location2]
+                for rotation in range(4):
+                    for rotation2 in range(4):
+                        rotation_diff = abs(rotation - rotation2)
+                        if rotation_diff == 3: 
+                            rotation_diff = 1
+                        shortest_path_distance_dataset[point * 4 + rotation, point2 * 4 + rotation2] = base_distance + rotation_diff
+
+
+

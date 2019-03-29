@@ -26,3 +26,7 @@ class DiscreteEnv(EnvBase):
     def step(self, action):
         event = self.controller.step(ACTIONS[action])
         return self._finish_step(event)
+
+    def browse(self):
+        from .browser import KeyboardAgent
+        return KeyboardAgent(self)
