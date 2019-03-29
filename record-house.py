@@ -7,10 +7,8 @@ import os
 from environments.gym_house.video import RenderVideoWrapper
 import environments
 
-EXPERIMENTS = [('0b6d4fe900eaddd80aecf4bc79248dd9', [
-        ((1,1,2),'kitchen'),
-        ((1,1,2),'kitchen'),
-        ((1,1,2),'kitchen'),
+EXPERIMENTS = [('00cfe094634578865b4384f3adef49e6', [
+        ((40.8775749206543, 39.093448638916016, 71.8712387084961),'kitchen'),
     ])
 ]
 

@@ -13,7 +13,7 @@ class KeyboardAgent:
     def __init__(self, **kwargs):
         self.config = kwargs
         #self.env = environments.make('ContinuousThor-v0', goals = ['laptop'], scenes = list(range(201, 230)))
-        self.env = environments.make('House-v0', scene = 'b814705bc93d428507a516b866efda28', goals=['kitchen'])#, goals = ['living_room'])
+        self.env = environments.make('House-v0', scene = '00cfe094634578865b4384f3adef49e6', goals=['kitchen'])#, goals = ['living_room'])
         self.obs = self.env.reset()
 
     def show(self):
@@ -114,6 +114,6 @@ if __name__ == '__main__':
     from experiments.data import TRAIN, VALIDATION
     env = environments.make('GoalHouse-v1',screen_size=(500,500), scene =  ['0b6d4fe900eaddd80aecf4bc79248dd9']) #['b814705bc93d428507a516b866efda28','e3ae3f7b32cf99b29d3c8681ec3be321','5f3f959c7b3e6f091898caa8e828f110'])
    
-    from environments.gym_house.video import RenderVideoWrapper
-    env = RenderVideoWrapper(env, '')   
+    #from environments.gym_house.video import RenderVideoWrapper
+    #env = RenderVideoWrapper(env, '')   
     GoalKeyboardAgent(env).show()

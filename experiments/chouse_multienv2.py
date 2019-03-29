@@ -26,7 +26,7 @@ TestingVecEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' %
 
 @register_agent()
 class Agent(UnrealAgent):
-    def create_model():
+    def create_model(self):
         return BigGoalHouseModel2(3, 6)
 
 @register_trainer(max_time_steps = 15e6, validation_period = 200, validation_episodes = 20,  episode_log_interval = 10, saving_period = 100000, save = True)
