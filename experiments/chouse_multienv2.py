@@ -7,8 +7,9 @@ import deep_rl
 import environments
 import numpy as np
 
-from deep_rl import register_trainer
+from deep_rl import register_trainer, register_agent
 from deep_rl.a2c_unreal import UnrealTrainer
+from deep_rl.a2c_unreal.unreal import UnrealAgent
 from models import BigGoalHouseModel2
 from deep_rl.common.schedules import LinearSchedule, MultistepSchedule
 
@@ -22,6 +23,11 @@ VALIDATION_PROCESSES = 1 # note: single environment is supported at the moment
 
 TestingEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
 TestingVecEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
+
+@register_agent()
+class Agent(UnrealAgent):
+    def create_model():
+        return BigGoalHouseModel2(3, 6)
 
 @register_trainer(max_time_steps = 15e6, validation_period = 200, validation_episodes = 20,  episode_log_interval = 10, saving_period = 100000, save = True)
 class Trainer(UnrealTrainer):

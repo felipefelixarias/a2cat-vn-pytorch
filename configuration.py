@@ -12,7 +12,8 @@ default_configuration = dict(
         dataset_path = '~/datasets/suncg' # '/datasets/suncg'
     ),
 
-    models_path = '~/models'
+    models_path = '~/models',
+    videos_path = '~/results/videos'
 )
 
 basepath = os.path.expanduser('~/.visual_navigation')

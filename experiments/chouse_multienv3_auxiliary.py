@@ -8,6 +8,7 @@ import deep_rl
 import environments
 import os
 import numpy as np
+import torch
 
 from deep_rl import register_trainer
 from experiments.ai2_auxiliary.trainer import AuxiliaryTrainer
