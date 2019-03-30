@@ -90,7 +90,7 @@ class SupervisedTrained(AbstractTrainer):
 
     def _initialize(self):
         model = Model(3, 6).to(self.main_device)
-        model_path = os.path.join(configuration.get('models_path'),'chouse-auxiliary-supervised', 'weights.pth')
+        model_path = os.path.join(configuration.get('models_path'),'chouse-auxiliary4-supervised', 'weights.pth')
         
         if os.path.isfile(model_path):
             print('Loading %s' % model_path)
