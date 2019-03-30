@@ -406,16 +406,16 @@ class AuxiliaryBigGoalHouseModel5(BigGoalHouseModel2):
 
         self.deconv_mask = TimeDistributed(nn.Sequential(
             Unflatten(32, 9, 9),
-            nn.ConvTranspose2d(32, 32, kernel_size = 4, stride = 2),
+            nn.ConvTranspose2d(32, 16, kernel_size = 4, stride = 2),
             nn.ReLU(),
-            nn.ConvTranspose2d(32, 3, kernel_size = 4, stride = 2)
+            nn.ConvTranspose2d(16, 3, kernel_size = 4, stride = 2)
         ))
 
         self.deconv_mask_goal = TimeDistributed(nn.Sequential(
             Unflatten(32, 9, 9),
-            nn.ConvTranspose2d(32, 32, kernel_size = 4, stride = 2),
+            nn.ConvTranspose2d(32, 16, kernel_size = 4, stride = 2),
             nn.ReLU(),
-            nn.ConvTranspose2d(32, 3, kernel_size = 4, stride = 2)
+            nn.ConvTranspose2d(16, 3, kernel_size = 4, stride = 2)
         ))
 
 
