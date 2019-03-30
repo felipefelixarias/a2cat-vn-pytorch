@@ -40,7 +40,7 @@ class Trainer(AuxiliaryTrainer):
         self.rp_weight = 1.0
         self.pc_weight = 0.05
         self.vr_weight = 1.0
-        self.auxiliary_weight = 0.2
+        self.auxiliary_weight = 0.1
         #self.pc_cell_size = 
 
         self.scene_complexity = MultistepSchedule(0.3, [
