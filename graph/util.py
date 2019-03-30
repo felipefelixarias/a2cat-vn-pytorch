@@ -163,8 +163,8 @@ def save_graph_as_h5(graph, path):
     num_locations = len(locations) * 4
 
     def compute_graph_line(point, rotation):
-        return [locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change(rotation), point)), -1),
-            locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change((rotation + 2) % 4), point)), -1)]
+        return [locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change(rotation), point)), -1) * 4 + rotation,
+            locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change((rotation + 2) % 4), point)), -1)* 4 + rotation]
 
     with h5py.File(path, 'w') as file:
         graph_dataset = file.create_dataset('graph', (num_locations, 4), np.int)
