@@ -390,6 +390,56 @@ class AuxiliaryBigGoalHouseModel4(BigGoalHouseModel4):
         mask_goal = self.deconv_mask_goal(features)
         return (depth, mask, mask_goal), states
 
+class AuxiliaryBigGoalHouseModel5(BigGoalHouseModel2):
+    def __init__(self, num_inputs, num_outputs):
+        super().__init__(num_inputs, num_outputs)
+        self._create_deconv_networks()
+        self.deconv_cell_size = self.pc_cell_size
+
+    def _create_deconv_networks(self):
+        self.deconv_depth = TimeDistributed(nn.Sequential(
+            Unflatten(32, 9, 9),
+            nn.ConvTranspose2d(32, 16, kernel_size = 4, stride = 2), #20
+            nn.ReLU(),
+            nn.ConvTranspose2d(16, 1, kernel_size = 4, stride = 2), #42
+        ))
+
+        self.deconv_mask = TimeDistributed(nn.Sequential(
+            Unflatten(32, 9, 9),
+            nn.ConvTranspose2d(32, 16, kernel_size = 4, stride = 2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(16, 3, kernel_size = 4, stride = 2)
+        ))
+
+        self.deconv_mask_goal = TimeDistributed(nn.Sequential(
+            Unflatten(32, 9, 9),
+            nn.ConvTranspose2d(32, 16, kernel_size = 4, stride = 2),
+            nn.ReLU(),
+            nn.ConvTranspose2d(16, 3, kernel_size = 4, stride = 2)
+        ))
+
+
+        self.deconv_depth.apply(self.init_weights)
+        self.deconv_mask_goal.apply(self.init_weights)
+        self.deconv_mask.apply(self.init_weights)
+    
+    def forward_deconv(self, inputs, masks, states):
+        observations, _ = inputs
+        image = observations[0]
+        goal = observations[1]
+        image, goal = self.shared_base(image), self.shared_base(goal)
+        features = torch.cat((image, goal), 2)
+        features = self.conv_base(features)
+
+        # heads
+        depth = self.deconv_depth(features)
+        mask = self.deconv_mask(features)
+        mask_goal = self.deconv_mask_goal(features)
+        return (depth, mask, mask_goal), states
+
+
+
+
 class AuxiliaryBigGoalHouseModel3(BigGoalHouseModel2):
     def __init__(self, num_inputs, num_outputs):
         super().__init__(num_inputs, num_outputs)
