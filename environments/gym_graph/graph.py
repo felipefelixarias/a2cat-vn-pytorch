@@ -59,7 +59,7 @@ class OrientedGraphEnv(gym.Env):
         return observation
 
     def is_goal(self, state):
-        return max(map(lambda a,b: abs(a - b), state[:2], self.goal[:2])) <= 2 and state[2] == self.goal[2]
+        return max(map(lambda a,b: abs(a - b), state[:2], self.goal[:2])) <= 1 and state[2] == self.goal[2]
 
     def step(self, action):
         nstate = step(self.state, action)
