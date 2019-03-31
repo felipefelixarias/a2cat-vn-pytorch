@@ -44,8 +44,8 @@ class Trainer(AuxiliaryTrainer):
         #self.pc_cell_size = 
 
         self.scene_complexity = MultistepSchedule(0.3, [
-            (5000000, LinearSchedule(0.3, 1.0, 5000000)),
-            (10000000, 1.0)
+            (3500000, LinearSchedule(0.3, 1.0, 3000000)),
+            (6500000, 1.0)
         ])
 
     def _get_input_for_pixel_control(self, inputs):
