@@ -56,9 +56,6 @@ class Trainer(AuxiliaryTrainer):
 
     def create_model(self):
         model = Model(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
-        model_path = os.path.join(configuration.get('models_path'),'chouse-auxiliary4-supervised', 'weights.pth')
-        print('Loading weights from %s' % model_path)
-        model.load_state_dict(torch.load(model_path))
         return model
 
     def process(self, *args, **kwargs):
