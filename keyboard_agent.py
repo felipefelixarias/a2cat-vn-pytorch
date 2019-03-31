@@ -56,14 +56,16 @@ class KeyboardAgent:
 
 
 class GoalKeyboardAgent:
-    def __init__(self, env):
+    def __init__(self, env, actions = [0,1,2,3]):
         self.env = env
+        self.actions = actions
 
     def show(self):
         fig, (ax1, ax2) = plt.subplots(1,2)
         self.o = self.env.reset()
         def redraw():
-            a, b = self.o
+            a = self.o[0]
+            b = self.o[1]
             ax1.imshow(a)
             ax2.imshow(b)
             fig.canvas.draw()
@@ -73,13 +75,13 @@ class GoalKeyboardAgent:
             if event.key == 's':
                 mpimg.imsave("output.png",self.env.render(mode = 'rgbarray'))
             elif event.key == 'up':
-                self.o, _, done, _ = self.env.step(0)
+                self.o, _, done, _ = self.env.step(self.actions[0])
                 redraw()
             elif event.key == 'right':
-                self.o, _, done, _ = self.env.step(4)
+                self.o, _, done, _ = self.env.step(self.actions[2])
                 redraw()
             elif event.key == 'left':
-                self.o, _, done, _ = self.env.step(5)
+                self.o, _, done, _ = self.env.step(self.actions[3])
                 redraw()
 
             elif event.key == 'r':
@@ -112,8 +114,14 @@ if __name__ == '__main__':
     args = vars(parser.parse_args())
 
     from experiments.data import TRAIN, VALIDATION
-    env = environments.make('GoalHouse-v1',screen_size=(500,500), scene =  ['0b6d4fe900eaddd80aecf4bc79248dd9']) #['b814705bc93d428507a516b866efda28','e3ae3f7b32cf99b29d3c8681ec3be321','5f3f959c7b3e6f091898caa8e828f110'])
+    # env = environments.make('GoalHouse-v1',screen_size=(500,500), scene =  ['0b6d4fe900eaddd80aecf4bc79248dd9']) #['b814705bc93d428507a516b866efda28','e3ae3f7b32cf99b29d3c8681ec3be321','5f3f959c7b3e6f091898caa8e828f110'])
    
     #from environments.gym_house.video import RenderVideoWrapper
     #env = RenderVideoWrapper(env, '')   
+    '''
+    208,
+    212
+    '''
+
+    env = environments.make('AuxiliaryGraph-v0', goals = (5, 6, 2), graph_name = 'thor-cached-225') #  graph_file = 'kitchen.pkl')
     GoalKeyboardAgent(env).show()

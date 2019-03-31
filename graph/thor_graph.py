@@ -4,12 +4,25 @@ import numpy as np
 import cv2
 
 class ThorGridWorld:
-    def __init__(self, maze, observations):
+    def __init__(self, maze, observations, depths, segmentations):
         self._observations = observations
+        self._depths = depths
+        self._segmentations = segmentations
         self._maze = maze
 
-    def render(self, position, direction):
-        return self._observations[position[0], position[1], direction]
+    def render(self, position, direction, modes = ['rgb']):
+        ret = tuple()
+        if 'rgb' in modes:
+            ret = ret + (self._observations[position[0], position[1], direction],)
+        if 'depth' in modes:
+            ret = ret + (self._depths[position[0], position[1], direction],)
+        if 'segmentation' in modes:
+            ret = ret + (self._segmentations[position[0], position[1], direction],)
+                
+        if len(ret) == 1:
+            return ret[0]
+
+        return ret
 
     @property
     def maze(self):
@@ -24,11 +37,12 @@ class ThorGridWorld:
         return np.uint8
 
 class GridWorldReconstructor:
-    def __init__(self, scene_name = 'FloorPlan28', grid_size = 0.5, env_kwargs = dict(), screen_size = (300,300,), seed = None):
+    def __init__(self, scene_name = 'FloorPlan28', grid_size = 0.5, env_kwargs = dict(), screen_size = (300,300,), seed = None, cameraY = 0.675):
         self.screen_size = screen_size
         self.grid_size = grid_size
         self.env_kwargs = env_kwargs
         self.scene_name = scene_name
+        self.cameraY = cameraY
         self.seed = seed
 
     def _initialize(self):
@@ -41,8 +55,8 @@ class GridWorldReconstructor:
         self._frames = dict()
         self._realcoordinates = dict()
         # gridSize specifies the coarseness of the grid that the agent navigates on
-        self._controller.step(dict(action='Initialize', grid_size=self.grid_size, **self.env_kwargs))
-        self._controller.random_initialize(random_seed=self.seed)
+        self._controller.step(dict(action='Initialize', grid_size=self.grid_size, **self.env_kwargs, renderDepthImage = True, renderClassImage = True, cameraY = self.cameraY))
+        self._controller.step(dict(action = 'InitialRandomSpawn', randomSeed = self.seed, forceVisible = False, maxNumRepeats = 5))
 
     def _compute_new_position(self, original, direction):
         dir1, dir2 = original
@@ -67,7 +81,8 @@ class GridWorldReconstructor:
         # Collect all four images in all directions
         for d in range(4):
             event = self._controller.step(dict(action='RotateRight'))
-            frames[(1 + d) % 4] = event.frame
+            depth = np.expand_dims((event.depth_frame * 255 / 5000).astype(np.uint8), 2)
+            frames[(1 + d) % 4] = (event.frame, depth, event.class_segmentation_frame,)
 
         self._realcoordinates[position] = event.metadata['agent']['position']
         self._frames[position] = frames
@@ -101,6 +116,12 @@ class GridWorldReconstructor:
                 self._collect_spot(newposition)
                 event = self._controller.step(dict(action = 'MoveRight'))
 
+    def resize(self, image):
+        if self.screen_size != (300,300):
+            return cv2.resize(image, self.screen_size)
+
+        return image
+
     def _compile(self):
         minx = min(self._frames.keys(), default = 0, key = lambda x: x[0])[0]
         miny = min(self._frames.keys(), default = 0, key = lambda x: x[1])[1]
@@ -109,13 +130,17 @@ class GridWorldReconstructor:
 
         size = (maxx - minx + 1, maxy - miny + 1)
         observations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
+        segmentations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
+        depths = np.zeros(size + (4,) + self.screen_size +(1,), dtype = np.uint8)
         grid = np.zeros(size, dtype = np.bool)
         for key, value in self._frames.items():
             for i in range(4):
-                observations[key[0] - minx, key[1] - miny, i] = cv2.resize(value[i], self.screen_size)
+                observations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][0])
+                depths[key[0] - minx, key[1] - miny, i] = self.resize(value[i][1])
+                segmentations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][2])
             grid[key[0] - minx, key[1] - miny] = 1
 
-        return ThorGridWorld(grid, observations)
+        return ThorGridWorld(grid, observations, depths, segmentations)
 
     def __del__(self):
         if hasattr(self, '_controller') and self._controller is not None:

@@ -54,8 +54,8 @@ def load_graph(file):
 
 
 def compute_rotation_steps(graph, goal, state):
-    optimal_action = graph.optimal_actions[state[:2] + goal]
-    rot_steps = np.array(list(map(lambda x: abs(state[2] - x), np.where(optimal_action))))
+    optimal_action = graph.optimal_actions[state[:2] + goal[:2]]
+    rot_steps = np.array(list(map(lambda x: (state[2] - (goal[2] + x)) % 4, np.where(optimal_action))))
     rot_steps[rot_steps == 3] = 1
     return np.min(rot_steps)
 
@@ -94,7 +94,7 @@ def sample_initial_state(graph, goal, optimal_distance = None):
     potentials = []
     distances = []
     for position in enumerate_positions(graph.maze):
-        d = graph.graph[position + goal]
+        d = graph.graph[position + goal[:2]]
         if d > 0:
             for i in range(4):
                 state = position + (i,)
