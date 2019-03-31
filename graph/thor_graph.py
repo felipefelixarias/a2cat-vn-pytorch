@@ -1,5 +1,4 @@
 # from graph.core import GridWorldScene
-import ai2thor.controller
 import numpy as np
 import cv2
 
@@ -46,6 +45,7 @@ class GridWorldReconstructor:
         self.seed = seed
 
     def _initialize(self):
+        import ai2thor.controller
         self._collected_positions = set()
         self._position = (0, 0)
         self._controller = ai2thor.controller.Controller()

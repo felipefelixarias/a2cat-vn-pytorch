@@ -42,10 +42,7 @@ class GraphResize:
         self._graph = graph
         self._screen_size = screen_size
 
-    def __getattribute__(self, name):
-        if hasattr(self, name):
-            return getattr(self, name)
-
+    def __getattr__(self, name):
         return getattr(self._graph, name)
 
     def render(self, *args, **kwargs):
