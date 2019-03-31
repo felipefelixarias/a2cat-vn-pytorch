@@ -107,10 +107,11 @@ def sample_initial_state(graph, goal, optimal_distance = None):
     else:
         distances = np.array(distances)
         positive = distances <= optimal_distance
-        negative = distances > optimal_distance
-        positive = 0.9 * positive / np.sum(positive)
-        negative = 0.1 * negative / np.sum(negative)
-        weights = positive + negative
+        #negative = distances > optimal_distance
+        #positive = 0.9 * positive / np.sum(positive)
+        #negative = 0.1 * negative / np.sum(negative)
+        #weights = positive + negative
+        weights = positive / np.sum(positive)
 
         x = np.random.choice(np.arange(len(potentials)), p = weights)
     return potentials[x]
@@ -149,8 +150,24 @@ def compute_shortest_path_data(maze):
     return distances, actions
 
 
-def compute_resnet(graph):
-    return None
+def create_resnet():
+    from torchvision.models.resnet import resnet50
+    import torch
+    model = resnet50(pretrained=True)
+    def forward(self, x):
+        x = torch.from_numpy(x)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
+
+        x = self.layer1(x)
+        x = self.layer2(x)
+        x = self.layer3(x)
+        x = self.layer4(x)
+        return x.detach().numpy()
+    model.eval()
+    return forward
 
 def save_graph_as_h5(graph, path):
     import h5py
@@ -166,11 +183,13 @@ def save_graph_as_h5(graph, path):
         return [locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change(rotation), point)), -1) * 4 + rotation,
             locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change((rotation + 2) % 4), point)), -1)* 4 + rotation]
 
+    resnet = create_resnet()
+
     with h5py.File(path, 'w') as file:
         graph_dataset = file.create_dataset('graph', (num_locations, 4), np.int)
         location_dataset = file.create_dataset('location', (num_locations, 2), np.float)
         observation_dataset = file.create_dataset('observation', (num_locations,) + graph.observation_shape, np.uint8)
-        #resnet_feature_dataset = file.create_dataset('resnet_feature', (num_locations, 2048), np.float32)
+        resnet_feature_dataset = file.create_dataset('resnet_feature', (num_locations, 2048), np.float32)
         shortest_path_distance_dataset = file.create_dataset('shortest_path_distance', (num_locations, num_locations), np.int64)
 
         for point, location in enumerate(locations):
@@ -178,9 +197,11 @@ def save_graph_as_h5(graph, path):
                 actions = compute_graph_line(location, rotation) + \
                     [point * 4 + (rotation + 1) % 4, point * 4 + (rotation - 1) % 4]
 
+                observation = graph.render(location, rotation)
                 graph_dataset[point * 4 + rotation,:] = np.array(actions, dtype=np.int)
                 location_dataset[point * 4 + rotation,...] = location
-                observation_dataset[point * 4 + rotation,...] = graph.render(location, rotation)
+                observation_dataset[point * 4 + rotation,...] = observation
+                resnet_feature_dataset[point * 4 + rotation, ...] = resnet(observation)
 
             for point2, location2 in enumerate(locations):
                 base_distance = graph.graph[location + location2]
@@ -190,6 +211,9 @@ def save_graph_as_h5(graph, path):
                         if rotation_diff == 3: 
                             rotation_diff = 1
                         shortest_path_distance_dataset[point * 4 + rotation, point2 * 4 + rotation2] = base_distance + rotation_diff
+
+
+            
 
 
 
