@@ -119,7 +119,10 @@ class GridWorldReconstructor:
 
     def resize(self, image):
         if self.screen_size != (300,300):
-            return cv2.resize(image, self.screen_size)
+            ret = cv2.resize(image, self.screen_size)
+            if len(ret.shape) == 2:
+                ret = np.expand_dims(ret, 2)
+            return ret
 
         return image
 

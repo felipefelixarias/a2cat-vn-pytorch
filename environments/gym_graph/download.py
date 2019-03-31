@@ -13,15 +13,20 @@ def thor_generator(scene, screen_size, goals, seed = 1, grid_size = 0.5, cameraY
     return _thunk
 
 
-graph_generators = {
-    'kitchen-224': thor_generator('FloorPlan28', (224, 224,), (7, 0)),
+graph_generators = {}
+'''    'kitchen-224': thor_generator('FloorPlan28', (224, 224,), (7, 0)),
     'kitchen-84': thor_generator('FloorPlan28', (84, 84,), (7, 0))
-}
+}'''
 
 graph_generators['thor-cached-212'] = thor_generator('FloorPlan212', (300, 300), grid_size = 0.33, cameraY = 0.3, goals = [(3, 1, 2), (13, 21, 3), (10, 2, 1), (10, 14, 0)])
 graph_generators['thor-cached-208'] = thor_generator('FloorPlan208', (300, 300), grid_size = 0.33, cameraY = 0.3, goals = [(6, 3, 1), (13, 3, 0), (7, 18, 2), (6, 25, 1)])
 graph_generators['thor-cached-218'] = thor_generator('FloorPlan218', (300, 300), grid_size = 0.33, cameraY = 0.3, goals = [(6, 22, 1), (7, 0, 0), (18, 18, 3), (13, 31, 3)])
 graph_generators['thor-cached-225'] = thor_generator('FloorPlan225', (300, 300), grid_size = 0.33, cameraY = 0.3, goals = [(3, 17, 2), (12, 17, 3), (15, 10, 0), (14, 8, 3)])
+
+graph_generators['thor-cached-212-174'] = thor_generator('FloorPlan212', (174, 174), grid_size = 0.33, cameraY = 0.3, goals = [(3, 1, 2), (13, 21, 3), (10, 2, 1), (10, 14, 0)])
+graph_generators['thor-cached-208-174'] = thor_generator('FloorPlan208', (174, 174), grid_size = 0.33, cameraY = 0.3, goals = [(6, 3, 1), (13, 3, 0), (7, 18, 2), (6, 25, 1)])
+graph_generators['thor-cached-218-174'] = thor_generator('FloorPlan218', (174, 174), grid_size = 0.33, cameraY = 0.3, goals = [(6, 22, 1), (7, 0, 0), (18, 18, 3), (13, 31, 3)])
+graph_generators['thor-cached-225-174'] = thor_generator('FloorPlan225', (174, 174), grid_size = 0.33, cameraY = 0.3, goals = [(3, 17, 2), (12, 17, 3), (15, 10, 0), (14, 8, 3)])
 
 def _to_pascal(text):
     return ''.join(map(lambda x: x.capitalize(), text.split('-')))
@@ -46,3 +51,7 @@ def get_graph(graph):
         graph = load_graph(f)
 
     return graph
+
+def download_all():
+    for graph in graph_generators.keys():
+        get_graph(graph)
