@@ -14,7 +14,8 @@ class ThorGridWorld:
         if 'rgb' in modes:
             ret = ret + (self._observations[position[0], position[1], direction],)
         if 'depth' in modes:
-            ret = ret + (self._depths[position[0], position[1], direction],)
+            depth = self._depths[position[0], position[1], direction]
+            ret = ret + (depth,)
         if 'segmentation' in modes:
             ret = ret + (self._segmentations[position[0], position[1], direction],)
                 

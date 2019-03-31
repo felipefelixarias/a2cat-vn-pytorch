@@ -34,7 +34,10 @@ def resize(image, size):
         return list(map(partial(resize, size = size), image))
     else:
         if len(image.shape) == 3 and image.shape[:2] != size:
-            return cv2.resize(image, size)
+            result = cv2.resize(image, size)
+            if len(result.shape) == 2:
+                result = np.expand_dims(result, 2)
+            return result
         return image
 
 class GraphResize:
