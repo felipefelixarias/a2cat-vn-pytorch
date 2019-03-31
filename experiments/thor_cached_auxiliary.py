@@ -75,7 +75,7 @@ def create_envs(num_training_processes, tasks, **env_kwargs):
         env = UnrealEnvBaseWrapper(env)
         return env
 
-    env_fns = [lambda: environments.make(graph_name = scene, goals = goal, **env_kwargs) for (scene, goals) in tasks for goal in goals]
+    env_fns = [lambda: wrap(environments.make(graph_name = scene, goals = goal, **env_kwargs)) for (scene, goals) in tasks for goal in goals]
     env = SubprocVecEnv(env_fns)
     env.set_hardness = lambda hardness: env.call_unwrapped('set_complexity', hardness)
     env.set_hardness(0.3)
