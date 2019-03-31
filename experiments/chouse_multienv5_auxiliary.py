@@ -1,3 +1,4 @@
+from experiments.data import TRAIN2, VALIDATION2
 from environments.gym_house.multi import create_multiscene
 from deep_rl.common.env import RewardCollector, TransposeImage, ScaledFloatFrame
 from deep_rl.common.vec_env import DummyVecEnv, SubprocVecEnv
@@ -23,7 +24,7 @@ VALIDATION_PROCESSES = 1 # note: single environment is supported at the moment
 TestingEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
 TestingVecEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
 
-@register_trainer(max_time_steps = 40e6, validation_period = None, validation_episodes = None,  episode_log_interval = 10, saving_period = 100000, save = True)
+@register_trainer(max_time_steps = 40e6, validation_period = 200, validation_episodes = 20,  episode_log_interval = 10, saving_period = 100000, save = True)
 class Trainer(AuxiliaryTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -43,19 +44,22 @@ class Trainer(AuxiliaryTrainer):
         #self.pc_cell_size = 
 
         self.scene_complexity = MultistepSchedule(0.3, [
-            (5000000, LinearSchedule(0.3, 1.0, 5000000)),
-            (10000000, 1.0)
+            (3500000, LinearSchedule(0.3, 1.0, 3000000)),
+            (6500000, 1.0)
         ])
 
     def _get_input_for_pixel_control(self, inputs):
         return inputs[0][0]
 
     def create_env(self, kwargs):
-        env = create_envs(self.num_processes, **kwargs)
+        env, self.validation_env = create_envs(self.num_processes, kwargs)
         return env
 
     def create_model(self):
         model = Model(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
+        model_path = os.path.join(configuration.get('models_path'),'chouse-auxiliary4-supervised', 'weights.pth')
+        print('Loading weights from %s' % model_path)
+        model.load_state_dict(torch.load(model_path))
         return model
 
     def process(self, *args, **kwargs):
@@ -64,7 +68,8 @@ class Trainer(AuxiliaryTrainer):
         metric_context.add_last_value_scalar('scene_complexity', self.scene_complexity)
         return a, b, metric_context
 
-def create_envs(num_training_processes, tasks, **env_kwargs):
+
+def create_envs(num_training_processes, env_kwargs):
     def wrap(env):
         env = RewardCollector(env)
         env = TransposeImage(env)
@@ -72,21 +77,20 @@ def create_envs(num_training_processes, tasks, **env_kwargs):
         env = UnrealEnvBaseWrapper(env)
         return env
 
-    env_fns = [lambda: wrap(environments.make(graph_name = scene, goals = goal, **env_kwargs)) for (scene, goals) in tasks for goal in goals]
-    env = SubprocVecEnv(env_fns)
-    env.set_hardness = lambda hardness: env.call_unwrapped('set_complexity', hardness)
-    env.set_hardness(0.3)
-    return env
+    env = create_multiscene(num_training_processes, TRAIN2, wrap = wrap, **env_kwargs)
+    env.set_hardness = lambda hardness: env.call_unwrapped('set_hardness', hardness)
+    val_env = create_multiscene(VALIDATION_PROCESSES, VALIDATION2, wrap = wrap, **env_kwargs)
+    val_env.set_hardness = lambda hardness: val_env.call_unwrapped('set_hardness', hardness)
+    val_env.set_hardness(0.6)
+    return env, val_env
 
 def default_args():
     return dict(
         env_kwargs = dict(
-            id = 'AuxiliaryGraph-v0',
-            tasks = [('thor-cached-212-174', [(3, 1, 2), (13, 21, 3), (10, 2, 1), (10, 14, 0)]),
-                ('thor-cached-208-174', [(6, 3, 1), (13, 3, 0), (7, 18, 2), (6, 25, 1)]),
-                ('thor-cached-218-174', [(6, 22, 1), (7, 0, 0), (18, 18, 3), (13, 31, 3)]),
-                ('thor-cached-225-174', [(3, 17, 2), (12, 17, 3), (15, 10, 0), (14, 8, 3)])
-            ],
-            screen_size=(172,172),),
+            id = 'AuxiliaryGoalHouse-v1', 
+            screen_size=(172,172), 
+            enable_noise = True,
+            hardness = 0.3,
+            configuration=deep_rl.configuration.get('house3d').as_dict()),
         model_kwargs = dict()
     )
