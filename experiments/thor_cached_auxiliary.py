@@ -51,7 +51,7 @@ class Trainer(AuxiliaryTrainer):
         return inputs[0][0]
 
     def create_env(self, kwargs):
-        env, self.validation_env = create_envs(self.num_processes, **kwargs)
+        env = create_envs(self.num_processes, **kwargs)
         return env
 
     def create_model(self):
