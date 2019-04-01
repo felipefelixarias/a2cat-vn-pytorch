@@ -153,9 +153,12 @@ def compute_shortest_path_data(maze):
 def create_resnet():
     from torchvision.models.resnet import resnet50
     import torch
+    import cv2
     model = resnet50(pretrained=True)
-    def forward(self, x):
-        x = torch.from_numpy(x)
+    self = model
+    def forward(x):
+        x = cv2.resize(x, (224, 224), interpolation = cv2.INTER_CUBIC)
+        x = torch.from_numpy(np.transpose(x, [2, 0, 1]).astype(np.float32) / 255.0).unsqueeze(0)
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -165,7 +168,8 @@ def create_resnet():
         x = self.layer2(x)
         x = self.layer3(x)
         x = self.layer4(x)
-        return x.detach().numpy()
+        x = self.avgpool(x)
+        return x.view(-1).detach().numpy()
     model.eval()
     return forward
 
