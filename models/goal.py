@@ -68,7 +68,6 @@ class GoalUnrealModel(nn.Module):
         observations, last_reward_action = inputs
         image = observations[0]
         goal = observations[1]
-        image, goal = self.shared_base(image), self.shared_base(goal)
         features = torch.cat((image, goal), 2)
         features = self.conv_base(features)
         features = self.conv_merge(features)
