@@ -2,8 +2,8 @@ import environments
 import numpy as np
 
 import deep_rl
-from deep_rl import register_trainer
-from deep_rl.a2c_unreal import UnrealTrainer
+from deep_rl import register_trainer, register_agent
+from deep_rl.a2c_unreal.unreal import UnrealTrainer, UnrealAgent
 from deep_rl.a2c_unreal.model import UnrealModel
 from deep_rl.common.schedules import LinearSchedule, MultistepSchedule
 from torch import nn
@@ -14,6 +14,11 @@ import math
 
 TestingEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
 TestingVecEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
+
+@register_agent()
+class Agent(UnrealAgent):
+    def create_model(self):
+        return GoalUnrealModel(3, 6)
 
 
 @register_trainer(max_time_steps = 40e6, validation_period = None, validation_episodes = None,  episode_log_interval = 10, saving_period = 100000, save = True)

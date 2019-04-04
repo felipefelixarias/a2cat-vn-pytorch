@@ -7,22 +7,48 @@ import os
 from environments.gym_house.video import RenderVideoWrapper
 import environments
 
-EXPERIMENTS = [('00cfe094634578865b4384f3adef49e6', [
-        ((40.8775749206543, 39.093448638916016, 71.8712387084961),'kitchen'),
-    ])
+EXPERIMENTS = [
+    ('00065ecbdd7300d35ef4328ffe871505', [None for _ in range(20)])
 ]
+
+'''[('00cfe094634578865b4384f3adef49e6', [
+        ((40.8775749206543, 39.093448638916016, 71.8712387084961),'kitchen'),
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None
+    ])
+]'''
 
 def record_videos(agent, path, screen_size):
     seed = 1
     for scene, tasks in EXPERIMENTS:
-        env = environments.make('GoalHouse-v1', screen_size = screen_size, scene = scene, goals = [])
+        env = environments.make('GoalHouse-v1', screen_size = screen_size, scene = scene, goals = None)
         env = RenderVideoWrapper(env, path)
         env = agent.wrap_env(env)
         env.seed(seed)
         for task in tasks:
             agent.reset_state()
-            env.unwrapped.set_next_task(task)
+            if task is not None:
+                env.unwrapped.set_next_task(task)
             obs = env.reset()
+            if task is None:
+                print(env.unwrapped.state)
             done = False            
             while not done:
                 obs, _, done, _ = env.step(agent.act(obs))

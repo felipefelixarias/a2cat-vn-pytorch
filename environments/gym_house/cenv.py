@@ -57,7 +57,7 @@ def reset_see_criteria(resolution):
 
 class RoomNavTask(gym.Env):
     def __init__(self, env,
-                 seed=None,
+                 seed=1,
                  reward_type='delta',
                  hardness=None,
                  move_sensitivity=None,

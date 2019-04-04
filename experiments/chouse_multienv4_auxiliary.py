@@ -10,8 +10,9 @@ import os
 import numpy as np
 import torch
 
-from deep_rl import register_trainer
+from deep_rl import register_trainer, register_agent
 from experiments.ai2_auxiliary.trainer import AuxiliaryTrainer
+from deep_rl.a2c_unreal.unreal import UnrealAgent
 from models import AuxiliaryBigGoalHouseModel5 as Model
 from deep_rl.common.schedules import LinearSchedule, MultistepSchedule
 from torch import nn
@@ -23,6 +24,11 @@ VALIDATION_PROCESSES = 1 # note: single environment is supported at the moment
 
 TestingEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
 TestingVecEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
+
+@register_agent()
+class Agent(UnrealAgent):
+    def create_model(self):
+        return Model(3, 6)
 
 @register_trainer(max_time_steps = 40e6, validation_period = 200, validation_episodes = 20,  episode_log_interval = 10, saving_period = 100000, save = True)
 class Trainer(AuxiliaryTrainer):
