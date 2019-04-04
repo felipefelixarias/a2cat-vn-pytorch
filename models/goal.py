@@ -24,12 +24,9 @@ class GoalUnrealModel(nn.Module):
     def __init__(self, num_inputs, num_outputs):
         super().__init__()
 
-        self.shared_base = TimeDistributed(nn.Sequential(
-            nn.Conv2d(num_inputs, 16, 8, stride = 4),
-            nn.ReLU()
-        ))
-
         self.conv_base = TimeDistributed(nn.Sequential(
+            nn.Conv2d(num_inputs, 16, 8, stride = 4),
+            nn.ReLU(),
             nn.Conv2d(32, 32, 4, stride = 2),
             nn.ReLU(),
         ))
@@ -101,7 +98,6 @@ class GoalUnrealModel(nn.Module):
         observations, _ = inputs
         image = observations[0]
         goal = observations[1]
-        image, goal = self.shared_base(image), self.shared_base(goal)
         features = torch.cat((image, goal), 2)
         features = self.conv_base(features)
         features = features.view(features.size()[0], -1)

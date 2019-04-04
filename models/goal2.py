@@ -43,7 +43,7 @@ class BigGoalHouseModel2(nn.Module):
         self.conv_base = TimeDistributed(nn.Sequential(
             nn.Conv2d(64, 64, 4, stride = 2), # 9
             nn.ReLU(True),
-            nn.Conv2d(64, 32, 1),
+            nn.Conv2d(64, 32, 1), # 9
             nn.ReLU(),
         ))
 

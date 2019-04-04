@@ -16,12 +16,12 @@ class RenderVideoWrapper(gym.Wrapper):
     def __init__(self, env, path, action_frames = 10, width = 500, height = 500, renderer_config = None):
         super().__init__(env)
         self.path = path
-        self.last_video_id = 1
         self.action_frames = action_frames
         self.size = (height, width)
         self.api = RenderAPI(w = width, h = height, device = 0)
         self.renderer_config = create_configuration(renderer_config)
         self.ep_states = []
+        self._renderer_cache = (None, None)
         pass
 
     def reset(self):
@@ -43,10 +43,14 @@ class RenderVideoWrapper(gym.Wrapper):
         return obs, reward, done, stats
 
     def render_video(self, states):
-        renderer = Environment(self.api, states[0].house_id, self.renderer_config)
+        house_id = states[0].house_id
+        if self._renderer_cache[0] == house_id:
+            renderer = self._renderer_cache[1]
+
+        renderer = Environment(self.api, house_id, self.renderer_config)
         renderer.reset()
-        output_filename = "vid-%s.avi" % self.last_video_id
-        self.last_video_id += 1
+        video_id = len(os.listdir(self.path)) + 1
+        output_filename = "vid-%s.avi" % video_id
 
         height, width = self.size
         writer = VideoWriter(os.path.join(self.path, output_filename), VideoWriter_fourcc(*"XVID"), 30.0, (2 * width, height))
@@ -75,6 +79,8 @@ class RenderVideoWrapper(gym.Wrapper):
 
         render_single(position)        
         writer.release()
+
+        self._renderer_cache = (house_id, renderer)
 
         
 
