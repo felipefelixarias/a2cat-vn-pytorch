@@ -3,6 +3,7 @@ import torch.nn as nn
 import math
 
 from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
+from deep_rl.a2c_unreal.model import UnrealModel
 
 class GoalUnrealModel(nn.Module):
     def init_weights(self, module):
@@ -27,7 +28,7 @@ class GoalUnrealModel(nn.Module):
         self.conv_base = TimeDistributed(nn.Sequential(
             nn.Conv2d(num_inputs, 16, 8, stride = 4),
             nn.ReLU(),
-            nn.Conv2d(32, 32, 4, stride = 2),
+            nn.Conv2d(16, 32, 4, stride = 2),
             nn.ReLU(),
         ))
 
