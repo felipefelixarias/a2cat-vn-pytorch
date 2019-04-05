@@ -59,7 +59,7 @@ class Trainer(UnrealTrainer):
         return env
 
     def create_model(self):
-        return GoalUnrealModel(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
+        return GoalUnrealModel(6, self.env.action_space.n)
 
 
 def create_envs(num_training_processes, env_kwargs):
