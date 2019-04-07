@@ -14,7 +14,7 @@ ACTIONS = [
     lambda add_noise: dict(action='MoveLeft', magnitude = add_noise(0.25), snapToGrid = False),
     lambda add_noise: dict(action='MoveRight', magnitude = add_noise(0.25), snapToGrid = False),
     lambda add_noise: dict(action='Rotate', angle = add_noise(30)),
-    lambda add_noise: dict(action='Rotate', angle = add_noise(-30)),
+    lambda add_noise: dict(action='Rotate', angle = -add_noise(30)),
     lambda add_noise: dict(action='LookUp'),
     lambda add_noise: dict(action='LookDown')
 ]
