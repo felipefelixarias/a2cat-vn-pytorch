@@ -68,7 +68,7 @@ def default_args():
     return dict(
         env_kwargs = dict(
             id = 'AuxiliaryThor-v1',
-            scene_name = '311', 
+            scenes = ['311'], 
             screen_size=(172,172), 
             enable_noise = True),
         model_kwargs = dict()
