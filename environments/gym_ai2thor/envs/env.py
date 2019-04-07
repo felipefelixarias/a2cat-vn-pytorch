@@ -22,6 +22,7 @@ class EnvBase(gym.Env):
         self.random = random.Random()
         self.initialize_kwargs = dict(cameraY = cameraY)
         self.state = None
+        self._last_scene = None
 
     def reset(self):
         if not self._was_started:
@@ -33,8 +34,11 @@ class EnvBase(gym.Env):
         else:
             selected_scene = self.scenes
 
-        print('Loading scene %s' % selected_scene)
-        self.controller.reset('FloorPlan%s' % selected_scene)
+        if self._last_scene != selected_scene:
+            print('Loading scene %s' % selected_scene)
+            self.controller.reset('FloorPlan%s' % selected_scene)
+            self._last_scene = selected_scene
+            
         event = self.controller.step(dict(action='Initialize', **self.initialize_kwargs))
         event = self._pick_goal(event, selected_scene)        
 
