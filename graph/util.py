@@ -2,15 +2,15 @@ import numpy as np
 from operator import add
 
 def direction_to_change(direction):
-        if direction == 0:
-            return (1, 0)
-        elif direction == 1:
-            return (0, 1)
-        elif direction == 2:
-            return (-1, 0)
-        elif direction == 3:
-            return (0, -1)
-        raise Exception('Unsopported direction %s' % direction)
+    if direction == 0:
+        return (1, 0)
+    elif direction == 1:
+        return (0, 1)
+    elif direction == 2:
+        return (-1, 0)
+    elif direction == 3:
+        return (0, -1)
+    raise Exception('Unsopported direction %s' % direction)
 
 def step(state, action):
     if action == 0:
@@ -47,7 +47,11 @@ def dump_graph(graph, file):
 def load_graph(file):
     import pickle
     
-    graph = pickle.load(file)
+    if isinstance(file, str):
+        with open(file, 'rb') as f:
+            graph = pickle.load(f)
+    else:
+        graph = pickle.load(file)
     if not hasattr(graph, 'graph') or graph.graph is None:
         graph.graph, graph.optimal_actions = compute_shortest_path_data(graph.maze)
     return graph
@@ -184,8 +188,12 @@ def save_graph_as_h5(graph, path):
     num_locations = len(locations) * 4
 
     def compute_graph_line(point, rotation):
-        return [locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change(rotation), point)), -1) * 4 + rotation,
-            locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change((rotation + 2) % 4), point)), -1)* 4 + rotation]
+        def add_rotation(point):
+            if point == -1:
+                return point
+            return point * 4 + rotation
+        return [add_rotation(locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change(rotation), point)), -1)),
+            add_rotation(locations_lookup.get(tuple(map(lambda x, y: x+y, direction_to_change((rotation + 2) % 4), point)), -1))]
 
     resnet = create_resnet()
 

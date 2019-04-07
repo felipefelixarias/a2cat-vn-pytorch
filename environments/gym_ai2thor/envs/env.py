@@ -6,11 +6,12 @@ import cv2
 import random
 
 class EnvBase(gym.Env):
-    def __init__(self, scenes, screen_size = (224, 224), goals = ['Mug'], cameraY = 0.675):
+    def __init__(self, scenes, screen_size = (224, 224), goals = ['Mug'], enable_noise=False, cameraY = 0.675):
         self.screen_size = screen_size
         self.controller = ai2thor.controller.Controller(quality='Very Low')
         self.scenes = scenes
         self.goals = goals
+        self.enable_noise = enable_noise
         
         self.observation_space = gym.spaces.Box(0, 255, shape = screen_size + (3,), dtype = np.uint8)
         
@@ -43,7 +44,6 @@ class EnvBase(gym.Env):
             num_trials += 1
             print('WARNING: Reset invoked to sample nonterminal state')
 
-        
         return self.observe(event)
 
     def _reset_objects(self):
@@ -58,7 +58,7 @@ class EnvBase(gym.Env):
             event = self._last_event
         self._last_event = event
         self.state = (event.metadata['agent']['position'], event.metadata['agent']['rotation'])
-        return cv2.resize(event.frame, self.screen_size, interpolation = cv2.INTER_CUBIC)
+        return cv2.resize(event.frame, self.screen_size, interpolation=cv2.INTER_CUBIC)
 
     def _sample_start_position(self, event):
         event = self.controller.step(dict(action='GetReachablePositions'))
@@ -67,8 +67,8 @@ class EnvBase(gym.Env):
         event = self.controller.step(dict(action='Teleport', horizon=0.0, rotation=rotation, **position))
         return event
 
-    def _get_object_type(self, object):
-        s = object['objectId']
+    def _get_object_type(self, obj):
+        s = obj['objectId']
         return s[:s.index('|')].lower()
 
     def _has_finished(self, event):
@@ -76,7 +76,6 @@ class EnvBase(gym.Env):
             tp = self._get_object_type(o)
             if tp in self.goals and o['distance'] < self.treshold_distance:
                 return True
-        
         return False
 
     def _pick_goal(self, event, scene):

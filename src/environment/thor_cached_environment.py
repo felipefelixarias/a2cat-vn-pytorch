@@ -7,12 +7,12 @@ import numpy as np
 import random
 import skimage.io
 from skimage.transform import resize
-from environment import environment
+from .environment import Environment
 
-class THORDiscreteCachedEnvironment(environment.Environment):
+class THORDiscreteCachedEnvironment(Environment):
     @staticmethod
     def _get_h5_file_path(scene_name):
-        path = '/media/data/datasets/visual_navigation_precomputed'
+        path = '/home/jonas/.visual_navigation/scenes'
         if 'THOR_DATASET_PATH' in os.environ:
             path = os.environ['THOR_DATASET_PATH']
 

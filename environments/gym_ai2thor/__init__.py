@@ -1,4 +1,5 @@
 import gym
+from . import _register_downloads
 
 NUMBER_OF_SCENES = 430
 
@@ -27,6 +28,12 @@ gym.register(
     id = 'ContinuousGoalThor-v0',
     entry_point = 'environments.gym_ai2thor.envs.continuous:GoalContinuousEnv',
     max_episode_steps = 900,
+)
+
+gym.register(
+    id = 'AuxiliaryThor-v1',
+    entry_point = 'environments.gym_ai2thor.envs.continuous:AuxiliaryEnv',
+    max_episode_steps = 900
 )
 
 gym.register(

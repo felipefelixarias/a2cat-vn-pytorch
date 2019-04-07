@@ -2,6 +2,8 @@ import environments
 import numpy as np
 import gym
 
+from download import require_resource
+
 from deep_rl import register_trainer
 from deep_rl.a2c_unreal import UnrealTrainer
 from deep_rl.a2c_unreal.util import UnrealEnvBaseWrapper
@@ -11,6 +13,7 @@ from deep_rl.common.schedules import LinearSchedule
 from deep_rl.common.vec_env import SubprocVecEnv, DummyVecEnv
 from deep_rl.common.env import RewardCollector, TransposeImage, ScaledFloatFrame
 
+@require_resource('thor-scene-images-311')
 @register_trainer(max_time_steps = 40e6, validation_period = 200, validation_episodes = 20,  episode_log_interval = 10, saving_period = 100000, save = True)
 class Trainer(UnrealTrainer):
     def __init__(self, *args, **kwargs):
