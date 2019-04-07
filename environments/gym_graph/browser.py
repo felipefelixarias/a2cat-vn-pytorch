@@ -1,49 +1,9 @@
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
-import environments
-
-class KeyboardAgent:
-    def __init__(self, env):
-        self.env = env
-        self.env.reset()
-
-    def show(self):
-        fig = plt.figure()
-        imgplot = plt.imshow(self.env.render(mode = 'rgbarray'))
-        def press(event):
-            def redraw():
-                plt.imshow(self.env.render(mode = 'rgbarray'))
-                fig.canvas.draw()
-                
-            done = False
-            if event.key == 's':
-                mpimg.imsave("output.png",self.env.render(mode = 'rgbarray'))
-            elif event.key == 'up':
-                _, _, done, _ = self.env.step(0)
-                redraw()
-            elif event.key == 'right':
-                _, _, done, _ = self.env.step(4)
-                redraw()
-            elif event.key == 'left':
-                _, _, done, _ = self.env.step(5)
-                redraw()
-
-            if hasattr(self.env.unwrapped, 'state'):
-                print(self.env.unwrapped.state)
-
-            if done:
-                print('Goal reached')
-                self.env.reset()
-
-        plt.rcParams['keymap.save'] = ''
-        fig.canvas.mpl_connect('key_press_event', press)
-        plt.axis('off')
-        plt.show()
-
 
 class GoalKeyboardAgent:
-    def __init__(self, env, actions = [0, 4, 5]):
+    def __init__(self, env, actions = [0, 2, 3]):
         self.env = env
         self.actions = actions
 
@@ -53,7 +13,6 @@ class GoalKeyboardAgent:
         def redraw():
             a = self.o[0]
             b = self.o[1]
-            print(b.shape)
             ax1.imshow(a)
             ax2.imshow(b)
             fig.canvas.draw()

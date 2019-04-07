@@ -12,8 +12,7 @@ class OrientedGraphEnv(gym.Env):
             self.graph = get_graph(graph_name)
         elif graph_file is not None:
             from graph.util import load_graph
-            with open(graph_file, 'rb') as f:
-                self.graph = load_graph(f)
+            self.graph = load_graph(graph_file)
         else:
             raise Exception('Not supported')
 
@@ -60,6 +59,10 @@ class OrientedGraphEnv(gym.Env):
 
     def is_goal(self, state):
         return max(map(lambda a,b: abs(a - b), state[:2], self.goal[:2])) == 0 and state[2] == self.goal[2]
+
+    def browse(self):
+        from .browser import GoalKeyboardAgent
+        return GoalKeyboardAgent(self)
 
     def step(self, action):
         nstate = step(self.state, action)
