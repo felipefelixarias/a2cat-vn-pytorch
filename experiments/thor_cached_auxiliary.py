@@ -42,7 +42,7 @@ class Trainer(AuxiliaryTrainer):
         self.auxiliary_weight = 0.1
         #self.pc_cell_size = 
 
-        self.scene_complexity = LinearSchedule(0.3, 1.0, 200000)
+        #self.scene_complexity = LinearSchedule(0.3, 1.0, 200000)
 
     def _get_input_for_pixel_control(self, inputs):
         return inputs[0][0]
@@ -72,7 +72,8 @@ def create_envs(num_training_processes, tasks, **env_kwargs):
     env_fns = [lambda: wrap(environments.make(graph_name = scene, goals = goal, **env_kwargs)) for (scene, goals) in tasks for goal in goals]
     env = SubprocVecEnv(env_fns)
     env.set_hardness = lambda hardness: env.call_unwrapped('set_complexity', hardness)
-    env.set_hardness(0.3)
+    #env.set_hardness(0.3)
+    env.set_hardness(1.0)
     return env
 
 def default_args():
