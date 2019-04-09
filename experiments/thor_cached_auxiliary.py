@@ -55,12 +55,6 @@ class Trainer(AuxiliaryTrainer):
         model = Model(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
         return model
 
-    def process(self, *args, **kwargs):
-        a, b, metric_context = super().process(*args, **kwargs)
-        self.env.set_hardness(self.scene_complexity)
-        metric_context.add_last_value_scalar('scene_complexity', self.scene_complexity)
-        return a, b, metric_context
-
 def create_envs(num_training_processes, tasks, **env_kwargs):
     def wrap(env):
         env = RewardCollector(env)
