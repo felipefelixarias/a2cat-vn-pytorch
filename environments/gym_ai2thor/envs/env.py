@@ -44,7 +44,7 @@ class EnvBase(gym.Env):
 
         num_trials = 0
         while self._has_finished(event):
-            event = self._sample_start_position(event)
+            event = self._sample_start_position(event, selected_scene)
             num_trials += 1
             print('WARNING: Reset invoked to sample nonterminal state')
 
@@ -64,8 +64,12 @@ class EnvBase(gym.Env):
         self.state = (event.metadata['agent']['position'], event.metadata['agent']['rotation'])
         return cv2.resize(event.frame, self.screen_size, interpolation=cv2.INTER_CUBIC)
 
-    def _sample_start_position(self, event):
+    def _sample_start_position(self, event, selected_scene):
         event = self.controller.step(dict(action='GetReachablePositions'))
+        if event.metadata['actionReturn'] is None:
+            event = self.controller.step(dict(action='Initialize', **self.initialize_kwargs))
+            event = self._pick_goal(event, selected_scene)
+             
         position = self.random.choice(event.metadata['actionReturn'])
         rotation = self.random.random() * 360.0
         event = self.controller.step(dict(action='Teleport', horizon=0.0, rotation=rotation, **position))
