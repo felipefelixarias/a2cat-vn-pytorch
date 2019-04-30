@@ -7,7 +7,7 @@ import os
 import torch
 import numpy as np
 from torch.utils.data import Dataset,DataLoader
-from models import AuxiliaryBigGoalHouseModel3
+from models import AuxiliaryBigGoalHouseModel as Model
 from torch.optim import Adam
 import torch.nn.functional as F
 from experiments.ai2_auxiliary.trainer import compute_auxiliary_target
@@ -89,10 +89,12 @@ class SupervisedTrained(AbstractTrainer):
         return HouseDataset(deconv_cell_size)
 
     def _initialize(self):
-        model = AuxiliaryBigGoalHouseModel3(3, 6).to(self.main_device)
-        model_path = os.path.join(configuration.get('models_path'),'chouse-auxiliary-supervised', 'weights.pth')
-        print('Loading %s' % model_path)
-        model.load_state_dict(torch.load(model_path))
+        model = Model(3, 6).to(self.main_device)
+        model_path = os.path.join(configuration.get('models_path'),'chouse-auxiliary4-supervised', 'weights.pth')
+        
+        if os.path.isfile(model_path):
+            print('Loading %s' % model_path)
+            model.load_state_dict(torch.load(model_path))
 
         self.dataset = self.create_dataset(model.deconv_cell_size)     
         self.optimizer = Adam(model.parameters())
@@ -100,7 +102,7 @@ class SupervisedTrained(AbstractTrainer):
 
     def run(self, process, **kwargs):
         self.model = self._initialize()
-        for i in range(20):
+        for i in range(30):
             print('Starting epoch %s' % (i + 1))
             process()
 

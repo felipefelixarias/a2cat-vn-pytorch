@@ -48,7 +48,7 @@ def lighten_color(color, amount=0.5):
 if __name__ == "__main__":
     import sys
 
-    with open('/mnt/cluster-home/models/%s/metrics.txt' % sys.argv[1], 'r') as f:
+    with open('/models/%s/metrics.txt' % sys.argv[1], 'r') as f:
         metrics = load_metrics(f)
 
     def plot_single_metric(data, color, label, smoothing_factor = None):

@@ -12,7 +12,7 @@ cfg = {
     "colorFile": os.path.expanduser('~/toolbox/House3D/House3D/metadata/colormap_coarse.csv'),
     "roomTargetFile": os.path.expanduser('~/toolbox/House3D/House3D/metadata/room_target_object_map.csv'),
     "modelCategoryFile": os.path.expanduser('~/toolbox/House3D/House3D/metadata/ModelCategoryMapping.csv'),
-    "prefix": os.path.expanduser('/mnt/cluster-home/datasets/suncg/house')
+    "prefix": os.path.expanduser('~/datasets/suncg/house')
 }
 
 SAMPLING_DEAD_END = 200

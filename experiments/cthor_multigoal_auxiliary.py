@@ -15,7 +15,7 @@ import deep_rl
 
 import environments
 from experiments.ai2_auxiliary.trainer import AuxiliaryTrainer
-from models import AuxiliaryBigGoalHouseModel5 as Model
+from models import AuxiliaryBigGoalHouseModel as Model
 from download import require_resource
 
 VALIDATION_PROCESSES = 1 # note: single environment is supported at the moment
