@@ -11,7 +11,7 @@ import torch
 
 from deep_rl import register_trainer
 from experiments.ai2_auxiliary.trainer import AuxiliaryTrainer
-from models import AuxiliaryBigGoalHouseModel5 as Model
+from models import AuxiliaryBigGoalHouseModel as Model
 from deep_rl.common.schedules import LinearSchedule, MultistepSchedule
 from torch import nn
 from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
