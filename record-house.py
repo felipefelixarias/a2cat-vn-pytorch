@@ -1,3 +1,5 @@
+#functions to record videos of output. seems like it is for any and all experiments, not just House3D stuff.
+
 import argparse
 from deep_rl import make_agent
 import deep_rl

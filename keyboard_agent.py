@@ -1,3 +1,5 @@
+#Seems like some functions to specify goal and start positions for House3d and continous ai2thor environments, probably for experiments but not necessary for discrete ai2thor?
+
 #!/usr/bin/env python
 import argparse
 import matplotlib.pyplot as plt

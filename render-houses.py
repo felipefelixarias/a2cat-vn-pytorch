@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+#Helper functions for House3D stuff, mainly output related but seems like there is also a few things related to the simulation
 
 from House3D import objrender, Environment, House
 from House3D.house import _equal_room_tp

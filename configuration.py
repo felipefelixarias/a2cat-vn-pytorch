@@ -1,3 +1,5 @@
+#Configurations for experiments.. seems like they are only for House3D stuf..
+
 import os
 import json
 

@@ -1,3 +1,5 @@
+#Seems like some vizdoom stuff
+
 from .core import GridWorldScene
 from environment.util.dungeon import Generator
 from .maze_graph import MazeGraph

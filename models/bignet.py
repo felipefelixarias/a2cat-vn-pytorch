@@ -1,3 +1,4 @@
+#Main model (without axiliary tasks?), seems like all aspect of the network are here, though it uses models imported from his other repo. 
 import torch
 from torch import nn
 import math

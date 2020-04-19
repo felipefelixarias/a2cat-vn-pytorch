@@ -1,3 +1,5 @@
+#Downloads "resources" from https://deep-rl.herokuapp.com/resources, not very clear what they are. functions to interact with said resources.
+
 import requests
 import io
 import zipfile

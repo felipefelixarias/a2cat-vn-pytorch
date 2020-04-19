@@ -1,3 +1,5 @@
+#Seems like definition of Gym environment? maybe some helper functions. Might need to do the AIGym thing for ai2thor as well
+
 import gym
 import gym.spaces
 from graph.util import step, is_valid_state, load_graph, enumerate_positions, sample_initial_state, sample_initial_position, direction_to_change

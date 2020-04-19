@@ -1,3 +1,5 @@
+#Class to define a bunch of stuff about AI2THOR, important! Will be used for a lot of things.
+
 # from graph.core import GridWorldScene
 import numpy as np
 import cv2

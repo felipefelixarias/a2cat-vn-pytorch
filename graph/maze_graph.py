@@ -1,3 +1,5 @@
+#Graph for maze environment? Not AI2THOR
+
 from .core import GridWorldScene
 import numpy as np
 from .util import compute_shortest_path_data, enumerate_positions

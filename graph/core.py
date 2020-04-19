@@ -1,3 +1,5 @@
+#Class for storing the graph of where the robot has visited? Not sure
+
 from abc import ABC, abstractproperty, abstractclassmethod
 import numpy as np
 import cv2

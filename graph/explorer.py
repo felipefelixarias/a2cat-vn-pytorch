@@ -1,3 +1,5 @@
+#Seems like helper functions for exploring the map?
+
 #!/usr/bin/env python
 import argparse
 import matplotlib.pyplot as plt

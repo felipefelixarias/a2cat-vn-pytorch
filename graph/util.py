@@ -1,3 +1,5 @@
+#Helper functions, some of which might be needed for our needs.
+
 import numpy as np
 from operator import add
 

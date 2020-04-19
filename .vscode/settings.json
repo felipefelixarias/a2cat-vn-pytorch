@@ -1,15 +1,16 @@
 {
-    "python.pythonPath": "C:\\ProgramData\\Anaconda3\\python.exe",
-    "python.unitTest.unittestArgs": [
+    "python.pythonPath": "/anaconda3/bin/python",
+    "python.testing.unittestArgs": [
         "-v",
         "-s",
         "./src",
         "-p",
         "*_test.py"
     ],
-    "python.unitTest.pyTestEnabled": false,
-    "python.unitTest.nosetestsEnabled": false,
-    "python.unitTest.unittestEnabled": true,
+    "python.testing.pytestEnabled": false,
+    "python.testing.nosetestsEnabled": false,
+    "python.testing.unittestEnabled": false,
     "python.formatting.provider": "autopep8",
-    "python.linting.pylintEnabled": true
+    "python.linting.pylintEnabled": true,
+    "python.testing.promptToConfigure": false
 }
