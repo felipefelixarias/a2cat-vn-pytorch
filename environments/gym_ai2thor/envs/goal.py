@@ -6,8 +6,12 @@ import random
 import numpy as np
 import download
 
-DEFAULT_GOALS = [
+OLD_DEFAULT_GOALS = [
     "ottoman", "laptop", "vase", "sofa", "plunger", "soapbottle", "apple", "knife", "ladle", "towel", "kettle", "bowl", "watch", "chair", "window", "potato", "safe", "spatula", "bottle", "boots", "cabinet", "handtowel", "laundryhamper", "tissuebox", "microwave", "painting", "pillow", "toiletpaperroll", "candle", "box", "bread", "cup", "egg", "toiletpaper", "lettuce", "television", "wateringcan", "spoon", "toaster", "plate", "winebottle", "cloth", "dresser", "stove burner", "televisionarmchair", "toilet", "drawer", "teddybear", "statue", "fridge", "pan", "alarmclock", "dishsponge", "shelf", "baseballbat", "stove knob", "sink", "coffeemachine", "garbagecan", "pot", "desklamp", "book", "scrubbrush", "houseplant", "poster", "pillowarmchair", "tennisracket", "towelholder", "mug"
+]
+
+DEFAULT_GOALS = [
+    "chair"
 ]
 
 
