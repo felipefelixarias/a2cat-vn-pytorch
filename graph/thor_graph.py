@@ -56,7 +56,7 @@ class GridWorldReconstructor:
         self._frames = dict()
         self._realcoordinates = dict()
         # gridSize specifies the coarseness of the grid that the agent navigates on
-        self._controller.step(dict(action='Initialize', grid_size=self.grid_size, **self.env_kwargs, renderDepthImage = True, renderClassImage = True, cameraY = self.cameraY))
+        self._controller.step(dict(action='Initialize', grid_size=self.grid_size, **self.env_kwargs, renderDepthImage = True, renderClassImage = True, cameraY = self.cameraY, agentCount=2))
         self._controller.step(dict(action = 'InitialRandomSpawn', randomSeed = self.seed, forceVisible = False, maxNumRepeats = 5))
 
     def _compute_new_position(self, original, direction):
@@ -81,7 +81,7 @@ class GridWorldReconstructor:
 
         # Collect all four images in all directions
         for d in range(4):
-            event = self._controller.step(dict(action='RotateRight'))
+            event = self._controller.step(dict(action='RotateRight', agentId=0))
             depth = np.expand_dims((event.depth_frame * 255 / 5000).astype(np.uint8), 2)
             frames[(1 + d) % 4] = (event.frame, depth, event.class_segmentation_frame,)
 
@@ -91,31 +91,31 @@ class GridWorldReconstructor:
         # Collect frames in all four dimensions
         newposition = self._compute_new_position(position, 0)
         if not newposition in self._collected_positions:
-            event = self._controller.step(dict(action='MoveAhead'))
+            event = self._controller.step(dict(action='MoveAhead', agentId=0))
             if event.metadata.get('lastActionSuccess'):
                 self._collect_spot(newposition)
-                event = self._controller.step(dict(action = 'MoveBack'))
+                event = self._controller.step(dict(action = 'MoveBack', agentId=0))
 
         newposition = self._compute_new_position(position, 1)
         if not newposition in self._collected_positions:
-            event = self._controller.step(dict(action='MoveRight'))
+            event = self._controller.step(dict(action='MoveRight', agentId=0))
             if event.metadata.get('lastActionSuccess'):
                 self._collect_spot(newposition)
-                event = self._controller.step(dict(action = 'MoveLeft'))
+                event = self._controller.step(dict(action = 'MoveLeft', agentId=0))
 
         newposition = self._compute_new_position(position, 2)
         if not newposition in self._collected_positions:
-            event = self._controller.step(dict(action='MoveBack'))
+            event = self._controller.step(dict(action='MoveBack', agentId=0))
             if event.metadata.get('lastActionSuccess'):
                 self._collect_spot(newposition)
-                event = self._controller.step(dict(action = 'MoveAhead'))
+                event = self._controller.step(dict(action = 'MoveAhead', agentId=0))
 
         newposition = self._compute_new_position(position, 3)
         if not newposition in self._collected_positions:
-            event = self._controller.step(dict(action='MoveLeft'))
+            event = self._controller.step(dict(action='MoveLeft', agentId=0))
             if event.metadata.get('lastActionSuccess'):
                 self._collect_spot(newposition)
-                event = self._controller.step(dict(action = 'MoveRight'))
+                event = self._controller.step(dict(action = 'MoveRight', agentId=0))
 
     def resize(self, image):
         if self.screen_size != (300,300):
@@ -152,6 +152,6 @@ class GridWorldReconstructor:
 
     def reconstruct(self):
         self._initialize()
-        self._controller.step(dict(action = 'RotateLeft'))
+        self._controller.step(dict(action = 'RotateLeft', agentId=0))
         self._collect_spot((0, 0))
         return self._compile()
