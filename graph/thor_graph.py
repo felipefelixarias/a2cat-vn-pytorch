@@ -82,6 +82,7 @@ class GridWorldReconstructor:
         # Collect all four images in all directions
         for d in range(4):
             event = self._controller.step(dict(action='RotateRight', agentId=0))
+            event = event.events[0]
             depth = np.expand_dims((event.depth_frame * 255 / 5000).astype(np.uint8), 2)
             frames[(1 + d) % 4] = (event.frame, depth, event.class_segmentation_frame,)
 
@@ -92,6 +93,7 @@ class GridWorldReconstructor:
         newposition = self._compute_new_position(position, 0)
         if not newposition in self._collected_positions:
             event = self._controller.step(dict(action='MoveAhead', agentId=0))
+            event = event.events[0]
             if event.metadata.get('lastActionSuccess'):
                 self._collect_spot(newposition)
                 event = self._controller.step(dict(action = 'MoveBack', agentId=0))
@@ -99,6 +101,7 @@ class GridWorldReconstructor:
         newposition = self._compute_new_position(position, 1)
         if not newposition in self._collected_positions:
             event = self._controller.step(dict(action='MoveRight', agentId=0))
+            event = event.events[0]
             if event.metadata.get('lastActionSuccess'):
                 self._collect_spot(newposition)
                 event = self._controller.step(dict(action = 'MoveLeft', agentId=0))
@@ -106,6 +109,7 @@ class GridWorldReconstructor:
         newposition = self._compute_new_position(position, 2)
         if not newposition in self._collected_positions:
             event = self._controller.step(dict(action='MoveBack', agentId=0))
+            event = event.events[0]
             if event.metadata.get('lastActionSuccess'):
                 self._collect_spot(newposition)
                 event = self._controller.step(dict(action = 'MoveAhead', agentId=0))
@@ -113,6 +117,7 @@ class GridWorldReconstructor:
         newposition = self._compute_new_position(position, 3)
         if not newposition in self._collected_positions:
             event = self._controller.step(dict(action='MoveLeft', agentId=0))
+            event = event.events[0]
             if event.metadata.get('lastActionSuccess'):
                 self._collect_spot(newposition)
                 event = self._controller.step(dict(action = 'MoveRight', agentId=0))
