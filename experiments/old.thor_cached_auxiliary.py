@@ -23,11 +23,11 @@ VALIDATION_PROCESSES = 1 # note: single environment is supported at the moment
 TestingEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
 TestingVecEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
 
-@register_trainer(max_time_steps = 1e6, validation_period = None, validation_episodes = None,  episode_log_interval = 10, saving_period = 100000, save = True)
+@register_trainer(max_time_steps = 40e6, validation_period = None, validation_episodes = None,  episode_log_interval = 10, saving_period = 100000, save = True)
 class Trainer(AuxiliaryTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.num_processes = 4
+        self.num_processes = 16
         self.max_gradient_norm = 0.5
         self.rms_alpha = 0.99
         self.rms_epsilon = 1e-5
@@ -67,17 +67,17 @@ def create_envs(num_training_processes, tasks, **env_kwargs):
     env = SubprocVecEnv(env_fns)
     env.set_hardness = lambda hardness: env.call_unwrapped('set_complexity', hardness)
     #env.set_hardness(0.3)
-    env.set_hardness(0.01)
+    env.set_hardness(1.0)
     return env
 
 def default_args():
     return dict(
         env_kwargs = dict(
             id = 'AuxiliaryGraph-v0',
-            tasks = [('thor-cached-212-174', [(10, 14, 0)]),
-                ('thor-cached-212-174', [(10, 14, 0)]),
-                ('thor-cached-212-174', [(10, 14, 0)]),
-                ('thor-cached-212-174', [(10, 14, 0)])
+            tasks = [('thor-cached-212-174', [(3, 1, 2), (13, 21, 3), (10, 2, 1), (10, 14, 0)]),
+                ('thor-cached-208-174', [(6, 3, 1), (13, 3, 0), (7, 18, 2), (6, 25, 1)]),
+                ('thor-cached-218-174', [(6, 22, 1), (7, 0, 0), (18, 18, 3), (13, 31, 3)]),
+                ('thor-cached-225-174', [(3, 17, 2), (12, 17, 3), (15, 10, 0), (14, 8, 3)])
             ],
             screen_size=(172,172),),
         model_kwargs = dict()
