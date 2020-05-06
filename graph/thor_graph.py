@@ -3,10 +3,13 @@ import numpy as np
 import cv2
 
 class ThorGridWorld:
-    def __init__(self, maze, observations, depths, segmentations):
+    def __init__(self, maze, observations, depths, segmentations, tp_observations, tp_depths, tp_segmentations):
         self._observations = observations
         self._depths = depths
         self._segmentations = segmentations
+        self._tp_observations = tp_observations
+        self._tp_depths = tp_depths
+        self._tp_segmentations = tp_segmentations
         self._maze = maze
 
     def render(self, position, direction, modes = ['rgb']):
@@ -82,9 +85,11 @@ class GridWorldReconstructor:
         # Collect all four images in all directions
         for d in range(4):
             event = self._controller.step(dict(action='RotateRight', agentId=0))
+            tp_event = event.events[1]
+            tp_depth = np.expand_dims((tp_event.depth_frame * 255 / 5000).astype(np.uint8), 2)
             event = event.events[0]
             depth = np.expand_dims((event.depth_frame * 255 / 5000).astype(np.uint8), 2)
-            frames[(1 + d) % 4] = (event.frame, depth, event.class_segmentation_frame,)
+            frames[(1 + d) % 4] = (event.frame, depth, event.class_segmentation_frame, tp_event.frame, tp_depth, tp_event.class_segmentation_frame,)
 
         self._realcoordinates[position] = event.metadata['agent']['position']
         self._frames[position] = frames
