@@ -69,6 +69,8 @@ class GridWorldReconstructor:
         # gridSize specifies the coarseness of the grid that the agent navigates on
         self._controller.step(dict(action='Initialize', grid_size=self.grid_size, **self.env_kwargs, renderDepthImage = True, renderClassImage = True, cameraY = self.cameraY, agentCount=2))
         self._controller.step(dict(action = 'InitialRandomSpawn', randomSeed = self.seed, forceVisible = False, maxNumRepeats = 5))
+        
+
 
     def _compute_new_position(self, original, direction):
         dir1, dir2 = original
@@ -96,6 +98,7 @@ class GridWorldReconstructor:
             tp_event = event.events[1]
             tp_depth = np.expand_dims((tp_event.depth_frame * 255 / 5000).astype(np.uint8), 2)
             event = event.events[0]
+            #print(event.metadata.get('agent'))
             depth = np.expand_dims((event.depth_frame * 255 / 5000).astype(np.uint8), 2)
             frames[(1 + d) % 4] = (event.frame, depth, event.class_segmentation_frame, tp_event.frame, tp_depth, tp_event.class_segmentation_frame,)
 
@@ -181,6 +184,14 @@ class GridWorldReconstructor:
 
     def reconstruct(self):
         self._initialize()
-        self._controller.step(dict(action = 'RotateLeft', agentId=0))
+        event = self._controller.step(dict(action = 'RotateLeft', agentId=0))
+        #event = event.events[0]
+        #print(event.metadata.agent())
+        event = self._controller.step(dict(action = 'TeleportFull', x = 3.5, y = 0.9009992, z = 0.5, rotation=dict(x= 0.0, y= 270.0,z= 0.0), agentId=1))
+        #event = event.events[1]
+        #if event.metadata.get('lastActionSuccess'):
+        #    print("YAY")
+        #else:
+        #    print(event.metadata.get('sceneBounds'))
         self._collect_spot((0, 0))
         return self._compile()
