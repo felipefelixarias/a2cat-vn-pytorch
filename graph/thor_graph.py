@@ -21,6 +21,14 @@ class ThorGridWorld:
             ret = ret + (depth,)
         if 'segmentation' in modes:
             ret = ret + (self._segmentations[position[0], position[1], direction],)
+
+        if 'rgb' in modes:
+            ret = ret + (self._tp_observations[position[0], position[1], direction],)
+        if 'depth' in modes:
+            depth = self._tp_depths[position[0], position[1], direction]
+            ret = ret + (depth,)
+        if 'segmentation' in modes:
+            ret = ret + (self._tp_segmentations[position[0], position[1], direction],)
                 
         if len(ret) == 1:
             return ret[0]
@@ -146,15 +154,26 @@ class GridWorldReconstructor:
         observations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
         segmentations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
         depths = np.zeros(size + (4,) + self.screen_size +(1,), dtype = np.uint8)
+
+        tp_observations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8) 
+        tp_segmentations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
+        tp_depths = np.zeros(size + (4,) + self.screen_size +(1,), dtype = np.uint8)
+
         grid = np.zeros(size, dtype = np.bool)
         for key, value in self._frames.items():
             for i in range(4):
                 observations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][0])
                 depths[key[0] - minx, key[1] - miny, i] = self.resize(value[i][1])
                 segmentations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][2])
+
+                tp_observations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][3])
+                tp_depths[key[0] - minx, key[1] - miny, i] = self.resize(value[i][4])
+                tp_segmentations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][5])
+
+
             grid[key[0] - minx, key[1] - miny] = 1
 
-        return ThorGridWorld(grid, observations, depths, segmentations)
+        return ThorGridWorld(grid, observations, depths, segmentations, tp_observations, tp_depths, tp_segmentations)
 
     def __del__(self):
         if hasattr(self, '_controller') and self._controller is not None:
