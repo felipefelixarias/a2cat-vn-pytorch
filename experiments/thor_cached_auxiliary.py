@@ -33,7 +33,7 @@ class Trainer(AuxiliaryTrainer):
         self.rms_epsilon = 1e-5
         self.num_steps = 20
         self.gamma = .99
-        self.allow_gpu = False 
+        self.allow_gpu = True 
         self.learning_rate = LinearSchedule(7e-4, 0, self.max_time_steps)
 
         self.rp_weight = 1.0
@@ -74,10 +74,10 @@ def default_args():
     return dict(
         env_kwargs = dict(
             id = 'AuxiliaryGraph-v0',
-            tasks = [('thor-cached-212-174', [(10, 14, 0)]),
-                ('thor-cached-212-174', [(10, 14, 0)]),
-                ('thor-cached-212-174', [(10, 14, 0)]),
-                ('thor-cached-212-174', [(10, 14, 0)])
+            tasks = [('thor-cached-212-174', [(10, 8, 2)]),
+                ('thor-cached-212-174', [(10, 8, 2)]),
+                ('thor-cached-212-174', [(10, 8, 2)]),
+                ('thor-cached-212-174', [(10, 8, 2)])
             ],
             screen_size=(172,172),),
         model_kwargs = dict()
