@@ -1,8 +1,8 @@
 import pickle
 import os
 
-file = os.path.join('../big.visual_navigation', 'scenes', 'thor-cached-212-174.pkl')
-file = os.path.join('../thor-cached-212-174.pkl')
+file = os.path.join('/Users','felipe', '.visual_navigation', 'scenes', 'thor-cached-212-174.pkl')
+#file = os.path.join('../thor-cached-212-174.pkl')
 
 def load_graph(file):
     
