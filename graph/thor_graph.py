@@ -89,9 +89,6 @@ class GridWorldReconstructor:
         self._realcoordinates[position] = event.metadata['agent']['position']
         self._frames[position] = frames
 
-        #added for debug purposes
-        return
-
         # Collect frames in all four dimensions
         newposition = self._compute_new_position(position, 0)
         if not newposition in self._collected_positions:
