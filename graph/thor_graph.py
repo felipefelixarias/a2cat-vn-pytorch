@@ -82,7 +82,7 @@ class GridWorldReconstructor:
         # Collect all four images in all directions
         for d in range(4):
             event = self._controller.step(dict(action='RotateRight', agentId=0))
-            event = event.events[1]
+            event = event.events[0]
             depth = np.expand_dims((event.depth_frame * 255 / 5000).astype(np.uint8), 2)
             frames[(1 + d) % 4] = (event.frame, depth, event.class_segmentation_frame,)
 
