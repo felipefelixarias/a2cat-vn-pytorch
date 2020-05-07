@@ -41,8 +41,30 @@ def dump_graph(graph, file):
     shortest_path_distances, actions = compute_shortest_path_data(graph.maze)
     graph.graph = shortest_path_distances
     graph.optimal_actions = actions
+
+    print("UTIL")
+
+    observations = graph._observations
+    depths = graph._depths
+    segmentations = graph._segmentations
+
+    import numpy as np
+    print(observations.shape)
+    print(np.max(observations))
+    print(np.min(observations))
+
+    print(depths.shape)
+    print(np.max(depths))
+    print(np.min(depths))
+
+    print(segmentations.shape)
+    print(np.max(segmentations))
+    print(np.min(segmentations))
+
     import pickle
     pickle.dump(graph, file)
+
+    exit()
 
 def load_graph(file):
     import pickle

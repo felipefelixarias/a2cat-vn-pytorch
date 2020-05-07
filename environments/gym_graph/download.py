@@ -42,10 +42,32 @@ def get_graph(graph):
 
     filename = os.path.join(basepath, '%s.pkl' % graph)
     if not os.path.exists(filename):
-        graph = graph_generators.get(graph)()        
+        graph = graph_generators.get(graph)()
+
+        print("DOWNLOAD")
+
+        observations = graph._observations
+        depths = graph._depths
+        segmentations = graph._segmentations
+
+        import numpy as np
+        print(observations.shape)
+        print(np.max(observations))
+        print(np.min(observations))
+
+        print(depths.shape)
+        print(np.max(depths))
+        print(np.min(depths))
+
+        print(segmentations.shape)
+        print(np.max(segmentations))
+        print(np.min(segmentations))
+
         with open(filename, 'wb+') as f:
             dump_graph(graph, f)
             f.flush()
+
+        exit()
 
     with open(filename, 'rb') as f:
         graph = load_graph(f)
