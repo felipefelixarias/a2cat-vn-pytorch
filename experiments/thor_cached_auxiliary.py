@@ -33,7 +33,7 @@ class Trainer(AuxiliaryTrainer):
         self.rms_epsilon = 1e-5
         self.num_steps = 20
         self.gamma = .99
-        self.allow_gpu = True
+        self.allow_gpu = False 
         self.learning_rate = LinearSchedule(7e-4, 0, self.max_time_steps)
 
         self.rp_weight = 1.0
