@@ -23,7 +23,7 @@ VALIDATION_PROCESSES = 1 # note: single environment is supported at the moment
 TestingEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
 TestingVecEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' % hardness)
 
-@register_trainer(max_time_steps = 1e6, validation_period = None, validation_episodes = None,  episode_log_interval = 10, saving_period = 100000, save = True)
+@register_trainer(max_time_steps = 2e6, validation_period = None, validation_episodes = None,  episode_log_interval = 10, saving_period = 100000, save = True)
 class Trainer(AuxiliaryTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
