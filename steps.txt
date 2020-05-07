@@ -1,0 +1,12 @@
+conda create -n god tensorflow-gpu cudatoolkit=10.1
+conda activate god 
+git clone https://github.com/felipefelixarias/a2cat-vn-pytorch.git
+cd a2cat-vn-pytorch
+conda install pytorch torchvision cudatoolkit=10.1 -c pytorch
+pip install git+https://github.com/openai/baselines.git
+pip install visdom
+pip install gym
+conda install -c conda-forge matplotlib
+pip install ai2thor
+pip install git+https://github.com/jkulhanek/deep-rl-pytorch.git
+python train.py thor-cached-auxiliary
