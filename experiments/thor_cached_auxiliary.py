@@ -67,7 +67,7 @@ def create_envs(num_training_processes, tasks, **env_kwargs):
     env = SubprocVecEnv(env_fns)
     env.set_hardness = lambda hardness: env.call_unwrapped('set_complexity', hardness)
     #env.set_hardness(0.3)
-    env.set_hardness(0.01)
+    env.set_hardness(0.5)
     return env
 
 def default_args():
