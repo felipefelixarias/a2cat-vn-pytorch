@@ -82,9 +82,11 @@ class GridWorldReconstructor:
         # Collect all four images in all directions
         for d in range(4):
             event = self._controller.step(dict(action='RotateRight', agentId=0))
-            event = event.events[1]
+            tp_event  = event.events[1]
+            tp_depth = np.expand_dims((tp_event.depth_frame * 255 / 5000).astype(np.uint8), 2)
+            event = event.events[0]
             depth = np.expand_dims((event.depth_frame * 255 / 5000).astype(np.uint8), 2)
-            frames[(1 + d) % 4] = (event.frame, depth, event.class_segmentation_frame,)
+            frames[(1 + d) % 4] = (event.frame, depth, event.class_segmentation_frame, tp_event.frame, tp_depth, tp_event.class_segmentation_frame,)
 
         self._realcoordinates[position] = event.metadata['agent']['position']
         self._frames[position] = frames
@@ -138,15 +140,15 @@ class GridWorldReconstructor:
         maxy = max(self._frames.keys(), default = 0, key = lambda x: x[1])[1]
 
         size = (maxx - minx + 1, maxy - miny + 1)
-        observations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
-        segmentations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
-        depths = np.zeros(size + (4,) + self.screen_size +(1,), dtype = np.uint8)
+        observations = np.zeros(size + (4,) + self.screen_size +(6,), dtype = np.uint8)
+        segmentations = np.zeros(size + (4,) + self.screen_size +(6,), dtype = np.uint8)
+        depths = np.zeros(size + (4,) + self.screen_size +(2,), dtype = np.uint8)
         grid = np.zeros(size, dtype = np.bool)
         for key, value in self._frames.items():
             for i in range(4):
-                observations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][0])
-                depths[key[0] - minx, key[1] - miny, i] = self.resize(value[i][1])
-                segmentations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][2])
+                observations[key[0] - minx, key[1] - miny, i] = np.concatenate((self.resize(value[i][0]), self.resize(value[i][3])), axis=2)
+                depths[key[0] - minx, key[1] - miny, i] = np.concatenate((self.resize(value[i][1]), self.resize(value[i][4])), axis=2)
+                segmentations[key[0] - minx, key[1] - miny, i] = np.concatenate((self.resize(value[i][2]), self.resize(value[i][5])), axis=2)
             grid[key[0] - minx, key[1] - miny] = 1
 
         return ThorGridWorld(grid, observations, depths, segmentations)
