@@ -3,13 +3,10 @@ import numpy as np
 import cv2
 
 class ThorGridWorld:
-    def __init__(self, maze, observations, depths, segmentations, tp_observations, tp_depths, tp_segmentations):
+    def __init__(self, maze, observations, depths, segmentations):
         self._observations = observations
         self._depths = depths
         self._segmentations = segmentations
-        self._tp_observations = tp_observations
-        self._tp_depths = tp_depths
-        self._tp_segmentations = tp_segmentations
         self._maze = maze
 
     def render(self, position, direction, modes = ['rgb']):
@@ -21,14 +18,6 @@ class ThorGridWorld:
             ret = ret + (depth,)
         if 'segmentation' in modes:
             ret = ret + (self._segmentations[position[0], position[1], direction],)
-
-        if 'rgb' in modes:
-            ret = ret + (self._tp_observations[position[0], position[1], direction],)
-        if 'depth' in modes:
-            depth = self._tp_depths[position[0], position[1], direction]
-            ret = ret + (depth,)
-        if 'segmentation' in modes:
-            ret = ret + (self._tp_segmentations[position[0], position[1], direction],)
                 
         if len(ret) == 1:
             return ret[0]
@@ -69,8 +58,6 @@ class GridWorldReconstructor:
         # gridSize specifies the coarseness of the grid that the agent navigates on
         self._controller.step(dict(action='Initialize', grid_size=self.grid_size, **self.env_kwargs, renderDepthImage = True, renderClassImage = True, cameraY = self.cameraY, agentCount=2))
         self._controller.step(dict(action = 'InitialRandomSpawn', randomSeed = self.seed, forceVisible = False, maxNumRepeats = 5))
-        
-
 
     def _compute_new_position(self, original, direction):
         dir1, dir2 = original
@@ -95,10 +82,9 @@ class GridWorldReconstructor:
         # Collect all four images in all directions
         for d in range(4):
             event = self._controller.step(dict(action='RotateRight', agentId=0))
-            tp_event = event.events[1]
+            tp_event  = event.events[1]
             tp_depth = np.expand_dims((tp_event.depth_frame * 255 / 5000).astype(np.uint8), 2)
             event = event.events[0]
-            #print(event.metadata.get('agent'))
             depth = np.expand_dims((event.depth_frame * 255 / 5000).astype(np.uint8), 2)
             frames[(1 + d) % 4] = (event.frame, depth, event.class_segmentation_frame, tp_event.frame, tp_depth, tp_event.class_segmentation_frame,)
 
@@ -154,29 +140,18 @@ class GridWorldReconstructor:
         maxy = max(self._frames.keys(), default = 0, key = lambda x: x[1])[1]
 
         size = (maxx - minx + 1, maxy - miny + 1)
-        observations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
-        segmentations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
-        depths = np.zeros(size + (4,) + self.screen_size +(1,), dtype = np.uint8)
-
-        tp_observations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8) 
-        tp_segmentations = np.zeros(size + (4,) + self.screen_size +(3,), dtype = np.uint8)
-        tp_depths = np.zeros(size + (4,) + self.screen_size +(1,), dtype = np.uint8)
-
+        observations = np.zeros(size + (4,) + self.screen_size +(6,), dtype = np.uint8)
+        segmentations = np.zeros(size + (4,) + self.screen_size +(6,), dtype = np.uint8)
+        depths = np.zeros(size + (4,) + self.screen_size +(2,), dtype = np.uint8)
         grid = np.zeros(size, dtype = np.bool)
         for key, value in self._frames.items():
             for i in range(4):
-                observations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][0])
-                depths[key[0] - minx, key[1] - miny, i] = self.resize(value[i][1])
-                segmentations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][2])
-
-                tp_observations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][3])
-                tp_depths[key[0] - minx, key[1] - miny, i] = self.resize(value[i][4])
-                tp_segmentations[key[0] - minx, key[1] - miny, i] = self.resize(value[i][5])
-
-
+                observations[key[0] - minx, key[1] - miny, i] = np.concatenate((self.resize(value[i][0]), self.resize(value[i][3])), axis=2)
+                depths[key[0] - minx, key[1] - miny, i] = np.concatenate((self.resize(value[i][1]), self.resize(value[i][4])), axis=2)
+                segmentations[key[0] - minx, key[1] - miny, i] = np.concatenate((self.resize(value[i][2]), self.resize(value[i][5])), axis=2)
             grid[key[0] - minx, key[1] - miny] = 1
 
-        return ThorGridWorld(grid, observations, depths, segmentations, tp_observations, tp_depths, tp_segmentations)
+        return ThorGridWorld(grid, observations, depths, segmentations)
 
     def __del__(self):
         if hasattr(self, '_controller') and self._controller is not None:
@@ -184,14 +159,7 @@ class GridWorldReconstructor:
 
     def reconstruct(self):
         self._initialize()
-        event = self._controller.step(dict(action = 'RotateLeft', agentId=0))
-        #event = event.events[0]
-        #print(event.metadata.agent())
-        event = self._controller.step(dict(action = 'TeleportFull', x = 3.5, y = 0.9009992, z = 0.5, rotation=dict(x= 0.0, y= 270.0,z= 0.0), agentId=1))
-        #event = event.events[1]
-        #if event.metadata.get('lastActionSuccess'):
-        #    print("YAY")
-        #else:
-        #    print(event.metadata.get('sceneBounds'))
+        self._controller.step(dict(action = 'RotateLeft', agentId=0))
+        self._controller.step(dict(action = 'TeleportFull', x = 3.5, y = 0.9009992, z = 0.5, rotation=dict(x= 0.0, y= 270.0,z= 0.0), agentId=1))
         self._collect_spot((0, 0))
         return self._compile()

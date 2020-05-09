@@ -11,7 +11,7 @@ import torch
 
 from deep_rl import register_trainer
 from experiments.ai2_auxiliary.trainer import AuxiliaryTrainer
-from models import AuxiliaryBigGoalHouseModel as Model
+from models import AuxiliaryBigModel as Model
 from deep_rl.common.schedules import LinearSchedule, MultistepSchedule
 from torch import nn
 from deep_rl.model import TimeDistributed, Flatten, MaskedRNN
@@ -33,7 +33,7 @@ class Trainer(AuxiliaryTrainer):
         self.rms_epsilon = 1e-5
         self.num_steps = 20
         self.gamma = .99
-        self.allow_gpu = True
+        self.allow_gpu = True 
         self.learning_rate = LinearSchedule(7e-4, 0, self.max_time_steps)
 
         self.rp_weight = 1.0
@@ -52,7 +52,7 @@ class Trainer(AuxiliaryTrainer):
         return env
 
     def create_model(self):
-        model = Model(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n)
+        model = Model(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n, 4, True)
         return model
 
 def create_envs(num_training_processes, tasks, **env_kwargs):
@@ -67,17 +67,17 @@ def create_envs(num_training_processes, tasks, **env_kwargs):
     env = SubprocVecEnv(env_fns)
     env.set_hardness = lambda hardness: env.call_unwrapped('set_complexity', hardness)
     #env.set_hardness(0.3)
-    env.set_hardness(0.01)
+    env.set_hardness(0.5)
     return env
 
 def default_args():
     return dict(
         env_kwargs = dict(
             id = 'AuxiliaryGraph-v0',
-            tasks = [('thor-cached-212-174', [(10, 14, 0)]),
-                ('thor-cached-212-174', [(10, 14, 0)]),
-                ('thor-cached-212-174', [(10, 14, 0)]),
-                ('thor-cached-212-174', [(10, 14, 0)])
+            tasks = [('thor-cached-212-174', [(10, 8, 2)]),
+                ('thor-cached-212-174', [(10, 19, 0)]),
+                ('thor-cached-212-174', [(5, 10, 1)]),
+                ('thor-cached-212-174', [(5, 6, 3)])
             ],
             screen_size=(172,172),),
         model_kwargs = dict()
