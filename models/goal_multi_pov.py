@@ -215,6 +215,8 @@ class AuxiliaryBigModel(BigModel):
 
     def forward_deconv(self, inputs, masks, states):
         observations, _ = inputs
+        obs_0_split = torch.split(observations[0], 3, dim=2)
+        obs_1_split = torch.split(observations[1], 3, dim=2)
         for i in range(self.num_input_images):
             base = self.shared_base(observations[i])
             if i == 0:
