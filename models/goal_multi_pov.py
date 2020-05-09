@@ -237,10 +237,14 @@ class AuxiliaryBigModel(BigModel):
 
         # Return in pattern of [depth, mask, depth, mask, mask_goal, mask_goal] depending on what the inputs are
         # heads
-        output = []
-        for layer in self.target_layers:
-            output.append(layer(features))
+        # output = []
+        # for layer in self.target_layers:
+        #     output.append(layer(features))
+        depth = torch.cat((self.target_layers[0](features), self.target_layers[2](features)), 2)
+        mask = torch.cat((self.target_layers[1](features), self.target_layers[3](features)), 2)
+        mask_goal = torch.cat((self.target_layers[4](features), self.target_layers[5](features)), 2)
+        
         # depth = self.deconv_depth(features)
         # mask = self.deconv_mask(features)
         # mask_goal = self.deconv_mask_goal(features)
-        return tuple(output), states
+        return (depth, mask, mask_goal), states
