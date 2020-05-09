@@ -88,8 +88,12 @@ class BigModel(nn.Module):
 
     def _forward_base(self, inputs, masks, states):
         observations, last_reward_action = inputs
-        for i in range(self.num_input_images):
-            base = self.shared_base(observations[i])
+        obs_0_split = torch.split(observations[0], 3, dim=2)
+        obs_1_split = torch.split(observations[1], 3, dim=2)
+
+        tensors = [obs_0_split[0], obs_0_split[1], obs_1_split[0], obs_1_split[1]]
+        for i, tens in enumerate(tensors):
+            base = self.shared_base(tens)
             if i == 0:
                 features = base
             if i != 0:
@@ -127,8 +131,12 @@ class BigModel(nn.Module):
 
     def reward_prediction(self, inputs):
         observations, _ = inputs
-        for i in range(self.num_input_images):
-            base = self.shared_base(observations[i])
+        obs_0_split = torch.split(observations[0], 3, dim=2)
+        obs_1_split = torch.split(observations[1], 3, dim=2)
+
+        tensors = [obs_0_split[0], obs_0_split[1], obs_1_split[0], obs_1_split[1]]
+        for i, tens in enumerate(tensors):
+            base = self.shared_base(tens)
             if i == 0:
                 features = base
             if i != 0:
@@ -217,8 +225,10 @@ class AuxiliaryBigModel(BigModel):
         observations, _ = inputs
         obs_0_split = torch.split(observations[0], 3, dim=2)
         obs_1_split = torch.split(observations[1], 3, dim=2)
-        for i in range(self.num_input_images):
-            base = self.shared_base(observations[i])
+
+        tensors = [obs_0_split[0], obs_0_split[1], obs_1_split[0], obs_1_split[1]]
+        for i, tens in enumerate(tensors):
+            base = self.shared_base(tens)
             if i == 0:
                 features = base
             if i != 0:
