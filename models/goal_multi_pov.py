@@ -34,6 +34,9 @@ class BigModel(nn.Module):
     def __init__(self, num_inputs, num_outputs, num_input_images, extra_obs_img=False):
         super().__init__()
 
+        self.num_input_images = num_input_images
+        self.extra_obs_img = extra_obs_img
+
         # 172
         self.shared_base = TimeDistributed(nn.Sequential(
             nn.Conv2d(num_inputs, 32, 7, stride=4),  # 42
