@@ -52,7 +52,8 @@ class Trainer(AuxiliaryTrainer):
         return env
 
     def create_model(self):
-        model = Model(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n, 4, True)
+        # model = Model(self.env.observation_space.spaces[0].spaces[0].shape[0], self.env.action_space.n, 4, True)
+        model = Model(3, self.env.action_space.n, 4, True)
         return model
 
 def create_envs(num_training_processes, tasks, **env_kwargs):
