@@ -19,12 +19,6 @@ def load_graph(file):
 with open(file, 'rb') as f:
         graph = load_graph(f)
 
-
-            tasks = [('thor-cached-212-174', [(10, 8, 2)]),
-                ('thor-cached-227-174', [(10, 5, 0)]),
-                ('thor-cached-301-174', [(2, 9, 0)]),
-                ('thor-cached-308-174', [(5, 6, 3)])
-
 # Load data
 observations = graph._observations
 depths = graph._depths
