@@ -67,7 +67,7 @@ def create_envs(num_training_processes, tasks, **env_kwargs):
     env = SubprocVecEnv(env_fns)
     env.set_hardness = lambda hardness: env.call_unwrapped('set_complexity', hardness)
     #env.set_hardness(0.3)
-    env.set_hardness(0.5)
+    env.set_hardness(1.0)
     return env
 
 def default_args():
@@ -75,9 +75,9 @@ def default_args():
         env_kwargs = dict(
             id = 'AuxiliaryGraph-v0',
             tasks = [('thor-cached-212-174', [(10, 8, 2)]),
-                ('thor-cached-212-174', [(10, 19, 0)]),
-                ('thor-cached-212-174', [(5, 10, 1)]),
-                ('thor-cached-212-174', [(5, 6, 3)])
+                ('thor-cached-227-174', [(10, 5, 0)]),
+                ('thor-cached-301-174', [(2, 9, 0)]),
+                ('thor-cached-308-174', [(5, 6, 3)])
             ],
             screen_size=(172,172),),
         model_kwargs = dict()
