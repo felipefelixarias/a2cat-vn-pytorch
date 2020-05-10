@@ -1,7 +1,7 @@
 import pickle
 import os
 
-file = os.path.join('/Users','felipe','.visual_navigation', 'scenes', 'thor-cached-212-174.pkl') #('thor-cached-208-174', [(6, 3, 1)])
+file = os.path.join('/home','felipe','.visual_navigation', 'scenes', 'thor-cached-212-174.pkl') #('thor-cached-208-174', [(6, 3, 1)])
 #file = os.path.join('../thor-cached-208-174.pkl')
 
 def load_graph(file):
@@ -54,7 +54,7 @@ print(segmentations.shape)
 print(np.max(segmentations))
 print(np.min(segmentations))
 
-file = os.path.join('/Users','felipe','.visual_navigation', 'scenes', 'thor-cached-227-174.pkl') #('thor-cached-208-174', [(6, 3, 1)])
+file = os.path.join('/home','felipe','.visual_navigation', 'scenes', 'thor-cached-227-174.pkl') #('thor-cached-208-174', [(6, 3, 1)])
 with open(file, 'rb') as f:
         graph = load_graph(f)
 
@@ -89,7 +89,7 @@ print(segmentations.shape)
 print(np.max(segmentations))
 print(np.min(segmentations))
 
-file = os.path.join('/Users','felipe','.visual_navigation', 'scenes', 'thor-cached-308-174.pkl') #('thor-cached-208-174', [(6, 3, 1)])
+file = os.path.join('/home','felipe','.visual_navigation', 'scenes', 'thor-cached-308-174.pkl') #('thor-cached-208-174', [(6, 3, 1)])
 with open(file, 'rb') as f:
         graph = load_graph(f)
 
@@ -125,7 +125,7 @@ print(segmentations.shape)
 print(np.max(segmentations))
 print(np.min(segmentations))
 
-file = os.path.join('/Users','felipe','.visual_navigation', 'scenes', 'thor-cached-301-174.pkl') #('thor-cached-208-174', [(6, 3, 1)])
+file = os.path.join('/home','felipe','.visual_navigation', 'scenes', 'thor-cached-301-174.pkl') #('thor-cached-208-174', [(6, 3, 1)])
 with open(file, 'rb') as f:
         graph = load_graph(f)
 
