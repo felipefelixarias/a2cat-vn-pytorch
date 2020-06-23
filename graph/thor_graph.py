@@ -158,6 +158,13 @@ class GridWorldReconstructor:
     def reconstruct(self):
         self._initialize()
         self._controller.step(dict(action = 'RotateLeft', agentId=0))
-        self._controller.step(dict(action = 'TeleportFull', x = 3.5, y = 0.9009992, z = 0.5, rotation=dict(x= 0.0, y= 270.0,z= 0.0), agentId=1))
+        self._controller.step(dict(action = 'TeleportFull', x = 0.0, y = 0.9009991884231567, z = 0.5, rotation=dict(x= 0.0, y= 270.0,z= 0.0), agentId=1))
         self._collect_spot((0, 0))
+        print(self._realcoordinates)
+        import json
+
+
+        with open(self.scene_name+'coords.json', 'w') as fp:
+            json.dump({str(k): v for k, v in self._realcoordinates.items()}, fp)
+            
         return self._compile()

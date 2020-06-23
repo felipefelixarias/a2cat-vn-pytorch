@@ -27,7 +27,7 @@ TestingVecEnv.set_hardness = lambda _, hardness: print('Hardnes was set to %s' %
 class Trainer(AuxiliaryTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.num_processes = 4
+        self.num_processes = 1
         self.max_gradient_norm = 0.5
         self.rms_alpha = 0.99
         self.rms_epsilon = 1e-5
@@ -75,9 +75,9 @@ def default_args():
         env_kwargs = dict(
             id = 'AuxiliaryGraph-v0',
             tasks = [('thor-cached-212-174', [(10, 8, 2)]),
-                ('thor-cached-227-174', [(10, 5, 0)]),
-                ('thor-cached-301-174', [(2, 9, 0)]),
-                ('thor-cached-308-174', [(5, 6, 3)])
+                # ('thor-cached-227-174', [(10, 5, 0)]),
+                # ('thor-cached-301-174', [(2, 9, 0)]),
+                # ('thor-cached-308-174', [(5, 6, 3)])
             ],
             screen_size=(172,172),),
         model_kwargs = dict()
